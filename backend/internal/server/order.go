@@ -11,16 +11,32 @@ import (
 )
 
 // Checkout handles POST /api/v1/orders/checkout (NV-D1).
-// This is the critical atomic flow:
-//  1. Load cart from Redis
-//  2. Begin PostgreSQL transaction
-//  3. Lock each books_ref row (SELECT FOR UPDATE) — verify stock
-//  4. Create order header
-//  5. Insert order_items (with price snapshot from Redis cart)
-//  6. Decrement stock for each item
-//  7. Commit
-//  8. Clear Redis cart
-//  9. Update trending scores in Redis
+//
+// @Summary      Checkout
+// @Description  Create an order from the cart or a buy-now session (atomic PSQL TX)
+// @Tags         orders
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.CheckoutRequest  true  "Checkout request"
+// @Success      201   {object}  successResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      409   {object}  errorResponse
+// @Router       /orders/checkout [post]
+//
+// Cart source priority:
+//  1. If session_id is provided → read items from Redis Buy-Now session
+//  2. Otherwise → read from Redis cart cache, fall back to PSQL persistent_cart_items
+//
+// Single PG transaction:
+//  1. SELECT inventory FOR UPDATE per book
+//  2. DELETE cart items from PSQL
+//  3. INSERT order header (status = 'pending')
+//  4. INSERT order_items
+//  5. DEDUCT stock_quantity per book
+//  6. INSERT order_status_history (old_status=NULL, new_status='pending')
+//
+// After TX: DEL Redis cart + RecordPurchased in Neo4j + IncrScore in trending.
 func (s *Service) Checkout(c *gin.Context) {
 	var req domain.CheckoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,58 +47,84 @@ func (s *Service) Checkout(c *gin.Context) {
 	ctx := c.Request.Context()
 	userID := mustUserID(c)
 
-	// Step 1: Load cart
-	cartItems, err := s.cartRepo.GetCart(ctx, userID.String())
-	if err != nil || len(cartItems) == 0 {
-		respondBadRequest(c, "cart is empty")
-		return
+	// ── Load cart items ───────────────────────────────────────────────────
+	var cartItems []domain.CartItem
+
+	if req.SessionID != "" {
+		// Buy-Now flow: load from Redis session
+		sess, err := s.checkoutSession.GetSession(ctx, req.SessionID)
+		if err != nil || sess == nil {
+			respondBadRequest(c, "checkout session not found or expired")
+			return
+		}
+		cartItems = []domain.CartItem{{
+			BookID:   sess.BookID,
+			Name:     sess.BookName,
+			Price:    sess.Price,
+			Quantity: sess.Quantity,
+		}}
+	} else {
+		// Normal cart checkout
+		items, hit, _ := s.cartCache.GetCart(ctx, userID.String())
+		if hit {
+			cartItems = items
+		} else {
+			cartItems = s.rebuildCartCache(ctx, userID.String())
+		}
+		if len(cartItems) == 0 {
+			respondBadRequest(c, "cart is empty")
+			return
+		}
 	}
 
+	// ── PostgreSQL transaction ────────────────────────────────────────────
 	var createdOrder *domain.Order
 
-	// Steps 2–7: Single PostgreSQL transaction
 	txErr := s.pg.Transaction(ctx, func(tx domain.PostgresTransactor) error {
 		var total float64
 		items := make([]domain.OrderItem, 0, len(cartItems))
 
 		for _, ci := range cartItems {
-			// Step 3: Lock row and check stock
-			ref, err := tx.GetBookRefForUpdate(ctx, ci.BookID)
-			if err != nil || ref == nil {
-				return fmt.Errorf("book %s not found", ci.BookID)
+			inv, err := tx.GetInventoryForUpdate(ctx, ci.BookID)
+			if err != nil || inv == nil {
+				return fmt.Errorf("book %s not found in inventory", ci.BookID)
 			}
-			if !ref.IsActive {
-				return fmt.Errorf("book %s is no longer available", ci.BookID)
-			}
-			if ref.StockQty < ci.Quantity {
-				return fmt.Errorf("insufficient stock for book %s", ci.BookID)
+			if inv.StockQuantity < ci.Quantity {
+				return fmt.Errorf("insufficient stock for book %s (have %d, need %d)",
+					ci.BookID, inv.StockQuantity, ci.Quantity)
 			}
 
 			items = append(items, domain.OrderItem{
 				MongoBookID: ci.BookID,
-				Title:       ci.Title,
+				Name:        ci.Name,
 				Quantity:    ci.Quantity,
-				UnitPrice:   ci.Price, // snapshot from cart (set at add-to-cart time)
+				UnitPrice:   ci.Price,
 			})
 			total += ci.Price * float64(ci.Quantity)
 
-			// Step 6: Decrement stock
 			if err := tx.UpdateStock(ctx, ci.BookID, -ci.Quantity); err != nil {
 				return fmt.Errorf("update stock for %s: %w", ci.BookID, err)
 			}
 		}
 
-		// Steps 4 & 5: Create order
-		order := &domain.Order{
-			UserID:          userID,
-			Status:          domain.OrderStatusPending,
-			TotalAmount:     total,
-			ShippingAddress: req.ShippingAddress,
-			PaymentMethod:   req.PaymentMethod,
-			Items:           items,
+		// Delete from PSQL cart (only for normal checkout, not buy-now)
+		if req.SessionID == "" {
+			if err := tx.DeleteCartByUser(ctx, userID); err != nil {
+				return fmt.Errorf("delete cart: %w", err)
+			}
 		}
 
-		if err := tx.CreateOrder(ctx, order); err != nil {
+		order := &domain.Order{
+			UserID:      userID,
+			Status:      domain.OrderStatusPending,
+			TotalAmount: total,
+			AddressID:   req.AddressID,
+			Note:        req.Note,
+			Items:       items,
+		}
+
+		// CreateOrder also inserts the initial order_status_history record within the TX
+		if err := tx.CreateOrder(ctx, order, tx); err != nil {
 			return fmt.Errorf("create order: %w", err)
 		}
 		createdOrder = order
@@ -95,19 +137,86 @@ func (s *Service) Checkout(c *gin.Context) {
 		return
 	}
 
-	// Step 8: Clear cart (outside TX — non-critical if this fails)
-	if err := s.cartRepo.ClearCart(ctx, userID.String()); err != nil {
-		s.logger.Warn("clear cart after checkout", zap.Error(err))
+	// ── After TX ──────────────────────────────────────────────────────────
+
+	// Delete Redis cart cache (normal flow) or checkout session (buy-now)
+	if req.SessionID != "" {
+		_ = s.checkoutSession.DeleteSession(ctx, req.SessionID)
+	} else {
+		_ = s.cartCache.InvalidateCart(ctx, userID.String())
 	}
 
-	// Step 9: Update Redis trending scores
+	// Invalidate stock cache for all purchased books
 	for _, ci := range cartItems {
+		_ = s.bookCache.SetStock(ctx, ci.BookID, 0) // force next read to re-check DB
 		if err := s.trendRepo.IncrScore(ctx, ci.BookID, float64(ci.Quantity)); err != nil {
 			s.logger.Warn("incr trending score", zap.String("bookID", ci.BookID), zap.Error(err))
+		}
+		if err := s.recRepo.RecordPurchased(ctx, userID.String(), ci.BookID, createdOrder.ID.String(), ci.Quantity); err != nil {
+			s.logger.Warn("record purchased in neo4j", zap.Error(err))
 		}
 	}
 
 	respondCreated(c, createdOrder)
+}
+
+// BuyNow handles POST /api/v1/orders/buy-now (RequireUser).
+//
+// @Summary      Buy Now
+// @Description  Create a temporary checkout session for a single book (15 min TTL)
+// @Tags         orders
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.BuyNowRequest  true  "Buy-now request"
+// @Success      200   {object}  successResponse
+// @Failure      400   {object}  errorResponse
+// @Router       /orders/buy-now [post]
+// Validates stock and creates a temporary Redis session for the buy-now checkout flow.
+func (s *Service) BuyNow(c *gin.Context) {
+	var req domain.BuyNowRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondBadRequest(c, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	userID := mustUserID(c)
+
+	inv, err := s.pg.GetInventory(ctx, req.BookID)
+	if err != nil || inv == nil {
+		respondNotFound(c, "book not found in inventory")
+		return
+	}
+	if inv.StockQuantity < req.Quantity {
+		respondBadRequest(c, "insufficient stock")
+		return
+	}
+
+	book, _ := s.bookRepo.GetBookByID(ctx, req.BookID)
+	bookName := req.BookID
+	price := 0.0
+	if book != nil {
+		bookName = book.Name
+		price = book.Pricing.Price
+	}
+
+	sessionID := uuid.New().String()
+	sess := &domain.BuyNowSession{
+		UserID:   userID.String(),
+		BookID:   req.BookID,
+		Quantity: req.Quantity,
+		Price:    price,
+		BookName: bookName,
+	}
+
+	if err := s.checkoutSession.CreateSession(ctx, sessionID, sess); err != nil {
+		s.logger.Error("create buy-now session", zap.Error(err))
+		respondInternalError(c, "could not create checkout session")
+		return
+	}
+
+	respondOK(c, domain.BuyNowResponse{SessionID: sessionID})
 }
 
 // GetOrderHistory handles GET /api/v1/orders (NV-D2).
@@ -141,7 +250,6 @@ func (s *Service) GetOrderDetail(c *gin.Context) {
 		return
 	}
 
-	// Customers may only view their own orders
 	if order.UserID != userID {
 		respondForbidden(c, "access denied")
 		return

@@ -28,8 +28,8 @@ go.work.sum
 .env
 
 # Editor/IDE
- .idea/
- .vscode/
+.idea/
+.vscode/
 
 # Backend files
 ./backend/vendor

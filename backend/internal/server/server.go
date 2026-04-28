@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	swaggerFiles "github.com/swaggo/files"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +26,9 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
+
+	// Swagger UI
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Middleware factories (pre-bound to shared deps)
 	requireAuth  := middleware.RequireAuth(svc.sessionRepo, cfg.JWT.Secret)
@@ -64,8 +69,11 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 		user.DELETE("/cart/:bookId", svc.RemoveCartItem)
 
 		user.POST("/orders/checkout", svc.Checkout)
+		user.POST("/orders/buy-now", svc.BuyNow)
 		user.GET("/orders", svc.GetOrderHistory)
 		user.GET("/orders/:id", svc.GetOrderDetail)
+
+		user.POST("/books/:id/view", svc.ViewBook)
 	}
 
 	// ── ADMIN (role: "admin" only) ────────────────────────────────────────
@@ -78,10 +86,17 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 		admin.DELETE("/books/:id", svc.AdminDeleteBook)
 		admin.PATCH("/books/:id/stock", svc.AdminUpdateStock)
 
+		// Category management (MongoDB-backed)
+		admin.GET("/categories", svc.AdminListCategories)
+		admin.POST("/categories", svc.AdminCreateCategory)
+		admin.PUT("/categories/:id", svc.AdminUpdateCategory)
+		admin.DELETE("/categories/:id", svc.AdminDeleteCategory)
+
 		// Order management
 		admin.GET("/orders", svc.AdminListOrders)
 		admin.GET("/orders/:id", svc.AdminGetOrder)
 		admin.PATCH("/orders/:id/status", svc.AdminUpdateOrderStatus)
+		admin.GET("/orders/:id/history", svc.AdminGetOrderHistory)
 
 		// User management
 		admin.GET("/users", svc.AdminListUsers)
@@ -110,7 +125,6 @@ func zapLogger(logger *zap.Logger) gin.HandlerFunc {
 }
 
 // corsMiddleware sets permissive CORS headers for development.
-// Tighten the AllowOrigins list before deploying to production.
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")

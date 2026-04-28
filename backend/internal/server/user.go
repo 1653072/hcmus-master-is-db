@@ -13,6 +13,17 @@ import (
 )
 
 // Register creates a new customer account (NV-A1).
+//
+// @Summary      Register
+// @Description  Create a new customer account
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.RegisterRequest  true  "Registration payload"
+// @Success      201   {object}  successResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      409   {object}  errorResponse
+// @Router       /auth/register [post]
 func (s *Service) Register(c *gin.Context) {
 	var req domain.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -54,6 +65,16 @@ func (s *Service) Register(c *gin.Context) {
 }
 
 // Login authenticates a user and returns a JWT (NV-A2).
+//
+// @Summary      Login
+// @Description  Authenticate and receive a JWT access token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.LoginRequest   true  "Login credentials"
+// @Success      200   {object}  successResponse
+// @Failure      401   {object}  errorResponse
+// @Router       /auth/login [post]
 func (s *Service) Login(c *gin.Context) {
 	var req domain.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -92,7 +113,15 @@ func (s *Service) Login(c *gin.Context) {
 	})
 }
 
-// Logout revokes the caller's JWT by adding it to the Redis blacklist (NV-A3).
+// Logout revokes the caller's JWT (NV-A3).
+//
+// @Summary      Logout
+// @Description  Revoke the current JWT token
+// @Tags         auth
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  successResponse
+// @Router       /auth/logout [post]
 func (s *Service) Logout(c *gin.Context) {
 	rawToken, _ := c.Get(middleware.CtxToken)
 	tokenStr, _ := rawToken.(string)
@@ -107,6 +136,15 @@ func (s *Service) Logout(c *gin.Context) {
 }
 
 // GetProfile returns the authenticated user's profile (NV-A4).
+//
+// @Summary      Get profile
+// @Description  Return the current user's profile
+// @Tags         users
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  successResponse
+// @Failure      404  {object}  errorResponse
+// @Router       /users/me [get]
 func (s *Service) GetProfile(c *gin.Context) {
 	userID := mustUserID(c)
 	user, err := s.pg.GetUserByID(c.Request.Context(), userID)
@@ -118,6 +156,17 @@ func (s *Service) GetProfile(c *gin.Context) {
 }
 
 // UpdateProfile saves changes to name, phone, and default address (NV-A4).
+//
+// @Summary      Update profile
+// @Description  Update the current user's profile fields
+// @Tags         users
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.UpdateProfileRequest  true  "Profile update"
+// @Success      200   {object}  successResponse
+// @Failure      400   {object}  errorResponse
+// @Router       /users/me [put]
 func (s *Service) UpdateProfile(c *gin.Context) {
 	var req domain.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -171,9 +220,6 @@ func mustUserID(c *gin.Context) uuid.UUID {
 	return id
 }
 
-// generateToken is a method on Service so it can access the JWT config
-// without threading it through every handler.  The config is stored on Service
-// during initialisation via NewService (see cmd/server.go).
 func (s *Service) generateToken(user *domain.User) (string, error) {
 	return token.GenerateToken(user.ID, user.Email, user.Role, s.jwtCfg)
 }

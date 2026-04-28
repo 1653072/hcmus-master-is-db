@@ -9,12 +9,26 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateOrder inserts the order header and all its line items.
-// Must be called inside a Transaction to guarantee atomicity with stock updates.
-func (q *Queries) CreateOrder(ctx context.Context, order *domain.Order) error {
-	return q.db.WithContext(ctx).
-		Omit("Items.*").
-		Create(order).Error
+// CreateOrder inserts the order header, all its line items, and the initial
+// order_status_history row (old_status = NULL, new_status = "pending") — all
+// within the same database transaction.
+func (q *Queries) CreateOrder(ctx context.Context, order *domain.Order, historyRepo domain.OrderStatusHistoryRepository) error {
+	if err := q.db.WithContext(ctx).Omit("Items.*").Create(order).Error; err != nil {
+		return err
+	}
+	for i := range order.Items {
+		order.Items[i].OrderID = order.ID
+		if err := q.db.WithContext(ctx).Create(&order.Items[i]).Error; err != nil {
+			return err
+		}
+	}
+	newStatus := string(domain.OrderStatusPending)
+	history := &domain.OrderStatusHistory{
+		OrderID:   order.ID,
+		OldStatus: nil,
+		NewStatus: newStatus,
+	}
+	return historyRepo.CreateHistory(ctx, history)
 }
 
 // GetOrderByID fetches an order together with its line items.
@@ -64,33 +78,39 @@ func (q *Queries) ListAllOrders(ctx context.Context, status domain.OrderStatus, 
 	return orders, total, err
 }
 
-// UpdateOrderStatus updates the status field of an existing order.
-func (q *Queries) UpdateOrderStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus) error {
-	return q.db.WithContext(ctx).
+// UpdateOrderStatus updates the order's status and appends an audit row to
+// order_status_history within the same call.  Pass adminID = nil for system updates.
+func (q *Queries) UpdateOrderStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus, adminID *uuid.UUID, note string) error {
+	order, err := q.GetOrderByID(ctx, id)
+	if err != nil || order == nil {
+		return err
+	}
+
+	oldStatus := string(order.Status)
+	if err := q.db.WithContext(ctx).
 		Model(&domain.Order{}).
 		Where("id = ?", id).
-		Update("status", status).Error
+		Update("status", string(status)).Error; err != nil {
+		return err
+	}
+
+	newStatus := string(status)
+	history := &domain.OrderStatusHistory{
+		OrderID:          id,
+		OldStatus:        &oldStatus,
+		NewStatus:        newStatus,
+		ChangedByAdminID: adminID,
+		Note:             note,
+	}
+	return q.db.WithContext(ctx).Create(history).Error
 }
 
 // ── BookRef ───────────────────────────────────────────────────────────────────
 
-// GetBookRef fetches the stock/price reference row for a MongoDB book ID.
+// GetBookRef fetches the active-status reference row for a MongoDB book ID.
 func (q *Queries) GetBookRef(ctx context.Context, mongoID string) (*domain.BookRef, error) {
 	var ref domain.BookRef
 	err := q.db.WithContext(ctx).First(&ref, "mongo_id = ?", mongoID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &ref, err
-}
-
-// GetBookRefForUpdate fetches the reference row with a row-level lock (SELECT FOR UPDATE).
-// Must be called inside a Transaction.
-func (q *Queries) GetBookRefForUpdate(ctx context.Context, mongoID string) (*domain.BookRef, error) {
-	var ref domain.BookRef
-	err := q.db.WithContext(ctx).
-		Set("gorm:query_option", "FOR UPDATE").
-		First(&ref, "mongo_id = ?", mongoID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -102,18 +122,9 @@ func (q *Queries) CreateBookRef(ctx context.Context, ref *domain.BookRef) error 
 	return q.db.WithContext(ctx).Create(ref).Error
 }
 
-// UpdateBookRef persists changes to stock_qty, price, and is_active.
+// UpdateBookRef persists changes to is_active.
 func (q *Queries) UpdateBookRef(ctx context.Context, ref *domain.BookRef) error {
 	return q.db.WithContext(ctx).Model(ref).
-		Select("stock_qty", "price", "is_active").
+		Select("is_active").
 		Updates(ref).Error
-}
-
-// UpdateStock adjusts stock_qty by delta (positive = add, negative = deduct).
-// Enforces the CHECK constraint: if the result would go below 0, the DB rejects it.
-func (q *Queries) UpdateStock(ctx context.Context, mongoID string, delta int) error {
-	return q.db.WithContext(ctx).
-		Model(&domain.BookRef{}).
-		Where("mongo_id = ?", mongoID).
-		UpdateColumn("stock_qty", gorm.Expr("stock_qty + ?", delta)).Error
 }

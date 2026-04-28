@@ -72,7 +72,8 @@ func (s *Service) AdminDeactivateUser(c *gin.Context) {
 
 // AdminGetTrending handles GET /api/v1/admin/analytics/trending.
 func (s *Service) AdminGetTrending(c *gin.Context) {
-	books, err := s.trendRepo.GetTop10(c.Request.Context())
+	n := queryInt(c, "limit", 10)
+	books, err := s.trendRepo.GetTop(c.Request.Context(), n)
 	if err != nil {
 		s.logger.Error("admin get trending", zap.Error(err))
 		respondInternalError(c, "could not fetch trending data")

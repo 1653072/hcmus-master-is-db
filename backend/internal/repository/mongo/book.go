@@ -28,17 +28,17 @@ func NewBookRepository(client *mongo.Client, dbName string) *BookRepository {
 func (r *BookRepository) SearchBooks(ctx context.Context, filter domain.BookFilter) ([]*domain.Book, int64, error) {
 	query := bson.D{}
 
-	if filter.Query != "" {
-		query = append(query, bson.E{Key: "$text", Value: bson.D{{Key: "$search", Value: filter.Query}}})
-	}
-	if filter.Genre != "" {
-		query = append(query, bson.E{Key: "genres", Value: filter.Genre})
+	if filter.Search != "" {
+		query = append(query, bson.E{Key: "$text", Value: bson.D{{Key: "$search", Value: filter.Search}}})
 	}
 	if filter.Author != "" {
-		query = append(query, bson.E{Key: "authors", Value: filter.Author})
+		query = append(query, bson.E{Key: "authors.authorName", Value: filter.Author})
 	}
 	if filter.Publisher != "" {
 		query = append(query, bson.E{Key: "publisher", Value: filter.Publisher})
+	}
+	if filter.Year > 0 {
+		query = append(query, bson.E{Key: "publishYear", Value: filter.Year})
 	}
 
 	total, err := r.col.CountDocuments(ctx, query)
@@ -56,7 +56,7 @@ func (r *BookRepository) SearchBooks(ctx context.Context, filter domain.BookFilt
 	}
 
 	opts := options.Find().
-		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSort(bson.D{{Key: "importedAt", Value: -1}}).
 		SetSkip(int64((page - 1) * pageSize)).
 		SetLimit(int64(pageSize))
 
@@ -113,10 +113,10 @@ func (r *BookRepository) GetBooksByIDs(ctx context.Context, ids []string) ([]*do
 	return books, nil
 }
 
-// GetNewestBooks returns the most recently added books.
+// GetNewestBooks returns the most recently imported books.
 func (r *BookRepository) GetNewestBooks(ctx context.Context, limit int) ([]*domain.Book, error) {
 	opts := options.Find().
-		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSort(bson.D{{Key: "importedAt", Value: -1}}).
 		SetLimit(int64(limit))
 
 	cur, err := r.col.Find(ctx, bson.D{}, opts)
@@ -134,8 +134,9 @@ func (r *BookRepository) GetNewestBooks(ctx context.Context, limit int) ([]*doma
 
 // CreateBook inserts a new book document and returns its generated MongoDB ID.
 func (r *BookRepository) CreateBook(ctx context.Context, book *domain.Book) (string, error) {
-	book.CreatedAt = time.Now()
-	book.UpdatedAt = time.Now()
+	now := time.Now()
+	book.CreatedAt = now
+	book.ImportedAt = now
 
 	res, err := r.col.InsertOne(ctx, book)
 	if err != nil {
@@ -155,7 +156,6 @@ func (r *BookRepository) UpdateBook(ctx context.Context, id string, book *domain
 	if err != nil {
 		return fmt.Errorf("invalid book id: %w", err)
 	}
-	book.UpdatedAt = time.Now()
 
 	update := bson.M{"$set": book}
 	_, err = r.col.UpdateOne(ctx, bson.M{"_id": oid}, update)

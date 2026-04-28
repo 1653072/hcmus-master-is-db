@@ -2,16 +2,20 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
+
+	redisutil "bookstore/backend/utils/redis"
 
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	sessionPrefix   = "session:"   // session:<userID> → token string
-	blacklistPrefix = "blacklist:" // blacklist:<token> → "1"
-	defaultTTL      = 24 * time.Hour
+	sessionPrefix   = "users:current_sessions:"  // users:current_sessions:{userID} → token
+	blacklistPrefix = "users:blacklist_sessions:" // users:blacklist_sessions:{userID} → "1"
+	sessionTTL      = 7 * 24 * time.Hour
+	blacklistTTL    = 3 * 24 * time.Hour
 )
 
 // SessionRepository implements domain.SessionRepository against Redis.
@@ -24,32 +28,46 @@ func NewSessionRepository(rdb *redis.Client) *SessionRepository {
 	return &SessionRepository{rdb: rdb}
 }
 
-// SetToken stores the JWT token for a user with a TTL.
+// SetToken stores the JWT token for a user, Snappy-compressed, with a 7-day TTL.
 func (r *SessionRepository) SetToken(ctx context.Context, userID string, token string) error {
+	data, err := json.Marshal(token)
+	if err != nil {
+		return fmt.Errorf("marshal token: %w", err)
+	}
 	key := sessionPrefix + userID
-	return r.rdb.Set(ctx, key, token, defaultTTL).Err()
+	return r.rdb.Set(ctx, key, redisutil.Encode(data), sessionTTL).Err()
 }
 
 // GetToken retrieves the active token for a user.
 func (r *SessionRepository) GetToken(ctx context.Context, userID string) (string, error) {
 	key := sessionPrefix + userID
-	val, err := r.rdb.Get(ctx, key).Result()
+	raw, err := r.rdb.Get(ctx, key).Bytes()
 	if err == redis.Nil {
 		return "", nil
 	}
-	return val, err
+	if err != nil {
+		return "", fmt.Errorf("get token: %w", err)
+	}
+	decoded, err := redisutil.Decode(raw)
+	if err != nil {
+		return "", err
+	}
+	var token string
+	if err := json.Unmarshal(decoded, &token); err != nil {
+		return "", fmt.Errorf("unmarshal token: %w", err)
+	}
+	return token, nil
 }
 
-// BlacklistToken adds a token to the blacklist so that further requests using
-// it are rejected even before its JWT expiry time.
+// BlacklistToken adds a token to the blacklist with a 3-day TTL.
 func (r *SessionRepository) BlacklistToken(ctx context.Context, token string) error {
-	key := fmt.Sprintf("%s%s", blacklistPrefix, token)
-	return r.rdb.Set(ctx, key, "1", defaultTTL).Err()
+	key := blacklistPrefix + token
+	return r.rdb.Set(ctx, key, redisutil.Encode([]byte("1")), blacklistTTL).Err()
 }
 
 // IsBlacklisted returns true if the given token has been revoked.
 func (r *SessionRepository) IsBlacklisted(ctx context.Context, token string) (bool, error) {
-	key := fmt.Sprintf("%s%s", blacklistPrefix, token)
+	key := blacklistPrefix + token
 	val, err := r.rdb.Exists(ctx, key).Result()
 	if err != nil {
 		return false, err

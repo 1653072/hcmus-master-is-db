@@ -9,7 +9,6 @@ import (
 )
 
 // AdminListOrders handles GET /api/v1/admin/orders.
-// Supports optional filter: status, page, page_size.
 func (s *Service) AdminListOrders(c *gin.Context) {
 	status := domain.OrderStatus(c.Query("status"))
 	page := queryInt(c, "page", 1)
@@ -43,6 +42,7 @@ func (s *Service) AdminGetOrder(c *gin.Context) {
 }
 
 // AdminUpdateOrderStatus handles PATCH /api/v1/admin/orders/:id/status.
+// The status update and order_status_history insertion share the same PG transaction.
 func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
 	orderID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -57,17 +57,37 @@ func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+
 	order, err := s.pg.GetOrderByID(ctx, orderID)
 	if err != nil || order == nil {
 		respondNotFound(c, "order not found")
 		return
 	}
 
-	if err := s.pg.UpdateOrderStatus(ctx, orderID, req.Status); err != nil {
+	adminID := mustUserID(c)
+	if err := s.pg.UpdateOrderStatus(ctx, orderID, req.Status, &adminID, req.Note); err != nil {
 		s.logger.Error("update order status", zap.Error(err))
 		respondInternalError(c, "could not update order status")
 		return
 	}
 
-	respondOK(c, gin.H{"status": req.Status})
+	respondOK(c, gin.H{"status": string(req.Status)})
+}
+
+// AdminGetOrderHistory handles GET /api/v1/admin/orders/:id/history.
+func (s *Service) AdminGetOrderHistory(c *gin.Context) {
+	orderID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		respondBadRequest(c, "invalid order id")
+		return
+	}
+
+	history, err := s.pg.ListByOrder(c.Request.Context(), orderID)
+	if err != nil {
+		s.logger.Error("list order history", zap.Error(err))
+		respondInternalError(c, "could not fetch order history")
+		return
+	}
+
+	respondOK(c, history)
 }

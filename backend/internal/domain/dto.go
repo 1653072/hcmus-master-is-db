@@ -37,50 +37,77 @@ type UpdateProfileRequest struct {
 	DefaultAddr string `json:"default_addr" binding:"omitempty,max=500"`
 }
 
+// ─── Address DTOs ─────────────────────────────────────────────────────────────
+
+type CreateAddressRequest struct {
+	ReceiverName string `json:"receiver_name" binding:"required"`
+	Phone        string `json:"phone"         binding:"required"`
+	AddressLine  string `json:"address_line"  binding:"required"`
+	Ward         string `json:"ward"`
+	District     string `json:"district"`
+	City         string `json:"city"          binding:"required"`
+	IsDefault    bool   `json:"is_default"`
+}
+
 // ─── Book DTOs ────────────────────────────────────────────────────────────────
 
 type BookListResponse struct {
-	Books    []*BookDetail `json:"books"`
-	Total    int64         `json:"total"`
-	Page     int           `json:"page"`
-	PageSize int           `json:"page_size"`
+	Books    []BookDetail `json:"books"`
+	Total    int64        `json:"total"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"page_size"`
 }
 
 type CreateBookRequest struct {
-	Title       string         `json:"title"       binding:"required"`
-	Authors     []string       `json:"authors"     binding:"required,min=1"`
-	Publisher   string         `json:"publisher"   binding:"required"`
-	PublishedAt int            `json:"published_at"`
-	Genres      []string       `json:"genres"      binding:"required,min=1"`
-	Description string         `json:"description"`
-	CoverURL    string         `json:"cover_url"`
-	Language    string         `json:"language"`
-	Pages       int            `json:"pages"`
-	Attributes  map[string]any `json:"attributes"`
-	SeriesName  string         `json:"series_name"`
-	VolumeOrder int            `json:"volume_order"`
-	StockQty    int            `json:"stock_qty"   binding:"required,min=0"`
-	Price       float64        `json:"price"       binding:"required,gt=0"`
+	Name              string       `json:"name"               binding:"required"`
+	ShortDescription  string       `json:"short_description"`
+	DetailDescription string       `json:"detail_description"`
+	ProductStatus     string       `json:"product_status"`
+	Pricing           BookPricing  `json:"pricing"            binding:"required"`
+	Category          BookCategory `json:"category"`
+	Images            []BookImage  `json:"images"`
+	Series            BookSeries   `json:"series"`
+	Authors           []BookAuthor `json:"authors"            binding:"required,min=1"`
+	Tags              []BookTag    `json:"tags"`
+	StockQuantity     int          `json:"stock_quantity"     binding:"required,min=0"`
 }
 
 type UpdateBookRequest struct {
-	Title       string         `json:"title"`
-	Authors     []string       `json:"authors"`
-	Publisher   string         `json:"publisher"`
-	PublishedAt int            `json:"published_at"`
-	Genres      []string       `json:"genres"`
-	Description string         `json:"description"`
-	CoverURL    string         `json:"cover_url"`
-	Language    string         `json:"language"`
-	Pages       int            `json:"pages"`
-	Attributes  map[string]any `json:"attributes"`
-	SeriesName  string         `json:"series_name"`
-	VolumeOrder int            `json:"volume_order"`
-	Price       float64        `json:"price"`
+	Name              string       `json:"name"`
+	ShortDescription  string       `json:"short_description"`
+	DetailDescription string       `json:"detail_description"`
+	ProductStatus     string       `json:"product_status"`
+	Pricing           *BookPricing `json:"pricing"`
+	Category          *BookCategory `json:"category"`
+	Images            []BookImage  `json:"images"`
+	Series            *BookSeries  `json:"series"`
+	Authors           []BookAuthor `json:"authors"`
+	Tags              []BookTag    `json:"tags"`
 }
 
 type UpdateStockRequest struct {
-	StockQty int `json:"stock_qty" binding:"required,min=0"`
+	StockQuantity int `json:"stock_quantity" binding:"required,min=0"`
+}
+
+// ─── Category DTOs ────────────────────────────────────────────────────────────
+
+type CreateCategoryRequest struct {
+	CategoryName   string `json:"category_name"   binding:"required"`
+	Slug           string `json:"slug"            binding:"required"`
+	ParentCategory string `json:"parent_category"`
+}
+
+type UpdateCategoryRequest struct {
+	CategoryName   string `json:"category_name"`
+	Slug           string `json:"slug"`
+	ParentCategory string `json:"parent_category"`
+}
+
+type CategoryListResponse struct {
+	Categories []*Category `json:"categories"`
+	Total      int64       `json:"total"`
+	Page       int         `json:"page"`
+	PageSize   int         `json:"page_size"`
 }
 
 // ─── Cart DTOs ────────────────────────────────────────────────────────────────
@@ -102,8 +129,18 @@ type CartResponse struct {
 // ─── Order DTOs ───────────────────────────────────────────────────────────────
 
 type CheckoutRequest struct {
-	ShippingAddress string `json:"shipping_address" binding:"required"`
-	PaymentMethod   string `json:"payment_method"   binding:"required,oneof=cod bank_transfer"`
+	AddressID     *uuid.UUID `json:"address_id"`
+	Note          string     `json:"note"`
+	SessionID     string     `json:"session_id"`      // for Buy-Now flow
+}
+
+type BuyNowRequest struct {
+	BookID   string `json:"book_id"  binding:"required"`
+	Quantity int    `json:"quantity" binding:"required,min=1"`
+}
+
+type BuyNowResponse struct {
+	SessionID string `json:"session_id"`
 }
 
 type OrderListResponse struct {
@@ -114,7 +151,19 @@ type OrderListResponse struct {
 }
 
 type UpdateOrderStatusRequest struct {
-	Status OrderStatus `json:"status" binding:"required,oneof=pending confirmed shipping completed cancelled"`
+	Status OrderStatus `json:"status" binding:"required,oneof=pending packing shipping completed cancelled"`
+	Note   string      `json:"note"`
+}
+
+// OrderStatusHistoryResponse is the response DTO for an order status history entry.
+type OrderStatusHistoryResponse struct {
+	ID               uuid.UUID  `json:"id"`
+	OrderID          uuid.UUID  `json:"order_id"`
+	OldStatus        *string    `json:"old_status"`
+	NewStatus        string     `json:"new_status"`
+	ChangedByAdminID *uuid.UUID `json:"changed_by_admin_id,omitempty"`
+	Note             string     `json:"note,omitempty"`
+	ChangedAt        string     `json:"changed_at"`
 }
 
 // ─── Admin User DTOs ──────────────────────────────────────────────────────────

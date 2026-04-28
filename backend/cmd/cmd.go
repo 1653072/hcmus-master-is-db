@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	_ "bookstore/backend/docs" // register Swagger docs
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )

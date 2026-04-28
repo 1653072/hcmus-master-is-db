@@ -1,0 +1,451 @@
+basePath: /api/v1
+definitions:
+  domain.AddToCartRequest:
+    properties:
+      book_id:
+        type: string
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - book_id
+    - quantity
+    type: object
+  domain.BuyNowRequest:
+    properties:
+      book_id:
+        type: string
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - book_id
+    - quantity
+    type: object
+  domain.CheckoutRequest:
+    properties:
+      address_id:
+        type: string
+      note:
+        type: string
+      session_id:
+        description: for Buy-Now flow
+        type: string
+    type: object
+  domain.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  domain.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      password:
+        minLength: 8
+        type: string
+      phone:
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    type: object
+  domain.UpdateProfileRequest:
+    properties:
+      default_addr:
+        maxLength: 500
+        type: string
+      full_name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      phone:
+        type: string
+    type: object
+  server.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  server.paginatedResponse:
+    properties:
+      data: {}
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  server.successResponse:
+    properties:
+      data: {}
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@bookstore.local
+    name: API Support
+  description: Polyglot persistence bookstore backend — PostgreSQL · MongoDB · Neo4j
+    · Redis.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: HCMUS Bookstore API
+  version: "2.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate and receive a JWT access token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      summary: Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      description: Revoke the current JWT token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new customer account
+      parameters:
+      - description: Registration payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      summary: Register
+      tags:
+      - auth
+  /books:
+    get:
+      description: Full-text and filter-based search across the book catalog
+      parameters:
+      - description: Full-text search term
+        in: query
+        name: search
+        type: string
+      - description: Filter by author name
+        in: query
+        name: author
+        type: string
+      - description: Filter by publisher
+        in: query
+        name: publisher
+        type: string
+      - description: Filter by publish year
+        in: query
+        name: year
+        type: integer
+      - description: Minimum price
+        in: query
+        name: min_price
+        type: number
+      - description: Maximum price
+        in: query
+        name: max_price
+        type: number
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Results per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.paginatedResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      summary: Search books
+      tags:
+      - books
+  /books/{id}:
+    get:
+      description: Fetch full catalog detail and live stock for a book
+      parameters:
+      - description: MongoDB book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      summary: Get book detail
+      tags:
+      - books
+  /books/{id}/view:
+    post:
+      description: Record that the authenticated user viewed a book (used by recommendation
+        engine)
+      parameters:
+      - description: MongoDB book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: Record book view
+      tags:
+      - books
+  /books/new:
+    get:
+      description: Return the most recently imported books
+      parameters:
+      - default: 20
+        description: Max books to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      summary: New arrivals
+      tags:
+      - books
+  /cart:
+    get:
+      description: Return current user's cart (Redis cache with PSQL fallback)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: Get cart
+      tags:
+      - cart
+    post:
+      consumes:
+      - application/json
+      description: Add or update a book in the shopping cart (PSQL source of truth,
+        Redis cache)
+      parameters:
+      - description: Cart item
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AddToCartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add to cart
+      tags:
+      - cart
+  /orders/buy-now:
+    post:
+      consumes:
+      - application/json
+      description: Create a temporary checkout session for a single book (15 min TTL)
+      parameters:
+      - description: Buy-now request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BuyNowRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Buy Now
+      tags:
+      - orders
+  /orders/checkout:
+    post:
+      consumes:
+      - application/json
+      description: Create an order from the cart or a buy-now session (atomic PSQL
+        TX)
+      parameters:
+      - description: Checkout request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CheckoutRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Checkout
+      tags:
+      - orders
+  /users/me:
+    get:
+      description: Return the current user's profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get profile
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update the current user's profile fields
+      parameters:
+      - description: Profile update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update profile
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer " followed by your JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

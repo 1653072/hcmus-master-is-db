@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"bookstore/backend/config"
-	"bookstore/backend/internal/repository/mongo"
+	mongorepo "bookstore/backend/internal/repository/mongo"
 	"bookstore/backend/internal/repository/neo4j"
 	"bookstore/backend/internal/repository/postgres"
-	"bookstore/backend/internal/repository/redis"
+	redisrepo "bookstore/backend/internal/repository/redis"
 	"bookstore/backend/internal/server"
+	"bookstore/backend/internal/worker"
 	"bookstore/backend/utils/database"
 	"context"
 	"fmt"
@@ -65,15 +66,27 @@ func runServer(cfg *config.Config, logger *zap.Logger) error {
 	logger.Info("connected to Redis")
 
 	// ── Repositories ─────────────────────────────────────────────────────
-	pgRepo := postgres.New(gormDB)
-	bookRepo := mongo.NewBookRepository(mongoClient, cfg.Mongo.DB)
-	recRepo := neo4j.NewRecommendationRepository(neo4jDriver)
-	sessionRepo := redis.NewSessionRepository(redisClient)
-	cartRepo := redis.NewCartRepository(redisClient)
-	trendRepo := redis.NewTrendingRepository(redisClient)
+	pgRepo      := postgres.New(gormDB)
+	bookRepo    := mongorepo.NewBookRepository(mongoClient, cfg.Mongo.DB)
+	categoryRepo := mongorepo.NewCategoryRepository(mongoClient, cfg.Mongo.DB)
+	recRepo     := neo4j.NewRecommendationRepository(neo4jDriver)
+	sessionRepo := redisrepo.NewSessionRepository(redisClient)
+	cartCache   := redisrepo.NewCartCacheRepository(redisClient)
+	checkoutSess := redisrepo.NewCheckoutSessionRepository(redisClient)
+	trendRepo   := redisrepo.NewTrendingRepository(redisClient)
+	bookCache   := redisrepo.NewBookCacheRepository(redisClient)
+
+	// ── Background trending worker ────────────────────────────────────────
+	trendWorker := worker.NewTrendingWorker(gormDB, trendRepo, logger)
+	trendWorker.Start()
+	defer trendWorker.Stop()
 
 	// ── HTTP Server ───────────────────────────────────────────────────────
-	svc := server.NewService(pgRepo, bookRepo, recRepo, sessionRepo, cartRepo, trendRepo, cfg.JWT, logger)
+	svc := server.NewService(
+		pgRepo, bookRepo, categoryRepo, recRepo,
+		sessionRepo, cartCache, checkoutSess, trendRepo, bookCache,
+		cfg.JWT, logger,
+	)
 	ginEngine := server.NewServer(svc, cfg, logger)
 
 	httpServer := &http.Server{

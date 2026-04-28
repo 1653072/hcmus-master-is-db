@@ -2,6 +2,7 @@ package redis
 
 import (
 	"bookstore/backend/internal/domain"
+	redisutil "bookstore/backend/utils/redis"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,8 +11,8 @@ import (
 )
 
 const (
-	trendingZSet    = "trending:books"      // ZSET: member=bookID, score=sales count
-	trendingCacheKey = "trending:top10"     // STRING: JSON array of TrendingBook
+	trendingZSet     = "books:trendings"       // ZSET: member=bookID, score=sales count
+	trendingCacheKey = "books:trendings:cache"  // STRING: Snappy-compressed JSON array
 )
 
 // TrendingRepository implements domain.TrendingRepository using Redis Sorted Sets.
@@ -25,40 +26,41 @@ func NewTrendingRepository(rdb *redis.Client) *TrendingRepository {
 }
 
 // IncrScore increments the sales score for a book by delta.
-// Called after a successful checkout for each purchased book.
 func (r *TrendingRepository) IncrScore(ctx context.Context, bookID string, delta float64) error {
 	return r.rdb.ZIncrBy(ctx, trendingZSet, delta, bookID).Err()
 }
 
-// GetTop10 returns the top-10 books from the pre-computed cache key.
+// GetTop returns the top-N books from the pre-computed cache key.
 // Falls back to computing directly from the ZSET if the cache is empty.
-func (r *TrendingRepository) GetTop10(ctx context.Context) ([]domain.TrendingBook, error) {
-	// Try pre-computed cache first
-	raw, err := r.rdb.Get(ctx, trendingCacheKey).Result()
+func (r *TrendingRepository) GetTop(ctx context.Context, n int) ([]domain.TrendingBook, error) {
+	raw, err := r.rdb.Get(ctx, trendingCacheKey).Bytes()
 	if err == nil {
-		var books []domain.TrendingBook
-		if jsonErr := json.Unmarshal([]byte(raw), &books); jsonErr == nil {
-			return books, nil
+		decoded, decErr := redisutil.Decode(raw)
+		if decErr == nil {
+			var books []domain.TrendingBook
+			if jsonErr := json.Unmarshal(decoded, &books); jsonErr == nil {
+				return books, nil
+			}
 		}
 	}
-
-	// Fall back to live ZSET query
-	return r.computeTop10(ctx)
+	return r.computeTop(ctx, n)
 }
 
-// SetTop10 stores the pre-computed top-10 list in the cache (for the background worker).
-func (r *TrendingRepository) SetTop10(ctx context.Context, books []domain.TrendingBook) error {
+// SetTop stores the pre-computed top-N list in the cache (for the background worker).
+func (r *TrendingRepository) SetTop(ctx context.Context, books []domain.TrendingBook) error {
 	data, err := json.Marshal(books)
 	if err != nil {
 		return fmt.Errorf("marshal trending: %w", err)
 	}
-	// Cache for 1 hour; background worker refreshes it periodically
-	return r.rdb.Set(ctx, trendingCacheKey, data, 0).Err()
+	return r.rdb.Set(ctx, trendingCacheKey, redisutil.Encode(data), 0).Err()
 }
 
-// computeTop10 reads directly from the ZSET sorted by score descending.
-func (r *TrendingRepository) computeTop10(ctx context.Context) ([]domain.TrendingBook, error) {
-	entries, err := r.rdb.ZRevRangeWithScores(ctx, trendingZSet, 0, 9).Result()
+// computeTop reads directly from the ZSET sorted by score descending.
+func (r *TrendingRepository) computeTop(ctx context.Context, n int) ([]domain.TrendingBook, error) {
+	if n <= 0 {
+		n = domain.TrendingTopN
+	}
+	entries, err := r.rdb.ZRevRangeWithScores(ctx, trendingZSet, 0, int64(n-1)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("zrevrange trending: %w", err)
 	}

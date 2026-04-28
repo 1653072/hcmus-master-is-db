@@ -4,6 +4,7 @@ import (
 	"bookstore/backend/internal/domain"
 	"context"
 	"strings"
+	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -19,22 +20,22 @@ func NewRecommendationRepository(driver neo4j.DriverWithContext) *Recommendation
 }
 
 // GetSimilarBooks traverses the book graph and returns the top similar books
-// ranked by a weighted score: Genre (×3) > Author (×2) > Publisher (×1).
+// ranked by weighted score: Category (×0.5) > Author (×0.33) > Publisher (×0.17).
 func (r *RecommendationRepository) GetSimilarBooks(ctx context.Context, mongoID string, limit int) ([]domain.SimilarBook, error) {
 	cypher := `
 MATCH (source:Book {mongo_id: $mongoID, is_active: true})
 
-OPTIONAL MATCH (source)-[:SAME_GENRE]->(g:Genre)<-[:SAME_GENRE]-(sim:Book {is_active: true})
+OPTIONAL MATCH (source)-[:BELONGS_TO]->(cat:Category)<-[:BELONGS_TO]-(sim:Book {is_active: true})
   WHERE sim.mongo_id <> $mongoID
-WITH source, sim, COUNT(g) * 3 AS genreScore
+WITH source, sim, COUNT(cat) * $weightCategory AS categoryScore
 
-OPTIONAL MATCH (source)-[:SAME_AUTHOR]->(a:Author)<-[:SAME_AUTHOR]-(sim)
-WITH source, sim, genreScore, COUNT(a) * 2 AS authorScore
+OPTIONAL MATCH (source)-[:WRITTEN_BY]->(a:Author)<-[:WRITTEN_BY]-(sim)
+WITH source, sim, categoryScore, COUNT(a) * $weightAuthor AS authorScore
 
-OPTIONAL MATCH (source)-[:SAME_PUBLISHER]->(p:Publisher)<-[:SAME_PUBLISHER]-(sim)
-WITH sim, genreScore + authorScore + COUNT(p) AS totalScore
+OPTIONAL MATCH (source)-[:PUBLISHED_BY]->(p:Publisher)<-[:PUBLISHED_BY]-(sim)
+WITH sim, categoryScore + authorScore + COUNT(p) * $weightPublisher AS totalScore
 
-WHERE sim IS NOT NULL
+WHERE sim IS NOT NULL AND totalScore > 0
 RETURN sim.mongo_id AS mongo_id,
        sim.title    AS title,
        totalScore   AS score
@@ -42,8 +43,11 @@ ORDER BY score DESC
 LIMIT $limit`
 
 	records, err := runQuery(ctx, r.driver, cypher, map[string]any{
-		"mongoID": mongoID,
-		"limit":   limit,
+		"mongoID":         mongoID,
+		"limit":           limit,
+		"weightCategory":  domain.WeightCategory,
+		"weightAuthor":    domain.WeightAuthor,
+		"weightPublisher": domain.WeightPublisher,
 	})
 	if err != nil {
 		return nil, err
@@ -64,14 +68,14 @@ LIMIT $limit`
 	return result, nil
 }
 
-// GetSeriesBooks returns all active books in a named series, ordered by volume.
+// GetSeriesBooks returns all active books in a named series, ordered by sequence.
 func (r *RecommendationRepository) GetSeriesBooks(ctx context.Context, seriesName string) ([]domain.SeriesBook, error) {
 	cypher := `
 MATCH (b:Book {is_active: true})-[r:IN_SERIES]->(s:Series {name: $seriesName})
 RETURN b.mongo_id    AS mongo_id,
        b.title       AS title,
-       r.volume_order AS volume_order
-ORDER BY r.volume_order ASC`
+       r.sequence_no AS volume_order
+ORDER BY r.sequence_no ASC`
 
 	records, err := runQuery(ctx, r.driver, cypher, map[string]any{"seriesName": seriesName})
 	if err != nil {
@@ -93,42 +97,48 @@ ORDER BY r.volume_order ASC`
 	return result, nil
 }
 
-// UpsertBookNode creates or updates a Book node and its Genre/Author/Publisher/Series edges.
+// UpsertBookNode creates or updates a Book node with V2 relationship types.
 func (r *RecommendationRepository) UpsertBookNode(ctx context.Context, node domain.BookNode) error {
 	cypher := `
 MERGE (b:Book {mongo_id: $mongoID})
-SET b.title    = $title,
+SET b.title     = $title,
     b.is_active = $isActive
 
 WITH b
-UNWIND $genres AS genreName
-  MERGE (g:Genre {name: genreName})
-  MERGE (b)-[:SAME_GENRE]->(g)
+UNWIND $categories AS catName
+  MERGE (c:Category {name: catName})
+  MERGE (b)-[:BELONGS_TO]->(c)
 
 WITH b
 UNWIND $authors AS authorName
   MERGE (a:Author {name: authorName})
-  MERGE (b)-[:SAME_AUTHOR]->(a)
+  MERGE (b)-[:WRITTEN_BY]->(a)
 
 WITH b
 MERGE (p:Publisher {name: $publisher})
-MERGE (b)-[:SAME_PUBLISHER]->(p)
+MERGE (b)-[:PUBLISHED_BY]->(p)
+
+WITH b
+UNWIND $tags AS tagName
+  MERGE (t:Tag {name: tagName})
+  MERGE (b)-[:HAS_TAG]->(t)
 
 WITH b
 FOREACH (_ IN CASE WHEN $seriesName <> '' THEN [1] ELSE [] END |
   MERGE (s:Series {name: $seriesName})
-  MERGE (b)-[:IN_SERIES {volume_order: $volumeOrder}]->(s)
+  MERGE (b)-[:IN_SERIES {sequence_no: $sequenceNo}]->(s)
 )`
 
 	return writeQuery(ctx, r.driver, cypher, map[string]any{
-		"mongoID":     node.MongoID,
-		"title":       node.Title,
-		"isActive":    node.IsActive,
-		"genres":      node.Genres,
-		"authors":     node.Authors,
-		"publisher":   node.Publisher,
-		"seriesName":  node.SeriesName,
-		"volumeOrder": node.VolumeOrder,
+		"mongoID":    node.MongoID,
+		"title":      node.Title,
+		"isActive":   node.IsActive,
+		"categories": node.Categories,
+		"authors":    node.Authors,
+		"publisher":  node.Publisher,
+		"tags":       node.Tags,
+		"seriesName": node.SeriesName,
+		"sequenceNo": node.SequenceNo,
 	})
 }
 
@@ -139,6 +149,41 @@ MATCH (b:Book {mongo_id: $mongoID})
 SET b.is_active = false`
 
 	return writeQuery(ctx, r.driver, cypher, map[string]any{"mongoID": mongoID})
+}
+
+// RecordViewed creates a VIEWED relationship from User to Book (MERGE prevents duplicates).
+func (r *RecommendationRepository) RecordViewed(ctx context.Context, userID, bookID string) error {
+	cypher := `
+MERGE (u:User {userId: $userID})
+MERGE (b:Book {mongo_id: $bookID})
+MERGE (u)-[v:VIEWED]->(b)
+SET v.viewedAt = $viewedAt`
+
+	return writeQuery(ctx, r.driver, cypher, map[string]any{
+		"userID":   userID,
+		"bookID":   bookID,
+		"viewedAt": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// RecordPurchased creates a PURCHASED relationship from User to Book after checkout.
+func (r *RecommendationRepository) RecordPurchased(ctx context.Context, userID, bookID, orderID string, qty int) error {
+	cypher := `
+MERGE (u:User {userId: $userID})
+MERGE (b:Book {mongo_id: $bookID})
+CREATE (u)-[:PURCHASED {
+  purchasedAt: $purchasedAt,
+  orderId:     $orderID,
+  quantity:    $qty
+}]->(b)`
+
+	return writeQuery(ctx, r.driver, cypher, map[string]any{
+		"userID":      userID,
+		"bookID":      bookID,
+		"orderID":     orderID,
+		"qty":         qty,
+		"purchasedAt": time.Now().UTC().Format(time.RFC3339),
+	})
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
