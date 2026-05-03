@@ -23,6 +23,748 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/analytics/best-sellers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return sales ranking data from Redis",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-analytics"
+                ],
+                "summary": "Admin: Best sellers analytics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of books",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.BestSellerBook"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/analytics/sales": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return total revenue and order count for a date range",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-analytics"
+                ],
+                "summary": "Admin: Sales summary",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SalesSummary"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/books": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return a paginated list of all books with stock info",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-books"
+                ],
+                "summary": "Admin: List books",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by author",
+                        "name": "author",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by publisher",
+                        "name": "publisher",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.BookListResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new book across MongoDB, PostgreSQL, and Neo4j",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-books"
+                ],
+                "summary": "Admin: Create book",
+                "parameters": [
+                    {
+                        "description": "Book payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateBookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.BookDetail"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/books/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update book metadata and re-sync Neo4j graph",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-books"
+                ],
+                "summary": "Admin: Update book",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book MongoDB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateBookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Soft-delete a book by marking it inactive in PostgreSQL and Neo4j",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-books"
+                ],
+                "summary": "Admin: Delete book",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book MongoDB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/books/{id}/stock": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Set absolute stock quantity for a book (Atomic Transaction)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-books"
+                ],
+                "summary": "Admin: Update stock",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book MongoDB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New stock quantity",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateStockRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/categories": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return a paginated list of categories for admin management",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-categories"
+                ],
+                "summary": "Admin: List categories",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.CategoryListResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new category in MongoDB and sync to Neo4j graph",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-categories"
+                ],
+                "summary": "Admin: Create category",
+                "parameters": [
+                    {
+                        "description": "Category payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateCategoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Category"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/categories/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update category metadata and re-sync Neo4j graph",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-categories"
+                ],
+                "summary": "Admin: Update category",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Category MongoDB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateCategoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Category"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a category from MongoDB and detach from Neo4j graph",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-categories"
+                ],
+                "summary": "Admin: Delete category",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Category MongoDB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return a paginated list of all orders with optional status filter",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-orders"
+                ],
+                "summary": "Admin: List orders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by order status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.OrderListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return full order details for any order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-orders"
+                ],
+                "summary": "Admin: Get order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Order"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/orders/{id}/history": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return the full history of status transitions for an order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-orders"
+                ],
+                "summary": "Admin: Get order audit trail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.OrderStatusHistory"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/orders/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Transition an order to a new state and log audit trail",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-orders"
+                ],
+                "summary": "Admin: Update order status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Status update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateOrderStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return a paginated list of all registered users",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "Admin: List users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.UserListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return profile data for any user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "Admin: Get user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.UserInfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/deactivate": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Toggle the is_active flag for a user account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-users"
+                ],
+                "summary": "Admin: Deactivate user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Activation status",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.DeactivateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "Authenticate and receive a JWT access token",
@@ -134,9 +876,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/best-sellers": {
+            "get": {
+                "description": "Return top-selling books in the last 30 days (Redis cached)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Get best sellers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of books (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.BestSellerBook"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/books": {
             "get": {
-                "description": "Full-text and filter-based search across the book catalog",
+                "description": "Search and filter books from MongoDB catalog with live stock from PostgreSQL",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -147,7 +923,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Full-text search term",
+                        "description": "Full-text search query",
                         "name": "search",
                         "in": "query"
                     },
@@ -183,15 +959,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "default": 1,
-                        "description": "Page number",
+                        "description": "Page number (default 1)",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "default": 20,
-                        "description": "Results per page",
+                        "description": "Items per page (default 20)",
                         "name": "page_size",
                         "in": "query"
                     }
@@ -200,7 +974,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.paginatedResponse"
+                            "$ref": "#/definitions/domain.BookListResponse"
                         }
                     },
                     "500": {
@@ -215,18 +989,20 @@ const docTemplate = `{
         "/books/new": {
             "get": {
                 "description": "Return the most recently imported books",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "books"
                 ],
-                "summary": "New arrivals",
+                "summary": "Get newest books",
                 "parameters": [
                     {
                         "type": "integer",
-                        "default": 20,
-                        "description": "Max books to return",
+                        "description": "Number of books to return (default 20)",
                         "name": "limit",
                         "in": "query"
                     }
@@ -235,7 +1011,16 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.successResponse"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.BookDetail"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -243,7 +1028,10 @@ const docTemplate = `{
         },
         "/books/{id}": {
             "get": {
-                "description": "Fetch full catalog detail and live stock for a book",
+                "description": "Return full book metadata from MongoDB and stock from PostgreSQL",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -254,7 +1042,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "MongoDB book ID",
+                        "description": "Book MongoDB ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -264,13 +1052,83 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.successResponse"
+                            "$ref": "#/definitions/domain.BookDetail"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/books/{id}/series": {
+            "get": {
+                "description": "Return all books in the same series, ordered by volume sequence",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Get series books",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book MongoDB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.SeriesBook"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/books/{id}/similar": {
+            "get": {
+                "description": "Return book recommendations based on shared attributes via Neo4j",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Get similar books",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book MongoDB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of recommendations (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.SimilarBook"
+                            }
                         }
                     }
                 }
@@ -283,7 +1141,10 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Record that the authenticated user viewed a book (used by recommendation engine)",
+                "description": "Increment daily view counter in Redis and log event in MongoDB",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -294,7 +1155,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "MongoDB book ID",
+                        "description": "Book MongoDB ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -317,7 +1178,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Return current user's cart (Redis cache with PSQL fallback)",
+                "description": "Return the current user's cart items with enriched metadata",
                 "produces": [
                     "application/json"
                 ],
@@ -329,7 +1190,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.successResponse"
+                            "$ref": "#/definitions/domain.CartResponse"
                         }
                     }
                 }
@@ -340,7 +1201,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Add or update a book in the shopping cart (PSQL source of truth, Redis cache)",
+                "description": "Add a book to the user's persistent cart in PostgreSQL and sync to Redis cache",
                 "consumes": [
                     "application/json"
                 ],
@@ -353,7 +1214,7 @@ const docTemplate = `{
                 "summary": "Add to cart",
                 "parameters": [
                     {
-                        "description": "Cart item",
+                        "description": "Cart item payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -378,6 +1239,217 @@ const docTemplate = `{
                 }
             }
         },
+        "/cart/{bookId}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the quantity of a book in the user's cart",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart"
+                ],
+                "summary": "Update cart item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book MongoDB ID",
+                        "name": "bookId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New quantity",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateCartItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a book from the user's cart",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart"
+                ],
+                "summary": "Remove cart item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book MongoDB ID",
+                        "name": "bookId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/categories": {
+            "get": {
+                "description": "Return a paginated list of all categories",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "categories"
+                ],
+                "summary": "Get categories",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.CategoryListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/most-viewed/30days": {
+            "get": {
+                "description": "Return top books viewed in the last 30 days (Aggregated from MongoDB)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Get 30-day most viewed",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.MostViewedBook"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/most-viewed/daily": {
+            "get": {
+                "description": "Return top books viewed today (Real-time Redis ZSET)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Get daily most viewed",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of books (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.MostViewedBook"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return a paginated list of the current user's orders",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get order history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default 10)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.OrderListResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/orders/buy-now": {
             "post": {
                 "security": [
@@ -385,7 +1457,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a temporary checkout session for a single book (15 min TTL)",
+                "description": "Create a temporary 15-minute session for a single-book purchase",
                 "consumes": [
                     "application/json"
                 ],
@@ -398,7 +1470,7 @@ const docTemplate = `{
                 "summary": "Buy Now",
                 "parameters": [
                     {
-                        "description": "Buy-now request",
+                        "description": "Buy Now payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -411,7 +1483,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.successResponse"
+                            "$ref": "#/definitions/domain.BuyNowResponse"
                         }
                     },
                     "400": {
@@ -430,7 +1502,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create an order from the cart or a buy-now session (atomic PSQL TX)",
+                "description": "Place an order from the cart or a Buy-Now session (Atomic Transaction)",
                 "consumes": [
                     "application/json"
                 ],
@@ -443,7 +1515,7 @@ const docTemplate = `{
                 "summary": "Checkout",
                 "parameters": [
                     {
-                        "description": "Checkout request",
+                        "description": "Checkout payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -456,7 +1528,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/server.successResponse"
+                            "$ref": "#/definitions/domain.Order"
                         }
                     },
                     "400": {
@@ -467,6 +1539,52 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return full order details including line items",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get order detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Order"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/server.errorResponse"
                         }
@@ -566,6 +1684,168 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.BestSellerBook": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "total_sold": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.BookAuthor": {
+            "type": "object",
+            "properties": {
+                "author_id": {
+                    "type": "string"
+                },
+                "author_name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.BookCategory": {
+            "type": "object",
+            "properties": {
+                "category_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.BookDetail": {
+            "type": "object",
+            "properties": {
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookAuthor"
+                    }
+                },
+                "category": {
+                    "$ref": "#/definitions/domain.BookCategory"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "detail_description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookImage"
+                    }
+                },
+                "imported_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "pricing": {
+                    "$ref": "#/definitions/domain.BookPricing"
+                },
+                "product_status": {
+                    "type": "string"
+                },
+                "series": {
+                    "$ref": "#/definitions/domain.BookSeries"
+                },
+                "short_description": {
+                    "type": "string"
+                },
+                "stock_quantity": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookTag"
+                    }
+                }
+            }
+        },
+        "domain.BookImage": {
+            "type": "object",
+            "properties": {
+                "alt": {
+                    "type": "string"
+                },
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.BookListResponse": {
+            "type": "object",
+            "properties": {
+                "books": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookDetail"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.BookPricing": {
+            "type": "object",
+            "properties": {
+                "price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.BookSeries": {
+            "type": "object",
+            "properties": {
+                "sequence_no": {
+                    "type": "integer"
+                },
+                "series_id": {
+                    "type": "string"
+                },
+                "series_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.BookTag": {
+            "type": "object",
+            "properties": {
+                "tag_id": {
+                    "type": "string"
+                },
+                "tag_name": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.BuyNowRequest": {
             "type": "object",
             "required": [
@@ -582,10 +1862,93 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.BuyNowResponse": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.CartItem": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.CartResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.CartItem"
+                    }
+                },
+                "total_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.Category": {
+            "type": "object",
+            "properties": {
+                "category_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "parent_category": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.CategoryListResponse": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Category"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.CheckoutRequest": {
             "type": "object",
             "properties": {
                 "address_id": {
+                    "description": "AddressID is the alias_id UUID of the delivery address; resolved to the internal\nint64 FK before the PostgreSQL transaction.",
                     "type": "string"
                 },
                 "note": {
@@ -594,6 +1957,87 @@ const docTemplate = `{
                 "session_id": {
                     "description": "for Buy-Now flow",
                     "type": "string"
+                }
+            }
+        },
+        "domain.CreateBookRequest": {
+            "type": "object",
+            "required": [
+                "authors",
+                "name",
+                "pricing",
+                "stock_quantity"
+            ],
+            "properties": {
+                "authors": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/domain.BookAuthor"
+                    }
+                },
+                "category": {
+                    "$ref": "#/definitions/domain.BookCategory"
+                },
+                "detail_description": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookImage"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pricing": {
+                    "$ref": "#/definitions/domain.BookPricing"
+                },
+                "product_status": {
+                    "type": "string"
+                },
+                "series": {
+                    "$ref": "#/definitions/domain.BookSeries"
+                },
+                "short_description": {
+                    "type": "string"
+                },
+                "stock_quantity": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookTag"
+                    }
+                }
+            }
+        },
+        "domain.CreateCategoryRequest": {
+            "type": "object",
+            "required": [
+                "category_name",
+                "slug"
+            ],
+            "properties": {
+                "category_name": {
+                    "type": "string"
+                },
+                "parent_category": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.DeactivateUserRequest": {
+            "type": "object",
+            "properties": {
+                "is_active": {
+                    "type": "boolean"
                 }
             }
         },
@@ -608,6 +2052,125 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.MostViewedBook": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "view_count": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.Order": {
+            "type": "object",
+            "properties": {
+                "alias_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OrderItem"
+                    }
+                },
+                "note": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.OrderStatus"
+                },
+                "total_amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.OrderItem": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "unit_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.OrderListResponse": {
+            "type": "object",
+            "properties": {
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Order"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.OrderStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "confirmed",
+                "packing",
+                "shipping",
+                "completed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "OrderStatusPending",
+                "OrderStatusConfirmed",
+                "OrderStatusPacking",
+                "OrderStatusShipping",
+                "OrderStatusCompleted",
+                "OrderStatusCancelled"
+            ]
+        },
+        "domain.OrderStatusHistory": {
+            "type": "object",
+            "properties": {
+                "alias_id": {
+                    "type": "string"
+                },
+                "changed_at": {
+                    "type": "string"
+                },
+                "changed_by_admin_alias_id": {
+                    "type": "string"
+                },
+                "new_status": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "old_status": {
                     "type": "string"
                 }
             }
@@ -637,6 +2200,153 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.SalesSummary": {
+            "type": "object",
+            "properties": {
+                "date_from": {
+                    "type": "string"
+                },
+                "date_to": {
+                    "type": "string"
+                },
+                "total_orders": {
+                    "type": "integer"
+                },
+                "total_revenue": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.SeriesBook": {
+            "type": "object",
+            "properties": {
+                "already_bought": {
+                    "type": "boolean"
+                },
+                "book_id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "volume_order": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.SimilarBook": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string"
+                },
+                "cover_url": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.UpdateBookRequest": {
+            "type": "object",
+            "properties": {
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookAuthor"
+                    }
+                },
+                "category": {
+                    "$ref": "#/definitions/domain.BookCategory"
+                },
+                "detail_description": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookImage"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pricing": {
+                    "$ref": "#/definitions/domain.BookPricing"
+                },
+                "product_status": {
+                    "type": "string"
+                },
+                "series": {
+                    "$ref": "#/definitions/domain.BookSeries"
+                },
+                "short_description": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BookTag"
+                    }
+                }
+            }
+        },
+        "domain.UpdateCartItemRequest": {
+            "type": "object",
+            "required": [
+                "quantity"
+            ],
+            "properties": {
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "domain.UpdateCategoryRequest": {
+            "type": "object",
+            "properties": {
+                "category_name": {
+                    "type": "string"
+                },
+                "parent_category": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.UpdateOrderStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "note": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "pending",
+                        "confirmed",
+                        "packing",
+                        "shipping",
+                        "completed",
+                        "cancelled"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.OrderStatus"
+                        }
+                    ]
+                }
+            }
+        },
         "domain.UpdateProfileRequest": {
             "type": "object",
             "properties": {
@@ -654,18 +2364,41 @@ const docTemplate = `{
                 }
             }
         },
-        "server.errorResponse": {
+        "domain.UpdateStockRequest": {
             "type": "object",
+            "required": [
+                "stock_quantity"
+            ],
             "properties": {
-                "error": {
-                    "type": "string"
+                "stock_quantity": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },
-        "server.paginatedResponse": {
+        "domain.UserInfo": {
             "type": "object",
             "properties": {
-                "data": {},
+                "alias_id": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/domain.UserRole"
+                }
+            }
+        },
+        "domain.UserListResponse": {
+            "type": "object",
+            "properties": {
                 "page": {
                     "type": "integer"
                 },
@@ -674,6 +2407,31 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.UserInfo"
+                    }
+                }
+            }
+        },
+        "domain.UserRole": {
+            "type": "string",
+            "enum": [
+                "user",
+                "admin"
+            ],
+            "x-enum-varnames": [
+                "RoleUser",
+                "RoleAdmin"
+            ]
+        },
+        "server.errorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
                 }
             }
         },

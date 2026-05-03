@@ -9,15 +9,25 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateUser inserts a new user row.
+// CreateUser inserts a new user row; the BIGSERIAL id and alias_id UUID are assigned by PostgreSQL.
 func (q *Queries) CreateUser(ctx context.Context, user *domain.User) error {
 	return q.db.WithContext(ctx).Create(user).Error
 }
 
-// GetUserByID fetches a user by primary key.
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+// GetUserByID fetches a user by internal BIGSERIAL primary key (fastest path; used after JWT extraction).
+func (q *Queries) GetUserByID(ctx context.Context, id int64) (*domain.User, error) {
 	var user domain.User
 	err := q.db.WithContext(ctx).First(&user, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &user, err
+}
+
+// GetUserByAliasID fetches a user by the external UUID alias (used for admin panel URL params).
+func (q *Queries) GetUserByAliasID(ctx context.Context, aliasID uuid.UUID) (*domain.User, error) {
+	var user domain.User
+	err := q.db.WithContext(ctx).First(&user, "alias_id = ?", aliasID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -60,10 +70,10 @@ func (q *Queries) ListUsers(ctx context.Context, page, pageSize int) ([]*domain.
 	return users, total, err
 }
 
-// DeactivateUser toggles the is_active flag for a given user.
-func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID, active bool) error {
+// DeactivateUser toggles the is_active flag; aliasID is the external UUID alias.
+func (q *Queries) DeactivateUser(ctx context.Context, aliasID uuid.UUID, active bool) error {
 	return q.db.WithContext(ctx).
 		Model(&domain.User{}).
-		Where("id = ?", id).
+		Where("alias_id = ?", aliasID).
 		Update("is_active", active).Error
 }

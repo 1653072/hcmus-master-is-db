@@ -66,26 +66,36 @@ func runServer(cfg *config.Config, logger *zap.Logger) error {
 	logger.Info("connected to Redis")
 
 	// ── Repositories ─────────────────────────────────────────────────────
-	pgRepo      := postgres.New(gormDB)
-	bookRepo    := mongorepo.NewBookRepository(mongoClient, cfg.Mongo.DB)
-	categoryRepo := mongorepo.NewCategoryRepository(mongoClient, cfg.Mongo.DB)
-	recRepo     := neo4j.NewRecommendationRepository(neo4jDriver)
-	sessionRepo := redisrepo.NewSessionRepository(redisClient)
-	cartCache   := redisrepo.NewCartCacheRepository(redisClient)
-	checkoutSess := redisrepo.NewCheckoutSessionRepository(redisClient)
-	trendRepo   := redisrepo.NewTrendingRepository(redisClient)
-	bookCache   := redisrepo.NewBookCacheRepository(redisClient)
+	pgRepo          := postgres.New(gormDB)
+	bookRepo        := mongorepo.NewBookRepository(mongoClient, cfg.Mongo.DB)
+	categoryRepo    := mongorepo.NewCategoryRepository(mongoClient, cfg.Mongo.DB)
+	eventLogRepo    := mongorepo.NewEventLogRepository(mongoClient, cfg.Mongo.DB)
+	recRepo         := neo4j.NewRecommendationRepository(neo4jDriver)
+	sessionRepo     := redisrepo.NewSessionRepository(redisClient)
+	cartCache       := redisrepo.NewCartCacheRepository(redisClient)
+	checkoutSess    := redisrepo.NewCheckoutSessionRepository(redisClient)
+	bestSellerRepo  := redisrepo.NewBestSellerRepository(redisClient)
+	mostViewedRepo  := redisrepo.NewMostViewedRepository(redisClient)
+	bookCache       := redisrepo.NewBookCacheRepository(redisClient)
+	orderCache      := redisrepo.NewOrderCacheRepository(redisClient)
+	categoryCache   := redisrepo.NewCategoryCacheRepository(redisClient)
 
-	// ── Background trending worker ────────────────────────────────────────
-	trendWorker := worker.NewTrendingWorker(gormDB, trendRepo, logger)
-	trendWorker.Start()
-	defer trendWorker.Stop()
+	// ── Background workers ────────────────────────────────────────────────
+	bestSellerWorker := worker.NewBestSellerWorker(gormDB, bestSellerRepo, logger)
+	bestSellerWorker.Start()
+	defer bestSellerWorker.Stop()
+
+	mostViewedWorker := worker.NewMostViewedWorker(eventLogRepo, mostViewedRepo, logger)
+	mostViewedWorker.Start()
+	defer mostViewedWorker.Stop()
 
 	// ── HTTP Server ───────────────────────────────────────────────────────
 	svc := server.NewService(
-		pgRepo, bookRepo, categoryRepo, recRepo,
-		sessionRepo, cartCache, checkoutSess, trendRepo, bookCache,
-		cfg.JWT, logger,
+		pgRepo, bookRepo, categoryRepo, recRepo, eventLogRepo,
+		sessionRepo, cartCache, checkoutSess,
+		bestSellerRepo, mostViewedRepo,
+		bookCache, orderCache, categoryCache,
+		cfg.JWT, cfg.Features, logger,
 	)
 	ginEngine := server.NewServer(svc, cfg, logger)
 

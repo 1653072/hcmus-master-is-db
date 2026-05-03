@@ -4,6 +4,7 @@ import (
 	"bookstore/backend/internal/domain"
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -12,31 +13,31 @@ import (
 // CreateOrder inserts the order header, all its line items, and the initial
 // order_status_history row (old_status = NULL, new_status = "pending") — all
 // within the same database transaction.
-func (q *Queries) CreateOrder(ctx context.Context, order *domain.Order, historyRepo domain.OrderStatusHistoryRepository) error {
+func (q *Queries) CreateOrder(ctx context.Context, order *domain.Order, historyRepository domain.OrderStatusHistoryRepository) error {
 	if err := q.db.WithContext(ctx).Omit("Items.*").Create(order).Error; err != nil {
 		return err
 	}
-	for i := range order.Items {
-		order.Items[i].OrderID = order.ID
-		if err := q.db.WithContext(ctx).Create(&order.Items[i]).Error; err != nil {
+	for index := range order.Items {
+		order.Items[index].OrderID = order.ID
+		if err := q.db.WithContext(ctx).Create(&order.Items[index]).Error; err != nil {
 			return err
 		}
 	}
-	newStatus := string(domain.OrderStatusPending)
+	initialStatus := string(domain.OrderStatusPending)
 	history := &domain.OrderStatusHistory{
 		OrderID:   order.ID,
 		OldStatus: nil,
-		NewStatus: newStatus,
+		NewStatus: initialStatus,
 	}
-	return historyRepo.CreateHistory(ctx, history)
+	return historyRepository.CreateHistory(ctx, history)
 }
 
-// GetOrderByID fetches an order together with its line items.
-func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+// GetOrderByAliasID fetches an order together with its line items using the external UUID alias.
+func (q *Queries) GetOrderByAliasID(ctx context.Context, aliasID uuid.UUID) (*domain.Order, error) {
 	var order domain.Order
 	err := q.db.WithContext(ctx).
 		Preload("Items").
-		First(&order, "id = ?", id).Error
+		First(&order, "alias_id = ?", aliasID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -44,15 +45,16 @@ func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (*domain.Order
 }
 
 // ListOrdersByUser returns a paginated list of orders belonging to a single user.
-func (q *Queries) ListOrdersByUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]*domain.Order, int64, error) {
+// userInternalID is the internal int64 BIGSERIAL PK of the user.
+func (q *Queries) ListOrdersByUser(ctx context.Context, userInternalID int64, page, pageSize int) ([]*domain.Order, int64, error) {
 	var orders []*domain.Order
 	var total int64
 
-	q.db.WithContext(ctx).Model(&domain.Order{}).Where("user_id = ?", userID).Count(&total) //nolint:errcheck
+	q.db.WithContext(ctx).Model(&domain.Order{}).Where("user_id = ?", userInternalID).Count(&total) //nolint:errcheck
 
 	offset := (page - 1) * pageSize
 	err := q.db.WithContext(ctx).
-		Where("user_id = ?", userID).
+		Where("user_id = ?", userInternalID).
 		Order("created_at DESC").
 		Limit(pageSize).
 		Offset(offset).
@@ -66,41 +68,78 @@ func (q *Queries) ListAllOrders(ctx context.Context, status domain.OrderStatus, 
 	var orders []*domain.Order
 	var total int64
 
-	tx := q.db.WithContext(ctx).Model(&domain.Order{})
+	query := q.db.WithContext(ctx).Model(&domain.Order{})
 	if status != "" {
-		tx = tx.Where("status = ?", status)
+		query = query.Where("status = ?", status)
 	}
-	tx.Count(&total) //nolint:errcheck
+	query.Count(&total) //nolint:errcheck
 
 	offset := (page - 1) * pageSize
-	err := tx.Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&orders).Error
+	err := query.Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&orders).Error
 
 	return orders, total, err
 }
 
-// UpdateOrderStatus updates the order's status and appends an audit row to
-// order_status_history within the same call.  Pass adminID = nil for system updates.
-func (q *Queries) UpdateOrderStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus, adminID *uuid.UUID, note string) error {
-	order, err := q.GetOrderByID(ctx, id)
-	if err != nil || order == nil {
-		return err
+// isValidOrderStatusTransition enforces the order state machine:
+//
+//	pending   → confirmed | packing | cancelled
+//	confirmed → packing   | cancelled
+//	packing   → shipping  | cancelled
+//	shipping  → completed | cancelled
+//	completed → terminal  (no further transitions allowed)
+//	cancelled → terminal  (no further transitions allowed)
+//
+// Any non-terminal status may always transition to "cancelled".
+func isValidOrderStatusTransition(current, next domain.OrderStatus) bool {
+	if current == domain.OrderStatusCompleted || current == domain.OrderStatusCancelled {
+		return false
+	}
+	if next == domain.OrderStatusCancelled {
+		return true
+	}
+	switch current {
+	case domain.OrderStatusPending:
+		return next == domain.OrderStatusConfirmed || next == domain.OrderStatusPacking
+	case domain.OrderStatusConfirmed:
+		return next == domain.OrderStatusPacking
+	case domain.OrderStatusPacking:
+		return next == domain.OrderStatusShipping
+	case domain.OrderStatusShipping:
+		return next == domain.OrderStatusCompleted
+	}
+	return false
+}
+
+// UpdateOrderStatus validates the state machine transition, updates the order status,
+// and appends an audit row to order_status_history — all within the same database call.
+// id is the internal BIGSERIAL int64 PK; adminAliasID is the acting admin's alias_id UUID
+// (stored directly in the history record — denormalised for zero-join serialisation).
+// Pass adminAliasID = nil for system-initiated updates.
+func (q *Queries) UpdateOrderStatus(ctx context.Context, id int64, newStatus domain.OrderStatus, adminAliasID *uuid.UUID, note string) error {
+	var order domain.Order
+	if err := q.db.WithContext(ctx).First(&order, "id = ?", id).Error; err != nil {
+		return fmt.Errorf("order not found: %w", err)
+	}
+
+	if !isValidOrderStatusTransition(order.Status, newStatus) {
+		return fmt.Errorf("invalid order status transition: %s → %s", order.Status, newStatus)
 	}
 
 	oldStatus := string(order.Status)
 	if err := q.db.WithContext(ctx).
 		Model(&domain.Order{}).
 		Where("id = ?", id).
-		Update("status", string(status)).Error; err != nil {
+		Update("status", string(newStatus)).Error; err != nil {
 		return err
 	}
 
-	newStatus := string(status)
+	nextStatus := string(newStatus)
 	history := &domain.OrderStatusHistory{
-		OrderID:          id,
-		OldStatus:        &oldStatus,
-		NewStatus:        newStatus,
-		ChangedByAdminID: adminID,
-		Note:             note,
+		OrderID:               id,
+		OldStatus:             &oldStatus,
+		NewStatus:             nextStatus,
+		ChangedByAdminAliasID: adminAliasID,
+		Note:                  note,
 	}
 	return q.db.WithContext(ctx).Create(history).Error
 }
@@ -117,7 +156,7 @@ func (q *Queries) GetBookRef(ctx context.Context, mongoID string) (*domain.BookR
 	return &ref, err
 }
 
-// CreateBookRef inserts a new bridge row.
+// CreateBookRef inserts a new bridge row linking a MongoDB book ID to PostgreSQL.
 func (q *Queries) CreateBookRef(ctx context.Context, ref *domain.BookRef) error {
 	return q.db.WithContext(ctx).Create(ref).Error
 }

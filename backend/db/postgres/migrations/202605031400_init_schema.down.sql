@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS shipments;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS cart_items;
+DROP TABLE IF EXISTS carts;
+DROP TABLE IF EXISTS order_status_history;
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS inventory;
+DROP TABLE IF EXISTS books_ref;
+DROP TABLE IF EXISTS addresses;
+DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS order_status;
+DROP TYPE IF EXISTS user_role;
+
+DROP EXTENSION IF EXISTS "pgcrypto";

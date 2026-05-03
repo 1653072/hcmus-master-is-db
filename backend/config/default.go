@@ -2,7 +2,7 @@ package config
 
 // defaultConfig is the embedded YAML configuration loaded at startup.
 // All values can be overridden via environment variables using double-underscore
-// as the nested key separator (e.g. POSTGRES__HOST=myhost).
+// as the nested key separator (e.g. POSTGRES_HOST=myhost).
 const defaultConfig = `
 env: development
 
@@ -37,4 +37,12 @@ jwt:
 
 logger:
   level: "info"
+
+features:
+  redis_book_cache: true
+  redis_cart_cache: true
+  redis_best_sellers: true
+  redis_order_history: true
+  redis_most_viewed_daily: true
+  redis_category_cache: true
 `

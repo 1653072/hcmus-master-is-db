@@ -11,6 +11,111 @@ definitions:
     - book_id
     - quantity
     type: object
+  domain.BestSellerBook:
+    properties:
+      book_id:
+        type: string
+      title:
+        type: string
+      total_sold:
+        type: number
+    type: object
+  domain.BookAuthor:
+    properties:
+      author_id:
+        type: string
+      author_name:
+        type: string
+      slug:
+        type: string
+    type: object
+  domain.BookCategory:
+    properties:
+      category_id:
+        type: string
+    type: object
+  domain.BookDetail:
+    properties:
+      authors:
+        items:
+          $ref: '#/definitions/domain.BookAuthor'
+        type: array
+      category:
+        $ref: '#/definitions/domain.BookCategory'
+      created_at:
+        type: string
+      detail_description:
+        type: string
+      id:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/domain.BookImage'
+        type: array
+      imported_at:
+        type: string
+      name:
+        type: string
+      price:
+        type: number
+      pricing:
+        $ref: '#/definitions/domain.BookPricing'
+      product_status:
+        type: string
+      series:
+        $ref: '#/definitions/domain.BookSeries'
+      short_description:
+        type: string
+      stock_quantity:
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/domain.BookTag'
+        type: array
+    type: object
+  domain.BookImage:
+    properties:
+      alt:
+        type: string
+      is_primary:
+        type: boolean
+      url:
+        type: string
+    type: object
+  domain.BookListResponse:
+    properties:
+      books:
+        items:
+          $ref: '#/definitions/domain.BookDetail'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  domain.BookPricing:
+    properties:
+      price:
+        type: number
+    type: object
+  domain.BookSeries:
+    properties:
+      sequence_no:
+        type: integer
+      series_id:
+        type: string
+      series_name:
+        type: string
+    type: object
+  domain.BookTag:
+    properties:
+      tag_id:
+        type: string
+      tag_name:
+        type: string
+    type: object
   domain.BuyNowRequest:
     properties:
       book_id:
@@ -22,15 +127,126 @@ definitions:
     - book_id
     - quantity
     type: object
+  domain.BuyNowResponse:
+    properties:
+      session_id:
+        type: string
+    type: object
+  domain.CartItem:
+    properties:
+      book_id:
+        type: string
+      name:
+        type: string
+      price:
+        type: number
+      quantity:
+        type: integer
+    type: object
+  domain.CartResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/domain.CartItem'
+        type: array
+      total_price:
+        type: number
+    type: object
+  domain.Category:
+    properties:
+      category_name:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      parent_category:
+        type: string
+      slug:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  domain.CategoryListResponse:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/domain.Category'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
   domain.CheckoutRequest:
     properties:
       address_id:
+        description: |-
+          AddressID is the alias_id UUID of the delivery address; resolved to the internal
+          int64 FK before the PostgreSQL transaction.
         type: string
       note:
         type: string
       session_id:
         description: for Buy-Now flow
         type: string
+    type: object
+  domain.CreateBookRequest:
+    properties:
+      authors:
+        items:
+          $ref: '#/definitions/domain.BookAuthor'
+        minItems: 1
+        type: array
+      category:
+        $ref: '#/definitions/domain.BookCategory'
+      detail_description:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/domain.BookImage'
+        type: array
+      name:
+        type: string
+      pricing:
+        $ref: '#/definitions/domain.BookPricing'
+      product_status:
+        type: string
+      series:
+        $ref: '#/definitions/domain.BookSeries'
+      short_description:
+        type: string
+      stock_quantity:
+        minimum: 0
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/domain.BookTag'
+        type: array
+    required:
+    - authors
+    - name
+    - pricing
+    - stock_quantity
+    type: object
+  domain.CreateCategoryRequest:
+    properties:
+      category_name:
+        type: string
+      parent_category:
+        type: string
+      slug:
+        type: string
+    required:
+    - category_name
+    - slug
+    type: object
+  domain.DeactivateUserRequest:
+    properties:
+      is_active:
+        type: boolean
     type: object
   domain.LoginRequest:
     properties:
@@ -41,6 +257,87 @@ definitions:
     required:
     - email
     - password
+    type: object
+  domain.MostViewedBook:
+    properties:
+      book_id:
+        type: string
+      title:
+        type: string
+      view_count:
+        type: number
+    type: object
+  domain.Order:
+    properties:
+      alias_id:
+        type: string
+      created_at:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/domain.OrderItem'
+        type: array
+      note:
+        type: string
+      status:
+        $ref: '#/definitions/domain.OrderStatus'
+      total_amount:
+        type: number
+    type: object
+  domain.OrderItem:
+    properties:
+      book_id:
+        type: string
+      name:
+        type: string
+      quantity:
+        type: integer
+      unit_price:
+        type: number
+    type: object
+  domain.OrderListResponse:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/domain.Order'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  domain.OrderStatus:
+    enum:
+    - pending
+    - confirmed
+    - packing
+    - shipping
+    - completed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - OrderStatusPending
+    - OrderStatusConfirmed
+    - OrderStatusPacking
+    - OrderStatusShipping
+    - OrderStatusCompleted
+    - OrderStatusCancelled
+  domain.OrderStatusHistory:
+    properties:
+      alias_id:
+        type: string
+      changed_at:
+        type: string
+      changed_by_admin_alias_id:
+        type: string
+      new_status:
+        type: string
+      note:
+        type: string
+      old_status:
+        type: string
     type: object
   domain.RegisterRequest:
     properties:
@@ -60,6 +357,102 @@ definitions:
     - full_name
     - password
     type: object
+  domain.SalesSummary:
+    properties:
+      date_from:
+        type: string
+      date_to:
+        type: string
+      total_orders:
+        type: integer
+      total_revenue:
+        type: number
+    type: object
+  domain.SeriesBook:
+    properties:
+      already_bought:
+        type: boolean
+      book_id:
+        type: string
+      title:
+        type: string
+      volume_order:
+        type: integer
+    type: object
+  domain.SimilarBook:
+    properties:
+      book_id:
+        type: string
+      cover_url:
+        type: string
+      score:
+        type: number
+      title:
+        type: string
+    type: object
+  domain.UpdateBookRequest:
+    properties:
+      authors:
+        items:
+          $ref: '#/definitions/domain.BookAuthor'
+        type: array
+      category:
+        $ref: '#/definitions/domain.BookCategory'
+      detail_description:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/domain.BookImage'
+        type: array
+      name:
+        type: string
+      pricing:
+        $ref: '#/definitions/domain.BookPricing'
+      product_status:
+        type: string
+      series:
+        $ref: '#/definitions/domain.BookSeries'
+      short_description:
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/domain.BookTag'
+        type: array
+    type: object
+  domain.UpdateCartItemRequest:
+    properties:
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - quantity
+    type: object
+  domain.UpdateCategoryRequest:
+    properties:
+      category_name:
+        type: string
+      parent_category:
+        type: string
+      slug:
+        type: string
+    type: object
+  domain.UpdateOrderStatusRequest:
+    properties:
+      note:
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/domain.OrderStatus'
+        enum:
+        - pending
+        - confirmed
+        - packing
+        - shipping
+        - completed
+        - cancelled
+    required:
+    - status
+    type: object
   domain.UpdateProfileRequest:
     properties:
       default_addr:
@@ -72,20 +465,52 @@ definitions:
       phone:
         type: string
     type: object
-  server.errorResponse:
+  domain.UpdateStockRequest:
     properties:
-      error:
-        type: string
+      stock_quantity:
+        minimum: 0
+        type: integer
+    required:
+    - stock_quantity
     type: object
-  server.paginatedResponse:
+  domain.UserInfo:
     properties:
-      data: {}
+      alias_id:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      phone:
+        type: string
+      role:
+        $ref: '#/definitions/domain.UserRole'
+    type: object
+  domain.UserListResponse:
+    properties:
       page:
         type: integer
       page_size:
         type: integer
       total:
         type: integer
+      users:
+        items:
+          $ref: '#/definitions/domain.UserInfo'
+        type: array
+    type: object
+  domain.UserRole:
+    enum:
+    - user
+    - admin
+    type: string
+    x-enum-varnames:
+    - RoleUser
+    - RoleAdmin
+  server.errorResponse:
+    properties:
+      error:
+        type: string
     type: object
   server.successResponse:
     properties:
@@ -105,6 +530,470 @@ info:
   title: HCMUS Bookstore API
   version: "2.0"
 paths:
+  /admin/analytics/best-sellers:
+    get:
+      description: Return sales ranking data from Redis
+      parameters:
+      - description: Number of books
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.BestSellerBook'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Best sellers analytics'
+      tags:
+      - admin-analytics
+  /admin/analytics/sales:
+    get:
+      description: Return total revenue and order count for a date range
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SalesSummary'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Sales summary'
+      tags:
+      - admin-analytics
+  /admin/books:
+    get:
+      description: Return a paginated list of all books with stock info
+      parameters:
+      - description: Search query
+        in: query
+        name: search
+        type: string
+      - description: Filter by author
+        in: query
+        name: author
+        type: string
+      - description: Filter by publisher
+        in: query
+        name: publisher
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.BookListResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: List books'
+      tags:
+      - admin-books
+    post:
+      consumes:
+      - application/json
+      description: Create a new book across MongoDB, PostgreSQL, and Neo4j
+      parameters:
+      - description: Book payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateBookRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.BookDetail'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Create book'
+      tags:
+      - admin-books
+  /admin/books/{id}:
+    delete:
+      description: Soft-delete a book by marking it inactive in PostgreSQL and Neo4j
+      parameters:
+      - description: Book MongoDB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Delete book'
+      tags:
+      - admin-books
+    put:
+      consumes:
+      - application/json
+      description: Update book metadata and re-sync Neo4j graph
+      parameters:
+      - description: Book MongoDB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateBookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Update book'
+      tags:
+      - admin-books
+  /admin/books/{id}/stock:
+    patch:
+      consumes:
+      - application/json
+      description: Set absolute stock quantity for a book (Atomic Transaction)
+      parameters:
+      - description: Book MongoDB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New stock quantity
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateStockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Update stock'
+      tags:
+      - admin-books
+  /admin/categories:
+    get:
+      description: Return a paginated list of categories for admin management
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.CategoryListResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: List categories'
+      tags:
+      - admin-categories
+    post:
+      consumes:
+      - application/json
+      description: Create a new category in MongoDB and sync to Neo4j graph
+      parameters:
+      - description: Category payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Category'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Create category'
+      tags:
+      - admin-categories
+  /admin/categories/{id}:
+    delete:
+      description: Delete a category from MongoDB and detach from Neo4j graph
+      parameters:
+      - description: Category MongoDB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Delete category'
+      tags:
+      - admin-categories
+    put:
+      consumes:
+      - application/json
+      description: Update category metadata and re-sync Neo4j graph
+      parameters:
+      - description: Category MongoDB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Category'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Update category'
+      tags:
+      - admin-categories
+  /admin/orders:
+    get:
+      description: Return a paginated list of all orders with optional status filter
+      parameters:
+      - description: Filter by order status
+        in: query
+        name: status
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.OrderListResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: List orders'
+      tags:
+      - admin-orders
+  /admin/orders/{id}:
+    get:
+      description: Return full order details for any order
+      parameters:
+      - description: Order Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Order'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Get order'
+      tags:
+      - admin-orders
+  /admin/orders/{id}/history:
+    get:
+      description: Return the full history of status transitions for an order
+      parameters:
+      - description: Order Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.OrderStatusHistory'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Get order audit trail'
+      tags:
+      - admin-orders
+  /admin/orders/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Transition an order to a new state and log audit trail
+      parameters:
+      - description: Order Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateOrderStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Update order status'
+      tags:
+      - admin-orders
+  /admin/users:
+    get:
+      description: Return a paginated list of all registered users
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.UserListResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: List users'
+      tags:
+      - admin-users
+  /admin/users/{id}:
+    get:
+      description: Return profile data for any user
+      parameters:
+      - description: User Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.UserInfo'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Get user'
+      tags:
+      - admin-users
+  /admin/users/{id}/deactivate:
+    patch:
+      consumes:
+      - application/json
+      description: Toggle the is_active flag for a user account
+      parameters:
+      - description: User Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Activation status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeactivateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Deactivate user'
+      tags:
+      - admin-users
   /auth/login:
     post:
       consumes:
@@ -176,11 +1065,34 @@ paths:
       summary: Register
       tags:
       - auth
+  /best-sellers:
+    get:
+      description: Return top-selling books in the last 30 days (Redis cached)
+      parameters:
+      - description: Number of books (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.BestSellerBook'
+            type: array
+      summary: Get best sellers
+      tags:
+      - recommendations
   /books:
     get:
-      description: Full-text and filter-based search across the book catalog
+      consumes:
+      - application/json
+      description: Search and filter books from MongoDB catalog with live stock from
+        PostgreSQL
       parameters:
-      - description: Full-text search term
+      - description: Full-text search query
         in: query
         name: search
         type: string
@@ -204,13 +1116,11 @@ paths:
         in: query
         name: max_price
         type: number
-      - default: 1
-        description: Page number
+      - description: Page number (default 1)
         in: query
         name: page
         type: integer
-      - default: 20
-        description: Results per page
+      - description: Items per page (default 20)
         in: query
         name: page_size
         type: integer
@@ -220,7 +1130,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.paginatedResponse'
+            $ref: '#/definitions/domain.BookListResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -230,9 +1140,11 @@ paths:
       - books
   /books/{id}:
     get:
-      description: Fetch full catalog detail and live stock for a book
+      consumes:
+      - application/json
+      description: Return full book metadata from MongoDB and stock from PostgreSQL
       parameters:
-      - description: MongoDB book ID
+      - description: Book MongoDB ID
         in: path
         name: id
         required: true
@@ -243,7 +1155,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.successResponse'
+            $ref: '#/definitions/domain.BookDetail'
         "404":
           description: Not Found
           schema:
@@ -251,12 +1163,59 @@ paths:
       summary: Get book detail
       tags:
       - books
+  /books/{id}/series:
+    get:
+      description: Return all books in the same series, ordered by volume sequence
+      parameters:
+      - description: Book MongoDB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.SeriesBook'
+            type: array
+      summary: Get series books
+      tags:
+      - recommendations
+  /books/{id}/similar:
+    get:
+      description: Return book recommendations based on shared attributes via Neo4j
+      parameters:
+      - description: Book MongoDB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Number of recommendations (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.SimilarBook'
+            type: array
+      summary: Get similar books
+      tags:
+      - recommendations
   /books/{id}/view:
     post:
-      description: Record that the authenticated user viewed a book (used by recommendation
-        engine)
+      consumes:
+      - application/json
+      description: Increment daily view counter in Redis and log event in MongoDB
       parameters:
-      - description: MongoDB book ID
+      - description: Book MongoDB ID
         in: path
         name: id
         required: true
@@ -275,10 +1234,11 @@ paths:
       - books
   /books/new:
     get:
+      consumes:
+      - application/json
       description: Return the most recently imported books
       parameters:
-      - default: 20
-        description: Max books to return
+      - description: Number of books to return (default 20)
         in: query
         name: limit
         type: integer
@@ -288,20 +1248,26 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.successResponse'
-      summary: New arrivals
+            items:
+              $ref: '#/definitions/domain.BookDetail'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      summary: Get newest books
       tags:
       - books
   /cart:
     get:
-      description: Return current user's cart (Redis cache with PSQL fallback)
+      description: Return the current user's cart items with enriched metadata
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.successResponse'
+            $ref: '#/definitions/domain.CartResponse'
       security:
       - BearerAuth: []
       summary: Get cart
@@ -310,10 +1276,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Add or update a book in the shopping cart (PSQL source of truth,
-        Redis cache)
+      description: Add a book to the user's persistent cart in PostgreSQL and sync
+        to Redis cache
       parameters:
-      - description: Cart item
+      - description: Cart item payload
         in: body
         name: body
         required: true
@@ -335,18 +1301,43 @@ paths:
       summary: Add to cart
       tags:
       - cart
-  /orders/buy-now:
-    post:
+  /cart/{bookId}:
+    delete:
+      description: Delete a book from the user's cart
+      parameters:
+      - description: Book MongoDB ID
+        in: path
+        name: bookId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove cart item
+      tags:
+      - cart
+    put:
       consumes:
       - application/json
-      description: Create a temporary checkout session for a single book (15 min TTL)
+      description: Update the quantity of a book in the user's cart
       parameters:
-      - description: Buy-now request
+      - description: Book MongoDB ID
+        in: path
+        name: bookId
+        required: true
+        type: string
+      - description: New quantity
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/domain.BuyNowRequest'
+          $ref: '#/definitions/domain.UpdateCartItemRequest'
       produces:
       - application/json
       responses:
@@ -360,6 +1351,144 @@ paths:
             $ref: '#/definitions/server.errorResponse'
       security:
       - BearerAuth: []
+      summary: Update cart item
+      tags:
+      - cart
+  /categories:
+    get:
+      description: Return a paginated list of all categories
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.CategoryListResponse'
+      summary: Get categories
+      tags:
+      - categories
+  /most-viewed/30days:
+    get:
+      description: Return top books viewed in the last 30 days (Aggregated from MongoDB)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.MostViewedBook'
+            type: array
+      summary: Get 30-day most viewed
+      tags:
+      - recommendations
+  /most-viewed/daily:
+    get:
+      description: Return top books viewed today (Real-time Redis ZSET)
+      parameters:
+      - description: Number of books (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.MostViewedBook'
+            type: array
+      summary: Get daily most viewed
+      tags:
+      - recommendations
+  /orders:
+    get:
+      description: Return a paginated list of the current user's orders
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 10)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.OrderListResponse'
+      security:
+      - BearerAuth: []
+      summary: Get order history
+      tags:
+      - orders
+  /orders/{id}:
+    get:
+      description: Return full order details including line items
+      parameters:
+      - description: Order Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Order'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get order detail
+      tags:
+      - orders
+  /orders/buy-now:
+    post:
+      consumes:
+      - application/json
+      description: Create a temporary 15-minute session for a single-book purchase
+      parameters:
+      - description: Buy Now payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BuyNowRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.BuyNowResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
       summary: Buy Now
       tags:
       - orders
@@ -367,10 +1496,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create an order from the cart or a buy-now session (atomic PSQL
-        TX)
+      description: Place an order from the cart or a Buy-Now session (Atomic Transaction)
       parameters:
-      - description: Checkout request
+      - description: Checkout payload
         in: body
         name: body
         required: true
@@ -382,7 +1510,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/server.successResponse'
+            $ref: '#/definitions/domain.Order'
         "400":
           description: Bad Request
           schema:

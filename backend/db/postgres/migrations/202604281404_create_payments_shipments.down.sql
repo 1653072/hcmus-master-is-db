@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS shipments;
-DROP TABLE IF EXISTS payments;

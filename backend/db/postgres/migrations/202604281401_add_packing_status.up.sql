@@ -1,5 +1,0 @@
-ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'packing';
-
-ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS address_id UUID REFERENCES addresses(id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS note       TEXT;

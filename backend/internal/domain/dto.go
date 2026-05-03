@@ -22,10 +22,10 @@ type LoginResponse struct {
 }
 
 type UserInfo struct {
-	ID       uuid.UUID `json:"id"`
+	AliasID  uuid.UUID `json:"alias_id"`
 	FullName string    `json:"full_name"`
 	Email    string    `json:"email"`
-	Phone    string    `json:"phone"`
+	Phone    string    `json:"phone,omitempty"`
 	Role     UserRole  `json:"role"`
 }
 
@@ -129,9 +129,11 @@ type CartResponse struct {
 // ─── Order DTOs ───────────────────────────────────────────────────────────────
 
 type CheckoutRequest struct {
-	AddressID     *uuid.UUID `json:"address_id"`
-	Note          string     `json:"note"`
-	SessionID     string     `json:"session_id"`      // for Buy-Now flow
+	// AddressID is the alias_id UUID of the delivery address; resolved to the internal
+	// int64 FK before the PostgreSQL transaction.
+	AddressID *uuid.UUID `json:"address_id"`
+	Note      string     `json:"note"`
+	SessionID string     `json:"session_id"` // for Buy-Now flow
 }
 
 type BuyNowRequest struct {
@@ -143,6 +145,7 @@ type BuyNowResponse struct {
 	SessionID string `json:"session_id"`
 }
 
+// OrderListResponse is the paginated response for order lists.
 type OrderListResponse struct {
 	Orders   []*Order `json:"orders"`
 	Total    int64    `json:"total"`
@@ -151,19 +154,8 @@ type OrderListResponse struct {
 }
 
 type UpdateOrderStatusRequest struct {
-	Status OrderStatus `json:"status" binding:"required,oneof=pending packing shipping completed cancelled"`
+	Status OrderStatus `json:"status" binding:"required,oneof=pending confirmed packing shipping completed cancelled"`
 	Note   string      `json:"note"`
-}
-
-// OrderStatusHistoryResponse is the response DTO for an order status history entry.
-type OrderStatusHistoryResponse struct {
-	ID               uuid.UUID  `json:"id"`
-	OrderID          uuid.UUID  `json:"order_id"`
-	OldStatus        *string    `json:"old_status"`
-	NewStatus        string     `json:"new_status"`
-	ChangedByAdminID *uuid.UUID `json:"changed_by_admin_id,omitempty"`
-	Note             string     `json:"note,omitempty"`
-	ChangedAt        string     `json:"changed_at"`
 }
 
 // ─── Admin User DTOs ──────────────────────────────────────────────────────────

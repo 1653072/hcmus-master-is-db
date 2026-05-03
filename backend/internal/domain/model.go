@@ -6,15 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// ─── Similarity / Trending constants ──────────────────────────────────────────
+// ─── Similarity / BestSeller constants ────────────────────────────────────────
 
 const (
 	WeightCategory  = 0.50
 	WeightAuthor    = 0.33
 	WeightPublisher = 0.17
 
-	TrendingWindowDays = 30
-	TrendingTopN       = 10
+	BestSellerWindowDays = 30
+	BestSellerTopN       = 10
 )
 
 // ─── User ────────────────────────────────────────────────────────────────────
@@ -27,33 +27,45 @@ const (
 )
 
 // User is the PostgreSQL-backed entity for authentication and profile data.
+//
+// Dual-identifier pattern:
+//   - ID (BIGSERIAL) is the internal primary key used for all FK relationships.
+//     It is never exposed in API responses (json:"-").
+//   - AliasID (UUID) is the stable external identifier returned in all API responses.
+//     It is generated once at row creation and never changes.
 type User struct {
-	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	FullName     string    `gorm:"not null"`
-	Email        string    `gorm:"uniqueIndex;not null"`
-	Phone        string
-	PasswordHash string   `gorm:"not null"`
-	Role         UserRole `gorm:"type:varchar(10);not null;default:'user'"`
-	IsActive     bool     `gorm:"not null;default:true"`
-	DefaultAddr  string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           int64     `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID      uuid.UUID `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	FullName     string    `gorm:"not null"                                                        json:"full_name"`
+	Email        string    `gorm:"uniqueIndex;not null"                                            json:"email"`
+	Phone        string    `                                                                       json:"phone,omitempty"`
+	PasswordHash string    `gorm:"not null"                                                        json:"-"`
+	Role         UserRole  `gorm:"type:varchar(10);not null;default:'user'"                        json:"role"`
+	IsActive     bool      `gorm:"not null;default:true"                                           json:"is_active"`
+	DefaultAddr  string    `                                                                       json:"default_addr,omitempty"`
+	CreatedAt    time.Time `                                                                       json:"created_at"`
+	UpdatedAt    time.Time `                                                                       json:"-"`
 }
 
 // ─── Address (PostgreSQL) ─────────────────────────────────────────────────────
 
+// Address stores a delivery address belonging to a user.
+//
+// Dual-identifier pattern: ID (BIGSERIAL) is the internal FK used by the orders
+// table; AliasID (UUID) is the external identifier exposed via the API.
 type Address struct {
-	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	UserID       uuid.UUID `gorm:"type:uuid;not null;index"`
-	ReceiverName string    `gorm:"not null"`
-	Phone        string    `gorm:"not null"`
-	AddressLine  string    `gorm:"not null"`
-	Ward         string
-	District     string
-	City         string `gorm:"not null"`
-	IsDefault    bool   `gorm:"not null;default:false"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           int64     `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID      uuid.UUID `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	UserID       int64     `gorm:"not null;index"                                                  json:"-"`
+	ReceiverName string    `gorm:"not null"                                                        json:"receiver_name"`
+	Phone        string    `gorm:"not null"                                                        json:"phone"`
+	AddressLine  string    `gorm:"not null"                                                        json:"address_line"`
+	Ward         string    `                                                                       json:"ward,omitempty"`
+	District     string    `                                                                       json:"district,omitempty"`
+	City         string    `gorm:"not null"                                                        json:"city"`
+	IsDefault    bool      `gorm:"not null;default:false"                                          json:"is_default"`
+	CreatedAt    time.Time `                                                                       json:"created_at"`
+	UpdatedAt    time.Time `                                                                       json:"-"`
 }
 
 // ─── Book (Catalog — MongoDB) ─────────────────────────────────────────────────
@@ -114,15 +126,16 @@ type Book struct {
 
 // BookRef is the PostgreSQL row that bridges MongoDB documents to stock data.
 type BookRef struct {
+	ID       int64  `gorm:"primaryKey;autoIncrement" json:"-"`
 	MongoID  string `gorm:"primaryKey;column:mongo_id"`
 	IsActive bool   `gorm:"not null;default:true"`
 }
 
 // Inventory holds the stock level for a book, stored in PostgreSQL.
 type Inventory struct {
-	BookID        string `gorm:"primaryKey;column:book_id"`
-	StockQuantity int    `gorm:"not null;default:0"`
-	UpdatedAt     time.Time
+	BookID        string    `gorm:"primaryKey;column:book_id"`
+	StockQuantity int       `gorm:"not null;default:0"`
+	UpdatedAt     time.Time `gorm:"not null;default:now()"`
 }
 
 // BookDetail combines a MongoDB Book document with live stock data from PostgreSQL.
@@ -144,17 +157,32 @@ type Category struct {
 	UpdatedAt      time.Time `bson:"updatedAt"     json:"updated_at"`
 }
 
-// ─── Persistent Cart (PostgreSQL) ────────────────────────────────────────────
+// ─── Cart (PostgreSQL) ────────────────────────────────────────────────────────
 
-// PersistentCartItem is the PSQL source-of-truth for a user's cart.
-type PersistentCartItem struct {
-	UserID    uuid.UUID `gorm:"type:uuid;primaryKey"`
-	BookID    string    `gorm:"primaryKey"`
-	Quantity  int       `gorm:"not null;default:1"`
-	UpdatedAt time.Time
+// Cart is the PostgreSQL header record for a user's shopping cart.
+// Each user has at most one active cart (user_id is unique).
+// UserID is the internal int64 FK pointing to users.id; it is never exposed in responses.
+type Cart struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"-"`
+	UserID    int64     `gorm:"not null;uniqueIndex"     json:"-"`
+	CreatedAt time.Time `                                json:"-"`
+	UpdatedAt time.Time `                                json:"-"`
 }
 
-// CartItem represents a single line in a user's shopping cart (Redis cache / response).
+// CartItemRecord is the PostgreSQL line-item record stored in the cart_items table.
+// Each row links a cart to a book and records the desired quantity.
+type CartItemRecord struct {
+	CartID    int64     `gorm:"primaryKey"      json:"-"`
+	BookID    string    `gorm:"primaryKey"      json:"-"`
+	Quantity  int       `gorm:"not null;default:1"`
+	UpdatedAt time.Time `                       json:"-"`
+}
+
+// TableName overrides the default GORM table name.
+func (CartItemRecord) TableName() string { return "cart_items" }
+
+// CartItem represents a single enriched line in a user's shopping cart
+// (used for Redis cache and API responses, not persisted directly).
 type CartItem struct {
 	BookID   string  `json:"book_id"`
 	Name     string  `json:"name"`
@@ -168,6 +196,7 @@ type OrderStatus string
 
 const (
 	OrderStatusPending   OrderStatus = "pending"
+	OrderStatusConfirmed OrderStatus = "confirmed"
 	OrderStatusPacking   OrderStatus = "packing"
 	OrderStatusShipping  OrderStatus = "shipping"
 	OrderStatusCompleted OrderStatus = "completed"
@@ -175,61 +204,78 @@ const (
 )
 
 // Order is the header record of a placed order.
+//
+// Dual-identifier pattern: ID (BIGSERIAL) is the internal FK used by order_items,
+// order_status_history, payments, and shipments tables; AliasID (UUID) is the
+// external identifier exposed in all API responses and accepted in URL parameters.
 type Order struct {
-	ID          uuid.UUID   `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	UserID      uuid.UUID   `gorm:"type:uuid;not null;index"`
-	Status      OrderStatus `gorm:"type:varchar(20);not null;default:'pending'"`
-	TotalAmount float64     `gorm:"not null"`
-	AddressID   *uuid.UUID  `gorm:"type:uuid"`
-	Note        string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Items       []OrderItem `gorm:"foreignKey:OrderID"`
+	ID          int64       `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID     uuid.UUID   `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	UserID      int64       `gorm:"not null;index"                                                  json:"-"`
+	Status      OrderStatus `gorm:"type:varchar(20);not null;default:'pending'"                     json:"status"`
+	TotalAmount float64     `gorm:"not null"                                                        json:"total_amount"`
+	AddressID   *int64      `                                                                       json:"-"`
+	Note        string      `                                                                       json:"note,omitempty"`
+	CreatedAt   time.Time   `                                                                       json:"created_at"`
+	UpdatedAt   time.Time   `                                                                       json:"-"`
+	Items       []OrderItem `gorm:"foreignKey:OrderID"                                              json:"items,omitempty"`
 }
 
 // OrderItem stores the price snapshot at the time of purchase.
+// It is embedded in Order responses; the internal int64 IDs are hidden from JSON.
 type OrderItem struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrderID     uuid.UUID `gorm:"type:uuid;not null;index"`
-	MongoBookID string    `gorm:"not null"`
-	Name        string    `gorm:"not null"`
-	Quantity    int       `gorm:"not null"`
-	UnitPrice   float64   `gorm:"not null"`
+	ID          int64   `gorm:"primaryKey;autoIncrement"      json:"-"`
+	OrderID     int64   `gorm:"not null;index"                json:"-"`
+	MongoBookID string  `gorm:"column:mongo_book_id;not null" json:"book_id"`
+	Name        string  `gorm:"not null"                      json:"name"`
+	Quantity    int     `gorm:"not null"                      json:"quantity"`
+	UnitPrice   float64 `gorm:"not null"                      json:"unit_price"`
 }
 
 // OrderStatusHistory is the audit trail for every order status change.
+//
+// OrderID is the internal FK (hidden from JSON). ChangedByAdminAliasID stores the
+// admin's alias_id UUID directly (denormalised) so the history record can be
+// serialised without a join back to the users table.
 type OrderStatusHistory struct {
-	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrderID          uuid.UUID  `gorm:"type:uuid;not null;index"`
-	OldStatus        *string    `gorm:"type:varchar(20)"` // nullable for initial creation
-	NewStatus        string     `gorm:"type:varchar(20);not null"`
-	ChangedByAdminID *uuid.UUID `gorm:"type:uuid"`
-	Note             string
-	ChangedAt        time.Time `gorm:"not null;default:now()"`
+	ID                    int64      `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID               uuid.UUID  `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	OrderID               int64      `gorm:"not null;index"                                                  json:"-"`
+	OldStatus             *string    `gorm:"type:varchar(20)"                                                json:"old_status"`
+	NewStatus             string     `gorm:"type:varchar(20);not null"                                       json:"new_status"`
+	ChangedByAdminAliasID *uuid.UUID `gorm:"type:uuid;column:changed_by_admin_alias_id"                      json:"changed_by_admin_alias_id,omitempty"`
+	Note                  string     `                                                                       json:"note,omitempty"`
+	ChangedAt             time.Time  `gorm:"not null;default:now()"                                          json:"changed_at"`
 }
 
 // Payment stores payment details for an order.
+//
+// Dual-identifier pattern: ID (BIGSERIAL) internal; AliasID (UUID) external.
 type Payment struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrderID     uuid.UUID `gorm:"type:uuid;not null;index"`
-	Method      string    `gorm:"not null"`
-	Status      string    `gorm:"not null;default:'pending'"`
-	Amount      float64   `gorm:"not null"`
-	ProviderRef string
-	PaidAt      *time.Time
-	CreatedAt   time.Time
+	ID          int64      `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID     uuid.UUID  `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	OrderID     int64      `gorm:"not null;index"                                                  json:"-"`
+	Method      string     `gorm:"not null"                                                        json:"method"`
+	Status      string     `gorm:"not null;default:'pending'"                                      json:"status"`
+	Amount      float64    `gorm:"not null"                                                        json:"amount"`
+	ProviderRef string     `                                                                       json:"provider_ref,omitempty"`
+	PaidAt      *time.Time `                                                                       json:"paid_at,omitempty"`
+	CreatedAt   time.Time  `                                                                       json:"created_at"`
 }
 
 // Shipment stores shipment details for an order.
+//
+// Dual-identifier pattern: ID (BIGSERIAL) internal; AliasID (UUID) external.
 type Shipment struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrderID     uuid.UUID `gorm:"type:uuid;not null;index"`
-	Status      string    `gorm:"not null;default:'pending'"`
-	Carrier     string
-	TrackingNo  string
-	ShippedAt   *time.Time
-	DeliveredAt *time.Time
-	CreatedAt   time.Time
+	ID             int64      `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID        uuid.UUID  `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	OrderID        int64      `gorm:"not null;index"                                                  json:"-"`
+	Status         string     `gorm:"not null;default:'pending'"                                      json:"status"`
+	Carrier        string     `                                                                       json:"carrier,omitempty"`
+	TrackingNumber string     `gorm:"column:tracking_no"                                              json:"tracking_number,omitempty"`
+	ShippedAt      *time.Time `                                                                       json:"shipped_at,omitempty"`
+	DeliveredAt    *time.Time `                                                                       json:"delivered_at,omitempty"`
+	CreatedAt      time.Time  `                                                                       json:"created_at"`
 }
 
 // ─── Buy-Now checkout session (Redis) ────────────────────────────────────────
@@ -274,11 +320,43 @@ type SeriesBook struct {
 	AlreadyBought bool   `json:"already_bought"`
 }
 
-// ─── Trending (Redis) ─────────────────────────────────────────────────────────
+// ─── BestSeller (Redis) ───────────────────────────────────────────────────────
 
-// TrendingBook is an entry from the Redis sorted set of bestsellers.
-type TrendingBook struct {
-	BookID string  `json:"book_id"`
-	Title  string  `json:"title"`
-	Score  float64 `json:"score"`
+// BestSellerBook is an entry in the Redis bestseller cache (NV-E2).
+// TotalSold reflects units sold in the past 30 days, as aggregated daily by BestSellerWorker.
+type BestSellerBook struct {
+	BookID    string  `json:"book_id"`
+	Title     string  `json:"title"`
+	TotalSold float64 `json:"total_sold"`
+}
+
+// ─── Most Viewed (Redis + MongoDB) ───────────────────────────────────────────
+
+const (
+	MostViewedWindowDays = 30
+	MostViewedTopN       = 10
+)
+
+// MostViewedBook is an entry in the most-viewed rankings (NV-E3).
+type MostViewedBook struct {
+	BookID    string  `json:"book_id"`
+	Title     string  `json:"title"`
+	ViewCount float64 `json:"view_count"`
+}
+
+// ─── Event Log (MongoDB) ─────────────────────────────────────────────────────
+
+const (
+	EventTypeViewed    = "viewed"
+)
+
+// EventLog records a user behaviour event (view, purchase) stored in MongoDB
+// under the "view_event_logs" collection. Used as the source of truth for
+// 30-day most-viewed aggregation.
+type EventLog struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id,omitempty"`
+	BookID    string    `json:"book_id"`
+	EventType string    `json:"event_type"`
+	CreatedAt time.Time `json:"created_at"`
 }

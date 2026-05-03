@@ -2,6 +2,7 @@ package server
 
 import (
 	"bookstore/backend/internal/domain"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -9,6 +10,17 @@ import (
 )
 
 // AdminListOrders handles GET /api/v1/admin/orders.
+//
+// @Summary      Admin: List orders
+// @Description  Return a paginated list of all orders with optional status filter
+// @Tags         admin-orders
+// @Security     BearerAuth
+// @Produce      json
+// @Param        status     query     string  false  "Filter by order status"
+// @Param        page       query     int     false  "Page number"
+// @Param        page_size  query     int     false  "Items per page"
+// @Success      200        {object}  domain.OrderListResponse
+// @Router       /admin/orders [get]
 func (s *Service) AdminListOrders(c *gin.Context) {
 	status := domain.OrderStatus(c.Query("status"))
 	page := queryInt(c, "page", 1)
@@ -25,14 +37,24 @@ func (s *Service) AdminListOrders(c *gin.Context) {
 }
 
 // AdminGetOrder handles GET /api/v1/admin/orders/:id.
+// The :id parameter is the order's alias_id UUID.
+//
+// @Summary      Admin: Get order
+// @Description  Return full order details for any order
+// @Tags         admin-orders
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id   path      string  true  "Order Alias ID (UUID)"
+// @Success      200  {object}  domain.Order
+// @Router       /admin/orders/{id} [get]
 func (s *Service) AdminGetOrder(c *gin.Context) {
-	orderID, err := uuid.Parse(c.Param("id"))
+	orderAliasID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		respondBadRequest(c, "invalid order id")
 		return
 	}
 
-	order, err := s.pg.GetOrderByID(c.Request.Context(), orderID)
+	order, err := s.pg.GetOrderByAliasID(c.Request.Context(), orderAliasID)
 	if err != nil || order == nil {
 		respondNotFound(c, "order not found")
 		return
@@ -42,47 +64,123 @@ func (s *Service) AdminGetOrder(c *gin.Context) {
 }
 
 // AdminUpdateOrderStatus handles PATCH /api/v1/admin/orders/:id/status.
-// The status update and order_status_history insertion share the same PG transaction.
+//
+// State machine rules (enforced in PostgreSQL repository):
+//   - pending   → confirmed | packing | cancelled
+//   - confirmed → packing   | cancelled
+//   - packing   → shipping  | cancelled
+//   - shipping  → completed | cancelled
+//   - completed → terminal  (no further changes allowed)
+//   - cancelled → terminal  (no further changes allowed)
+//
+// When an order is cancelled, the purchased stock quantities are restored to
+// the inventory inside a transaction to preserve ACID consistency.
+//
+// @Summary      Admin: Update order status
+// @Description  Transition an order to a new state and log audit trail
+// @Tags         admin-orders
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id    path      string                            true  "Order Alias ID (UUID)"
+// @Param        body  body      domain.UpdateOrderStatusRequest  true  "Status update payload"
+// @Success      200   {object}  successResponse
+// @Failure      400   {object}  errorResponse
+// @Router       /admin/orders/{id}/status [patch]
 func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
-	orderID, err := uuid.Parse(c.Param("id"))
+	orderAliasID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		respondBadRequest(c, "invalid order id")
 		return
 	}
 
-	var req domain.UpdateOrderStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var statusUpdateRequest domain.UpdateOrderStatusRequest
+	if err := c.ShouldBindJSON(&statusUpdateRequest); err != nil {
 		respondBadRequest(c, err.Error())
 		return
 	}
 
 	ctx := c.Request.Context()
+	// Admin's alias_id is stored in the history record (denormalised UUID — no DB join needed).
+	adminAliasID := mustUserAliasID(c)
 
-	order, err := s.pg.GetOrderByID(ctx, orderID)
+	// Resolve alias_id → full Order struct (includes internal int64 ID and pre-loaded Items).
+	order, err := s.pg.GetOrderByAliasID(ctx, orderAliasID)
 	if err != nil || order == nil {
 		respondNotFound(c, "order not found")
 		return
 	}
 
-	adminID := mustUserID(c)
-	if err := s.pg.UpdateOrderStatus(ctx, orderID, req.Status, &adminID, req.Note); err != nil {
-		s.logger.Error("update order status", zap.Error(err))
-		respondInternalError(c, "could not update order status")
+	// Wrap the status update and optional stock restoration in a single transaction.
+	transactionError := s.pg.Transaction(ctx, func(transaction domain.PostgresTransactor) error {
+		// UpdateOrderStatus uses the internal int64 PK for the WHERE clause.
+		if err := transaction.UpdateOrderStatus(ctx, order.ID, statusUpdateRequest.Status, &adminAliasID, statusUpdateRequest.Note); err != nil {
+			return err
+		}
+
+		// When an order is cancelled, restore the inventory for each line item.
+		if statusUpdateRequest.Status == domain.OrderStatusCancelled {
+			for _, lineItem := range order.Items {
+				if _, lockErr := transaction.GetInventoryForUpdate(ctx, lineItem.MongoBookID); lockErr != nil {
+					return lockErr
+				}
+				if restoreErr := transaction.UpdateStock(ctx, lineItem.MongoBookID, lineItem.Quantity); restoreErr != nil {
+					return restoreErr
+				}
+			}
+		}
+		return nil
+	})
+
+	if transactionError != nil {
+		s.logger.Error("update order status", zap.Error(transactionError))
+		respondInternalError(c, transactionError.Error())
 		return
 	}
 
-	respondOK(c, gin.H{"status": string(req.Status)})
+	// Invalidate order-history cache for the order owner (keyed by internal user ID).
+	if s.features.RedisOrderHistory {
+		_ = s.orderCache.InvalidateOrderHistory(ctx, strconv.FormatInt(order.UserID, 10))
+	}
+
+	// Invalidate stale stock cache entries when stock was restored after cancellation.
+	if statusUpdateRequest.Status == domain.OrderStatusCancelled && s.features.RedisBookCache {
+		for _, lineItem := range order.Items {
+			_ = s.bookCache.SetStock(ctx, lineItem.MongoBookID, 0)
+		}
+	}
+
+	respondOK(c, gin.H{"status": string(statusUpdateRequest.Status)})
 }
 
 // AdminGetOrderHistory handles GET /api/v1/admin/orders/:id/history.
+// The :id parameter is the order's alias_id UUID.
+//
+// @Summary      Admin: Get order audit trail
+// @Description  Return the full history of status transitions for an order
+// @Tags         admin-orders
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id   path      string  true  "Order Alias ID (UUID)"
+// @Success      200  {array}   domain.OrderStatusHistory
+// @Router       /admin/orders/{id}/history [get]
 func (s *Service) AdminGetOrderHistory(c *gin.Context) {
-	orderID, err := uuid.Parse(c.Param("id"))
+	orderAliasID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		respondBadRequest(c, "invalid order id")
 		return
 	}
 
-	history, err := s.pg.ListByOrder(c.Request.Context(), orderID)
+	ctx := c.Request.Context()
+
+	// Resolve alias_id to get the internal order ID needed for the history lookup.
+	order, err := s.pg.GetOrderByAliasID(ctx, orderAliasID)
+	if err != nil || order == nil {
+		respondNotFound(c, "order not found")
+		return
+	}
+
+	history, err := s.pg.ListByOrder(ctx, order.ID)
 	if err != nil {
 		s.logger.Error("list order history", zap.Error(err))
 		respondInternalError(c, "could not fetch order history")

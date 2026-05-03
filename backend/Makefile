@@ -4,6 +4,12 @@ MIGRATE=migrate
 SQLC=sqlc
 SWAG=swag
 
+# Load environment variables from .env file
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
 POSTGRES_DSN?=postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 MIGRATIONS_DIR=db/postgres/migrations
 
@@ -51,8 +57,28 @@ swagger-gen:
 
 db-start:
 	docker-compose up -d postgres mongo neo4j redis
-	@echo "Waiting for databases to be ready..."
-	@sleep 5
+	@echo "Waiting for PostgreSQL to be ready (user + database initialised)..."
+	@until docker exec bookstore_postgres psql \
+	    -U "$(POSTGRES_USER)" -d "$(POSTGRES_DB)" \
+	    -c "SELECT 1" > /dev/null 2>&1; do \
+	    echo "  ...still waiting"; sleep 2; \
+	done
+	@echo "PostgreSQL is ready."
+	@echo "Waiting for MongoDB to be ready..."
+	@until docker exec bookstore_mongo mongosh \
+	    -u "$(MONGO_USER)" -p "$(MONGO_PASSWORD)" \
+	    --authenticationDatabase admin \
+	    --eval "db.adminCommand('ping')" > /dev/null 2>&1; do \
+	    echo "  ...still waiting"; sleep 2; \
+	done
+	@echo "MongoDB is ready."
+	@echo "Waiting for Neo4j to be ready..."
+	@until docker exec bookstore_neo4j cypher-shell \
+	    -u "neo4j" -p "$(NEO4J_PASSWORD)" \
+	    "RETURN 1" > /dev/null 2>&1; do \
+	    echo "  ...still waiting"; sleep 3; \
+	done
+	@echo "Neo4j is ready."
 
 db-stop:
 	docker-compose down
@@ -63,33 +89,34 @@ db-logs:
 db-init-pg:
 	@echo "Applying PostgreSQL migrations..."
 	$(MIGRATE) -source file://$(MIGRATIONS_DIR) \
-	  -database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable" \
+	  -database "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable" \
 	  up
 
 db-admin-pg:
 	@echo "Creating bookstore_admin role in PostgreSQL..."
-	psql "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable" \
-	  -c "DO \$\$ BEGIN \
-	        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bookstore_admin') THEN \
-	          CREATE ROLE bookstore_admin WITH LOGIN PASSWORD 'bookstore_admin'; \
-	        END IF; \
-	      END \$\$;"
+	@docker exec bookstore_postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) \
+	  -c "CREATE ROLE bookstore_admin WITH LOGIN PASSWORD 'bookstore_admin';" || echo "Role already exists, skipping creation..."
+	@docker exec bookstore_postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "GRANT ALL PRIVILEGES ON DATABASE $(POSTGRES_DB) TO bookstore_admin;"
 
 db-init-mongo:
-	@echo "Creating MongoDB collections and indexes..."
-	mongosh "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@localhost:27017/$(MONGO_DB)?authSource=admin" \
-	  --eval "db.createCollection('books'); db.createCollection('categories');"
+	@echo "Creating MongoDB indexes..."
+	docker exec bookstore_mongo mongosh -u $(MONGO_USER) -p $(MONGO_PASSWORD) --authenticationDatabase admin \
+	  --eval "db = db.getSiblingDB('$(MONGO_DB)'); \
+	          db.createCollection('books'); db.createCollection('categories'); db.createCollection('view_event_logs'); \
+	          db.view_event_logs.createIndex({bookId: 1}); \
+	          db.view_event_logs.createIndex({eventType: 1, createdAt: -1}); \
+	          db.books.createIndex({name: 'text', shortDescription: 'text'}); \
+	          db.books.createIndex({createdAt: -1});"
 
 db-init-neo4j:
 	@echo "Applying Neo4j graph constraints..."
-	cypher-shell -u "$(NEO4J_USER)" -p "$(NEO4J_PASSWORD)" \
-	  -f db/neo4j/migrations/202604231400_init_graph_constraints.up.cypher
-	cypher-shell -u "$(NEO4J_USER)" -p "$(NEO4J_PASSWORD)" \
-	  -f db/neo4j/migrations/202604281400_update_graph_relationships.up.cypher
+	docker exec -i bookstore_neo4j cypher-shell \
+	  -u "neo4j" -p "$(NEO4J_PASSWORD)" \
+	  < db/neo4j/migrations/202605031400_init_schema.up.cypher
 
 db-init-redis:
 	@echo "Pinging Redis..."
-	redis-cli -a "$(REDIS_PASSWORD)" PING
+	docker exec bookstore_redis redis-cli -a "$(REDIS_PASSWORD)" PING
 
 ## ── Cleanup ──────────────────────────────────────────────────────────────────
 

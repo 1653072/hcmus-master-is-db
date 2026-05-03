@@ -48,7 +48,12 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 		pub.GET("/books/:id", svc.GetBookDetail)
 		pub.GET("/books/:id/similar", svc.GetSimilarBooks)
 		pub.GET("/books/:id/series", svc.GetSeriesBooks)
-		pub.GET("/trending", svc.GetTrending)
+
+		pub.GET("/categories", svc.GetCategories)
+
+		pub.GET("/best-sellers", svc.GetBestSellers)
+		pub.GET("/most-viewed/daily", svc.GetTopDailyViewed)
+		pub.GET("/most-viewed/30days", svc.GetTopMostViewed30Days)
 	}
 
 	// ── SHARED AUTH (any valid JWT — used for logout) ─────────────────────
@@ -104,7 +109,7 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 		admin.PATCH("/users/:id/deactivate", svc.AdminDeactivateUser)
 
 		// Analytics
-		admin.GET("/analytics/trending", svc.AdminGetTrending)
+		admin.GET("/analytics/best-sellers", svc.AdminGetBestSellers)
 		admin.GET("/analytics/sales", svc.AdminGetSales)
 	}
 

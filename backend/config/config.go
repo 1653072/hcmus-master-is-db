@@ -26,6 +26,19 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Logger   LoggerConfig   `mapstructure:"logger"`
+	Features FeaturesConfig `mapstructure:"features"`
+}
+
+// FeaturesConfig controls feature toggles for optional Redis caching behaviors.
+// Each flag can be overridden via an environment variable using double-underscore
+// as the separator, e.g. FEATURES_REDIS_BOOK_CACHE=false.
+type FeaturesConfig struct {
+	RedisBookCache       bool `mapstructure:"redis_book_cache"`        // NV-B2/B3: book detail, newest, and stock caches
+	RedisCartCache       bool `mapstructure:"redis_cart_cache"`        // NV-C1/C2: Redis cart cache layer
+	RedisBestSellers     bool `mapstructure:"redis_best_sellers"`      // NV-E2: bestseller JSON cache (refreshed daily by worker)
+	RedisOrderHistory    bool `mapstructure:"redis_order_history"`     // NV-D2: order history list cache (TTL 30 min)
+	RedisMostViewedDaily bool `mapstructure:"redis_most_viewed_daily"` // NV-E3: daily view count sorted set + data cache
+	RedisCategoryCache   bool `mapstructure:"redis_category_cache"`   // NV-F4: category list cache
 }
 
 type ServerConfig struct {
@@ -78,7 +91,7 @@ type LoggerConfig struct {
 
 // Load reads configuration from embedded defaults, then overlays environment variables.
 // Env vars map to config keys using double-underscore as separator
-// (e.g. POSTGRES__HOST overrides postgres.host).
+// (e.g. POSTGRES_HOST overrides postgres.host).
 func Load() *Config {
 	v := viper.New()
 
@@ -88,7 +101,7 @@ func Load() *Config {
 	}
 
 	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	cfg := &Config{}
 	if err := v.Unmarshal(cfg, func(dc *mapstructure.DecoderConfig) {

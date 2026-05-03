@@ -32,7 +32,8 @@ func RequireAuth(sessionRepo domain.SessionRepository, jwtSecret string) gin.Han
 			return
 		}
 
-		c.Set(CtxUserID, claims.UserID)
+		c.Set(CtxUserAliasID, claims.UserAliasID)
+		c.Set(CtxUserInternalID, claims.UserInternalID)
 		c.Set(CtxUserRole, claims.Role)
 		c.Set(CtxToken, rawToken)
 		c.Next()

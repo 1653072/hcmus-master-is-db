@@ -146,8 +146,8 @@ func (s *Service) Logout(c *gin.Context) {
 // @Failure      404  {object}  errorResponse
 // @Router       /users/me [get]
 func (s *Service) GetProfile(c *gin.Context) {
-	userID := mustUserID(c)
-	user, err := s.pg.GetUserByID(c.Request.Context(), userID)
+	userInternalID := mustUserInternalID(c)
+	user, err := s.pg.GetUserByID(c.Request.Context(), userInternalID)
 	if err != nil || user == nil {
 		respondNotFound(c, "user not found")
 		return
@@ -174,10 +174,10 @@ func (s *Service) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	userID := mustUserID(c)
+	userInternalID := mustUserInternalID(c)
 	ctx := c.Request.Context()
 
-	user, err := s.pg.GetUserByID(ctx, userID)
+	user, err := s.pg.GetUserByID(ctx, userInternalID)
 	if err != nil || user == nil {
 		respondNotFound(c, "user not found")
 		return
@@ -206,7 +206,7 @@ func (s *Service) UpdateProfile(c *gin.Context) {
 
 func toUserInfo(u *domain.User) domain.UserInfo {
 	return domain.UserInfo{
-		ID:       u.ID,
+		AliasID:  u.AliasID,
 		FullName: u.FullName,
 		Email:    u.Email,
 		Phone:    u.Phone,
@@ -214,12 +214,22 @@ func toUserInfo(u *domain.User) domain.UserInfo {
 	}
 }
 
-func mustUserID(c *gin.Context) uuid.UUID {
-	raw, _ := c.Get(middleware.CtxUserID)
+// mustUserAliasID returns the authenticated user's external UUID alias from the
+// Gin context. Used for Redis cache keys and external identifiers in responses.
+func mustUserAliasID(c *gin.Context) uuid.UUID {
+	raw, _ := c.Get(middleware.CtxUserAliasID)
 	id, _ := uuid.Parse(raw.(string))
 	return id
 }
 
+// mustUserInternalID returns the authenticated user's internal BIGSERIAL int64
+// from the Gin context. Used exclusively for PostgreSQL FK operations.
+func mustUserInternalID(c *gin.Context) int64 {
+	raw, _ := c.Get(middleware.CtxUserInternalID)
+	id, _ := raw.(int64)
+	return id
+}
+
 func (s *Service) generateToken(user *domain.User) (string, error) {
-	return token.GenerateToken(user.ID, user.Email, user.Role, s.jwtCfg)
+	return token.GenerateToken(user.AliasID, user.ID, user.Email, user.Role, s.jwtCfg)
 }

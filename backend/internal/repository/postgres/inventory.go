@@ -6,29 +6,32 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-// GetInventory fetches the inventory record for a book.
+// GetInventory fetches the inventory record for a book without acquiring a lock.
 func (q *Queries) GetInventory(ctx context.Context, bookID string) (*domain.Inventory, error) {
-	var inv domain.Inventory
-	err := q.db.WithContext(ctx).First(&inv, "book_id = ?", bookID).Error
+	var inventory domain.Inventory
+	err := q.db.WithContext(ctx).First(&inventory, "book_id = ?", bookID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	return &inv, err
+	return &inventory, err
 }
 
-// GetInventoryForUpdate fetches the inventory row with a row-level lock (SELECT FOR UPDATE).
-// Must be called inside a Transaction to be meaningful.
+// GetInventoryForUpdate fetches the inventory row with a pessimistic row-level lock
+// (SELECT … FOR UPDATE). Must always be called inside a Transaction block to ensure
+// ACID correctness when multiple concurrent requests (purchases, admin restocks, or
+// order cancellations) modify the same stock counter simultaneously.
 func (q *Queries) GetInventoryForUpdate(ctx context.Context, bookID string) (*domain.Inventory, error) {
-	var inv domain.Inventory
+	var inventory domain.Inventory
 	err := q.db.WithContext(ctx).
-		Set("gorm:query_option", "FOR UPDATE").
-		First(&inv, "book_id = ?", bookID).Error
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&inventory, "book_id = ?", bookID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	return &inv, err
+	return &inventory, err
 }
 
 // CreateInventory inserts a new inventory row for a book.
@@ -36,8 +39,9 @@ func (q *Queries) CreateInventory(ctx context.Context, inv *domain.Inventory) er
 	return q.db.WithContext(ctx).Create(inv).Error
 }
 
-// UpdateStock adjusts stock_quantity by delta (positive = add, negative = deduct).
-// The CHECK constraint in the DB ensures stock never goes below 0.
+// UpdateStock adjusts stock_quantity by delta (positive = restock, negative = deduct).
+// A CHECK constraint in the database prevents stock_quantity from going below zero.
+// Must be called inside a Transaction after GetInventoryForUpdate to prevent race conditions.
 func (q *Queries) UpdateStock(ctx context.Context, bookID string, delta int) error {
 	return q.db.WithContext(ctx).
 		Model(&domain.Inventory{}).

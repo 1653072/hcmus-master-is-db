@@ -10,6 +10,8 @@ import (
 )
 
 // RecommendationRepository implements domain.RecommendationRepository against Neo4j.
+// Only Book nodes and their structural relationships are stored in the graph.
+// No User nodes exist; user behaviour events are recorded in MongoDB only.
 type RecommendationRepository struct {
 	driver neo4j.DriverWithContext
 }
@@ -19,26 +21,47 @@ func NewRecommendationRepository(driver neo4j.DriverWithContext) *Recommendation
 	return &RecommendationRepository{driver: driver}
 }
 
-// GetSimilarBooks traverses the book graph and returns the top similar books
-// ranked by weighted score: Category (×0.5) > Author (×0.33) > Publisher (×0.17).
+// GetSimilarBooks returns the top-N books most similar to mongoID.
+// It first checks for pre-computed SIMILARITY_TO edges; if none exist it falls back
+// to a live weighted traversal over shared Category, Author, and Publisher nodes.
 func (r *RecommendationRepository) GetSimilarBooks(ctx context.Context, mongoID string, limit int) ([]domain.SimilarBook, error) {
 	cypher := `
 MATCH (source:Book {mongo_id: $mongoID, is_active: true})
 
-OPTIONAL MATCH (source)-[:BELONGS_TO]->(cat:Category)<-[:BELONGS_TO]-(sim:Book {is_active: true})
-  WHERE sim.mongo_id <> $mongoID
-WITH source, sim, COUNT(cat) * $weightCategory AS categoryScore
+// Use pre-computed SIMILARITY_TO edges first (fast path)
+OPTIONAL MATCH (source)-[sim_rel:SIMILARITY_TO]->(precomputed:Book {is_active: true})
+WITH source, collect({book: precomputed, score: sim_rel.score}) AS precomputedSimilar
 
-OPTIONAL MATCH (source)-[:WRITTEN_BY]->(a:Author)<-[:WRITTEN_BY]-(sim)
-WITH source, sim, categoryScore, COUNT(a) * $weightAuthor AS authorScore
+// Fall back to live weighted traversal when no pre-computed edges exist
+CALL {
+  WITH source, precomputedSimilar
+  WITH source, precomputedSimilar
+  WHERE size(precomputedSimilar) = 0
 
-OPTIONAL MATCH (source)-[:PUBLISHED_BY]->(p:Publisher)<-[:PUBLISHED_BY]-(sim)
-WITH sim, categoryScore + authorScore + COUNT(p) * $weightPublisher AS totalScore
+  OPTIONAL MATCH (source)-[:BELONGS_TO]->(cat:Category)<-[:BELONGS_TO]-(sim:Book {is_active: true})
+    WHERE sim.mongo_id <> $mongoID
+  WITH source, sim, COUNT(cat) * $weightCategory AS categoryScore
 
-WHERE sim IS NOT NULL AND totalScore > 0
-RETURN sim.mongo_id AS mongo_id,
-       sim.title    AS title,
-       totalScore   AS score
+  OPTIONAL MATCH (source)-[:WRITTEN_BY]->(a:Author)<-[:WRITTEN_BY]-(sim)
+  WITH source, sim, categoryScore, COUNT(a) * $weightAuthor AS authorScore
+
+  OPTIONAL MATCH (source)-[:PUBLISHED_BY]->(p:Publisher)<-[:PUBLISHED_BY]-(sim)
+  WITH sim, categoryScore + authorScore + COUNT(p) * $weightPublisher AS totalScore
+
+  WHERE sim IS NOT NULL AND totalScore > 0
+  RETURN sim AS book, totalScore AS score
+
+  UNION
+
+  WITH source, precomputedSimilar
+  WHERE size(precomputedSimilar) > 0
+  UNWIND precomputedSimilar AS entry
+  RETURN entry.book AS book, entry.score AS score
+}
+
+RETURN book.mongo_id AS mongo_id,
+       book.title    AS title,
+       score
 ORDER BY score DESC
 LIMIT $limit`
 
@@ -68,7 +91,7 @@ LIMIT $limit`
 	return result, nil
 }
 
-// GetSeriesBooks returns all active books in a named series, ordered by sequence.
+// GetSeriesBooks returns all active books in a named series, ordered by volume sequence.
 func (r *RecommendationRepository) GetSeriesBooks(ctx context.Context, seriesName string) ([]domain.SeriesBook, error) {
 	cypher := `
 MATCH (b:Book {is_active: true})-[r:IN_SERIES]->(s:Series {name: $seriesName})
@@ -97,16 +120,18 @@ ORDER BY r.sequence_no ASC`
 	return result, nil
 }
 
-// UpsertBookNode creates or updates a Book node with V2 relationship types.
+// UpsertBookNode creates or updates a Book node with all structural relationships,
+// then recomputes SIMILARITY_TO edges so other books can find this book via GetSimilarBooks.
 func (r *RecommendationRepository) UpsertBookNode(ctx context.Context, node domain.BookNode) error {
-	cypher := `
+	// Step 1: Upsert the Book node and its outgoing structural relationships.
+	upsertCypher := `
 MERGE (b:Book {mongo_id: $mongoID})
 SET b.title     = $title,
     b.is_active = $isActive
 
 WITH b
-UNWIND $categories AS catName
-  MERGE (c:Category {name: catName})
+UNWIND $categories AS categoryName
+  MERGE (c:Category {name: categoryName})
   MERGE (b)-[:BELONGS_TO]->(c)
 
 WITH b
@@ -129,7 +154,7 @@ FOREACH (_ IN CASE WHEN $seriesName <> '' THEN [1] ELSE [] END |
   MERGE (b)-[:IN_SERIES {sequence_no: $sequenceNo}]->(s)
 )`
 
-	return writeQuery(ctx, r.driver, cypher, map[string]any{
+	if err := writeQuery(ctx, r.driver, upsertCypher, map[string]any{
 		"mongoID":    node.MongoID,
 		"title":      node.Title,
 		"isActive":   node.IsActive,
@@ -139,10 +164,47 @@ FOREACH (_ IN CASE WHEN $seriesName <> '' THEN [1] ELSE [] END |
 		"tags":       node.Tags,
 		"seriesName": node.SeriesName,
 		"sequenceNo": node.SequenceNo,
+	}); err != nil {
+		return err
+	}
+
+	// Step 2: Recompute SIMILARITY_TO edges for this book against all other active books.
+	return r.computeSimilarityEdgesForBook(ctx, node.MongoID)
+}
+
+// computeSimilarityEdgesForBook creates or updates SIMILARITY_TO relationships
+// from mongoID to every other active book that shares at least one Category, Author,
+// or Publisher node.  The score mirrors the weighted traversal used by GetSimilarBooks:
+//   Category ×0.50 + Author ×0.33 + Publisher ×0.17
+func (r *RecommendationRepository) computeSimilarityEdgesForBook(ctx context.Context, mongoID string) error {
+	cypher := `
+MATCH (source:Book {mongo_id: $mongoID, is_active: true})
+MATCH (other:Book {is_active: true}) WHERE other.mongo_id <> $mongoID
+
+OPTIONAL MATCH (source)-[:BELONGS_TO]->(cat:Category)<-[:BELONGS_TO]-(other)
+WITH source, other, COUNT(cat) * $weightCategory AS categoryScore
+
+OPTIONAL MATCH (source)-[:WRITTEN_BY]->(a:Author)<-[:WRITTEN_BY]-(other)
+WITH source, other, categoryScore, COUNT(a) * $weightAuthor AS authorScore
+
+OPTIONAL MATCH (source)-[:PUBLISHED_BY]->(p:Publisher)<-[:PUBLISHED_BY]-(other)
+WITH source, other, categoryScore + authorScore + COUNT(p) * $weightPublisher AS totalScore
+
+WHERE totalScore > 0
+MERGE (source)-[rel:SIMILARITY_TO]->(other)
+SET rel.score       = totalScore,
+    rel.computedAt  = $computedAt`
+
+	return writeQuery(ctx, r.driver, cypher, map[string]any{
+		"mongoID":         mongoID,
+		"weightCategory":  domain.WeightCategory,
+		"weightAuthor":    domain.WeightAuthor,
+		"weightPublisher": domain.WeightPublisher,
+		"computedAt":      time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
-// DeleteBookNode marks a book node as inactive (soft-delete in the graph).
+// DeleteBookNode marks a Book node as inactive (soft-delete in the graph).
 func (r *RecommendationRepository) DeleteBookNode(ctx context.Context, mongoID string) error {
 	cypher := `
 MATCH (b:Book {mongo_id: $mongoID})
@@ -151,39 +213,34 @@ SET b.is_active = false`
 	return writeQuery(ctx, r.driver, cypher, map[string]any{"mongoID": mongoID})
 }
 
-// RecordViewed creates a VIEWED relationship from User to Book (MERGE prevents duplicates).
-func (r *RecommendationRepository) RecordViewed(ctx context.Context, userID, bookID string) error {
+// UpsertCategoryNode creates or updates a Category node and its PARENT_OF relationship in Neo4j.
+// Keeps the graph in sync with MongoDB category mutations.
+func (r *RecommendationRepository) UpsertCategoryNode(ctx context.Context, cat *domain.Category) error {
 	cypher := `
-MERGE (u:User {userId: $userID})
-MERGE (b:Book {mongo_id: $bookID})
-MERGE (u)-[v:VIEWED]->(b)
-SET v.viewedAt = $viewedAt`
+MERGE (c:Category {categoryId: $categoryID})
+SET c.name = $name,
+    c.slug  = $slug
+WITH c
+FOREACH (_ IN CASE WHEN $parentID <> '' THEN [1] ELSE [] END |
+  MERGE (p:Category {categoryId: $parentID})
+  MERGE (p)-[:PARENT_OF]->(c)
+)`
 
 	return writeQuery(ctx, r.driver, cypher, map[string]any{
-		"userID":   userID,
-		"bookID":   bookID,
-		"viewedAt": time.Now().UTC().Format(time.RFC3339),
+		"categoryID": cat.ID,
+		"name":       cat.CategoryName,
+		"slug":       cat.Slug,
+		"parentID":   cat.ParentCategory,
 	})
 }
 
-// RecordPurchased creates a PURCHASED relationship from User to Book after checkout.
-func (r *RecommendationRepository) RecordPurchased(ctx context.Context, userID, bookID, orderID string, qty int) error {
+// DeleteCategoryNode detaches and removes a Category node from the graph.
+func (r *RecommendationRepository) DeleteCategoryNode(ctx context.Context, catID string) error {
 	cypher := `
-MERGE (u:User {userId: $userID})
-MERGE (b:Book {mongo_id: $bookID})
-CREATE (u)-[:PURCHASED {
-  purchasedAt: $purchasedAt,
-  orderId:     $orderID,
-  quantity:    $qty
-}]->(b)`
+MATCH (c:Category {categoryId: $categoryID})
+DETACH DELETE c`
 
-	return writeQuery(ctx, r.driver, cypher, map[string]any{
-		"userID":      userID,
-		"bookID":      bookID,
-		"orderID":     orderID,
-		"qty":         qty,
-		"purchasedAt": time.Now().UTC().Format(time.RFC3339),
-	})
+	return writeQuery(ctx, r.driver, cypher, map[string]any{"categoryID": catID})
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

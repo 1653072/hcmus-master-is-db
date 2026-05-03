@@ -3,8 +3,6 @@ package postgres
 import (
 	"bookstore/backend/internal/domain"
 	"context"
-
-	"github.com/google/uuid"
 )
 
 // CreateHistory inserts a new order status history record.
@@ -13,10 +11,11 @@ func (q *Queries) CreateHistory(ctx context.Context, history *domain.OrderStatus
 }
 
 // ListByOrder returns all status history records for an order, newest first.
-func (q *Queries) ListByOrder(ctx context.Context, orderID uuid.UUID) ([]*domain.OrderStatusHistory, error) {
+// orderInternalID is the internal int64 BIGSERIAL PK of the order.
+func (q *Queries) ListByOrder(ctx context.Context, orderInternalID int64) ([]*domain.OrderStatusHistory, error) {
 	var history []*domain.OrderStatusHistory
 	err := q.db.WithContext(ctx).
-		Where("order_id = ?", orderID).
+		Where("order_id = ?", orderInternalID).
 		Order("changed_at DESC").
 		Find(&history).Error
 	return history, err
