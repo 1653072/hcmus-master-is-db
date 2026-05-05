@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { FeaturedBook } from '@/components/books/book-card';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
-import { AuthorStrip } from '@/components/home/AuthorStrip';
 import { BooksGridSection } from '@/components/home/BooksGridSection';
 import { CategoryPills } from '@/components/home/CategoryPills';
 import { HeroSection } from '@/components/home/HeroSection';
@@ -71,7 +70,6 @@ export default function Page() {
 
   const featuredBooks = useMemo(() => books, [books]);
 
-  const authorPills = ['James Clear', 'Napoleon Hill', 'Robert Kiyosaki', 'Brian Tracy'];
   const categories = ['History', 'Children\'s corner', 'Science fiction', 'Self improvement', 'Comics'];
   const trending = featuredBooks.slice(0, 4);
   const services = [
@@ -97,11 +95,10 @@ export default function Page() {
         ) : (
           <>
             <HeroSection books={featuredBooks.slice(0, 3)} />
-            <AuthorStrip authors={authorPills} />
+            <RankingSection titles={['Best sellers', 'Most viewed this month', 'Trending today']} />
             <CategoryPills categories={categories} />
             <BooksGridSection title="Recommended for you" books={featuredBooks.slice(0, 4)} subtitle="Books picked for quick discovery and easy comparison." columnsClassName="grid-cols-2 gap-4 md:grid-cols-4" />
             <BooksGridSection title="Recently added" books={featuredBooks.slice(0, 5)} subtitle="Fresh arrivals, ready to browse." columnsClassName="grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-5" backgroundClassName="bg-stone-100/80" />
-            <RankingSection titles={['Best sellers', 'Most viewed this month', 'Trending today']} />
             <TrendingSection books={trending} />
             <ServicesSection services={services} />
             <TestimonialsSection testimonials={testimonials} />

@@ -3,23 +3,23 @@ import type { ApiListParams, DeactivateUserRequest, SalesSummary, UserListRespon
 
 export const adminApi = {
   listUsers: async (params?: ApiListParams) => {
-    const { data } = await apiClient.get<UserListResponse>('/admin/users', { params });
+    const { data } = await apiClient.get<{ data: any[]; total: number; page: number; page_size: number }>('/admin/users', { params });
     return data;
   },
   getUser: async (id: string) => {
-    const { data } = await apiClient.get(`/admin/users/${id}`);
-    return data;
+    const { data } = await apiClient.get<{ data: any }>(`/admin/users/${id}`);
+    return data.data;
   },
   deactivateUser: async (id: string, payload: DeactivateUserRequest) => {
-    const { data } = await apiClient.patch(`/admin/users/${id}/deactivate`, payload);
-    return data;
+    const { data } = await apiClient.patch<{ data: any }>(`/admin/users/${id}/deactivate`, payload);
+    return data.data;
   },
   bestSellers: async () => {
-    const { data } = await apiClient.get('/admin/analytics/best-sellers');
-    return data;
+    const { data } = await apiClient.get<{ data: any }>('/admin/analytics/best-sellers');
+    return data.data;
   },
-  sales: async () => {
-    const { data } = await apiClient.get<SalesSummary>('/admin/analytics/sales');
-    return data;
+  sales: async (params?: { from?: string; to?: string }) => {
+    const { data } = await apiClient.get<{ data: SalesSummary }>('/admin/analytics/sales', { params });
+    return data.data;
   },
 };

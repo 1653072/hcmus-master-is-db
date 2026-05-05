@@ -211,6 +211,7 @@ func toUserInfo(u *domain.User) domain.UserInfo {
 		Email:    u.Email,
 		Phone:    u.Phone,
 		Role:     u.Role,
+		IsActive: u.IsActive,
 	}
 }
 

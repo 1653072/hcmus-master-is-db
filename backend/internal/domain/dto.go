@@ -7,7 +7,7 @@ import "github.com/google/uuid"
 type RegisterRequest struct {
 	FullName string `json:"full_name" binding:"required,min=2,max=100"`
 	Email    string `json:"email"     binding:"required,email"`
-	Phone    string `json:"phone"     binding:"omitempty,e164"`
+	Phone    string `json:"phone"     binding:"omitempty,min=9,max=15"`
 	Password string `json:"password"  binding:"required,min=8"`
 }
 
@@ -27,13 +27,14 @@ type UserInfo struct {
 	Email    string    `json:"email"`
 	Phone    string    `json:"phone,omitempty"`
 	Role     UserRole  `json:"role"`
+	IsActive bool      `json:"is_active"`
 }
 
 // ─── Profile DTOs ─────────────────────────────────────────────────────────────
 
 type UpdateProfileRequest struct {
 	FullName    string `json:"full_name"    binding:"omitempty,min=2,max=100"`
-	Phone       string `json:"phone"        binding:"omitempty,e164"`
+	Phone       string `json:"phone"        binding:"omitempty,min=9,max=15"`
 	DefaultAddr string `json:"default_addr" binding:"omitempty,max=500"`
 }
 

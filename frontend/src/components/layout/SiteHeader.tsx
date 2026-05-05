@@ -82,6 +82,7 @@ export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const megaRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -103,6 +104,10 @@ export function SiteHeader() {
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   /* Close mega menu on Escape */
@@ -325,7 +330,7 @@ export function SiteHeader() {
                 aria-label="User menu"
               >
                 <User className="h-[17px] w-[17px]" aria-hidden="true" />
-                {user && (
+                {mounted && user && (
                   <span className="max-w-[100px] truncate text-[13px]">
                     {user.full_name.split(' ')[0]}
                   </span>
@@ -345,7 +350,7 @@ export function SiteHeader() {
                 }`}
                 role="menu"
               >
-                {user ? (
+                {mounted && user ? (
                   <>
                     <div className="border-b border-stone-100 px-3.5 pb-2.5 pt-2">
                       <p className="truncate text-[13px] font-semibold text-zinc-800">{user.full_name}</p>
@@ -469,7 +474,7 @@ export function SiteHeader() {
         {/* Drawer content */}
         <nav className="flex-1 overflow-y-auto px-4 py-4" aria-label="Mobile navigation">
           {/* User info (mobile) */}
-          {user && (
+          {mounted && user && (
             <div className="mb-4 rounded-xl bg-white/80 px-4 py-3 shadow-sm">
               <p className="truncate text-sm font-semibold text-zinc-800">{user.full_name}</p>
               <p className="truncate text-xs text-zinc-400">{user.email}</p>
@@ -537,7 +542,7 @@ export function SiteHeader() {
 
         {/* Drawer footer */}
         <div className="border-t border-stone-200/60 px-4 py-4 space-y-1.5">
-          {user ? (
+          {mounted && user ? (
             <>
               <Link
                 href="/profile"
