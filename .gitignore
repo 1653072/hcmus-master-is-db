@@ -40,15 +40,18 @@ go.work.sum
 ./backend/coverage.txt
 
 # dependencies
-./frontend/node_modules
+frontend/node_modules
 ./frontend/.pnp
 ./frontend/.pnp.js
 
 # testing
 ./frontend/coverage
 
+# backend log
+backend/backend.log
+
 # next.js
-./frontend/.next/
+frontend/.next/
 ./frontend/out/
 
 # production
