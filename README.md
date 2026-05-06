@@ -929,7 +929,10 @@ make db-start
 # 3. Apply PostgreSQL migrations
 make db-init-pg
 
-# 4. Apply Neo4j constraints
+# 4. Create PostgreSQL admin role (optional, for admin tools)
+make db-admin-pg
+
+# 5. Apply Neo4j constraints
 make db-init-neo4j
 
 # 5. Create MongoDB collections + indexes
@@ -956,6 +959,7 @@ docker volume rm backend_postgres_data backend_mongo_data backend_neo4j_data bac
 # 2. Start fresh
 make db-start
 make db-init-pg
+make db-admin-pg
 make db-init-mongo
 make db-init-neo4j
 make db-init-redis
