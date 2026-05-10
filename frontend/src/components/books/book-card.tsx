@@ -29,7 +29,7 @@ const fallbackBook: FeaturedBook = {
   image: 'linear-gradient(135deg, #f8f7f4 0%, #f2f0ed 100%)',
 };
 
-export function BookCard({ book, className, compact, href = '/books/1' }: BookCardProps) {
+export function BookCard({ book, className, compact, href }: BookCardProps) {
   const currentBook = book ?? fallbackBook;
 
   const content = (

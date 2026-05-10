@@ -4,9 +4,12 @@ type ApiBookLike = {
   id?: string | number;
   title?: string;
   name?: string;
-  author?: string | { name?: string };
-  category?: string | { name?: string };
+  author?: any;
+  authors?: any[];
+  category?: any;
+  categories?: any[];
   price?: string | number;
+  pricing?: { price: number; list_price?: number };
   rating?: string | number;
   coverImage?: string;
   image?: string;
@@ -19,15 +22,21 @@ function getText(value: unknown, fallback: string) {
   return fallback;
 }
 
-function getAuthor(value: ApiBookLike['author']) {
-  if (typeof value === 'string' && value.trim()) return value;
-  if (value && typeof value === 'object' && typeof value.name === 'string') return value.name;
+function getAuthor(author: ApiBookLike['author'], authors: ApiBookLike['authors']) {
+  if (Array.isArray(authors) && authors.length > 0) {
+    return authors.map(a => a?.author_name || a?.name || '').filter(Boolean).join(', ') || 'Unknown author';
+  }
+  if (typeof author === 'string' && author.trim()) return author;
+  if (author && typeof author === 'object' && typeof author.name === 'string') return author.name;
   return 'Unknown author';
 }
 
-function getCategory(value: ApiBookLike['category']) {
-  if (typeof value === 'string' && value.trim()) return value;
-  if (value && typeof value === 'object' && typeof value.name === 'string') return value.name;
+function getCategory(category: ApiBookLike['category'], categories: ApiBookLike['categories']) {
+  if (Array.isArray(categories) && categories.length > 0) {
+    return categories.map(c => c?.category_name || c?.name || '').filter(Boolean)[0] || 'General';
+  }
+  if (typeof category === 'string' && category.trim()) return category;
+  if (category && typeof category === 'object' && typeof category.name === 'string') return category.name;
   return 'General';
 }
 
@@ -46,9 +55,10 @@ function getImage(index: number, image?: string) {
 
 export function toFeaturedBook(book: ApiBookLike, index = 0): FeaturedBook {
   const title = getText(book.title ?? book.name, 'Untitled');
-  const author = getAuthor(book.author);
-  const category = getCategory(book.category);
-  const price = typeof book.price === 'number' ? `$${book.price}` : getText(book.price, '$32');
+  const author = getAuthor(book.author, book.authors);
+  const category = getCategory(book.category, book.categories);
+  const bookPrice = book.pricing?.price ?? book.price;
+  const price = typeof bookPrice === 'number' ? `$${bookPrice.toFixed(2)}` : getText(bookPrice, '$32');
   const rating = typeof book.rating === 'number' ? String(book.rating) : getText(book.rating, '4.9');
   const image = getImage(index, book.coverImage ?? book.image ?? book.thumbnail);
 

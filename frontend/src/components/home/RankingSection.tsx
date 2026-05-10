@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { recommendationsApi } from '@/lib/api/recommendations';
 
 interface RankingSectionProps {
   titles: string[];
@@ -13,21 +17,34 @@ const barColors = ['bg-sunburst', 'bg-sky-accent', 'bg-ember/40', 'bg-stone-surf
 const coverColors = ['bg-amber-200', 'bg-sky-200', 'bg-violet-200', 'bg-amber-100', 'bg-emerald-200'];
 
 export function RankingSection({ titles }: RankingSectionProps) {
+  const [bestSellers, setBestSellers] = useState<any[] | null>(null);
+  const [mostViewed30D, setMostViewed30D] = useState<any[] | null>(null);
+  const [mostViewedDaily, setMostViewedDaily] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    recommendationsApi.getBestSellers().then((data) => setBestSellers(data || [])).catch(() => setBestSellers([]));
+    recommendationsApi.getTopMostViewed30Days().then((data) => setMostViewed30D(data || [])).catch(() => setMostViewed30D([]));
+    recommendationsApi.getTopDailyViewed().then((data) => setMostViewedDaily(data || [])).catch(() => setMostViewedDaily([]));
+  }, []);
+
   const sections = [
     {
       header: titles[0] ?? 'Best sellers',
       type: 'Last 30 days • Top 5',
-      rows: ['Atomic Habits', 'Ikigai', 'The Almanack', 'Emotional Intelligence', 'How to Talk to Anyone', 'Who Moved My Cheese', 'The Psychology of Money', 'House of Stars', 'Charles Dickens', 'Curveball'],
+      rows: bestSellers,
+      getLabel: (item: any) => `${item.total_sold} sold`,
     },
     {
       header: titles[1] ?? 'Most viewed this month',
       type: 'Last 30 days • Top 5',
-      rows: ['10X Rules', 'Rich Dad Poor Dad', 'Still Like an Artist', 'The Subtle Art', 'Aurelius Clements', 'How to Keep Your Cool', 'Atomic Habits', 'Ikigai', 'The Almanack', 'Emotional Intelligence'],
+      rows: mostViewed30D,
+      getLabel: (item: any) => `${item.view_count} views`,
     },
     {
       header: titles[2] ?? 'Trending today',
       type: 'Today • Top 5',
-      rows: ['Aurelius Clements', 'House of Stars', 'Curveball', 'Dám Nghĩ Lớn', 'Đắc Nhân Tâm'],
+      rows: mostViewedDaily,
+      getLabel: (item: any) => `${item.view_count} views`,
     },
   ];
 
@@ -59,39 +76,45 @@ export function RankingSection({ titles }: RankingSectionProps) {
                 </Link>
               </div>
               <div className="flex flex-col">
-                {section.rows.slice(0, 5).map((row, index) => (
-                  <Link key={row} href={`/books/${row.toLowerCase().replace(/ /g, '-')}`} className={`group flex items-center gap-4 py-4 ${index !== 4 ? 'border-b border-stone-surface' : ''}`}>
-                    {/* Rank badge */}
-                    <div className="flex w-6 shrink-0 justify-center">
-                      {index < 3 ? (
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-full ${rankColors[index]} text-[13px] font-semibold ${rankTextColors[index]}`}>
-                          {index + 1}
-                        </div>
-                      ) : (
-                        <span className="text-[15px] font-medium text-ash">{index + 1}</span>
-                      )}
-                    </div>
-
-                    {/* Book cover placeholder */}
-                    <div className={`h-14 w-10 shrink-0 rounded-sm ${coverColors[index % 5]}`} />
-
-                    {/* Title + bar */}
-                    <div className="flex flex-1 flex-col justify-center gap-2">
-                      <p className="line-clamp-1 text-[15px] font-medium tracking-[-0.2px] text-charcoal group-hover:text-ember transition">{row}</p>
-                      <div className="flex h-1.5 w-full items-center rounded-full bg-parchment">
-                        <div
-                          className={`h-1.5 rounded-full ${barColors[index % 5]}`}
-                          style={{ width: `${Math.max(20, 95 - index * 15)}%` }}
-                        />
+                {section.rows === null ? (
+                  <div className="py-4 text-[15px] text-graphite">Loading...</div>
+                ) : section.rows.length === 0 ? (
+                  <div className="py-4 text-[15px] text-graphite">Chưa có dữ liệu</div>
+                ) : (
+                  section.rows.slice(0, 5).map((row, index) => (
+                    <Link key={row.book_id} href={`/books/${row.book_id}`} className={`group flex items-center gap-4 py-4 ${index !== 4 ? 'border-b border-stone-surface' : ''}`}>
+                      {/* Rank badge */}
+                      <div className="flex w-6 shrink-0 justify-center">
+                        {index < 3 ? (
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-full ${rankColors[index]} text-[13px] font-semibold ${rankTextColors[index]}`}>
+                            {index + 1}
+                          </div>
+                        ) : (
+                          <span className="text-[15px] font-medium text-ash">{index + 1}</span>
+                        )}
                       </div>
-                    </div>
 
-                    {/* Score */}
-                    <div className="shrink-0 pt-6 text-[13px] tracking-[-0.17px] text-ash">
-                      {(1240 - index * 130).toLocaleString()}
-                    </div>
-                  </Link>
-                ))}
+                      {/* Book cover placeholder */}
+                      <div className={`h-14 w-10 shrink-0 rounded-sm ${coverColors[index % 5]}`} />
+
+                      {/* Title + bar */}
+                      <div className="flex flex-1 flex-col justify-center gap-2">
+                        <p className="line-clamp-1 text-[15px] font-medium tracking-[-0.2px] text-charcoal group-hover:text-ember transition">{row.title}</p>
+                        <div className="flex h-1.5 w-full items-center rounded-full bg-parchment">
+                          <div
+                            className={`h-1.5 rounded-full ${barColors[index % 5]}`}
+                            style={{ width: `${Math.max(20, 95 - index * 15)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Score */}
+                      <div className="shrink-0 pt-6 text-[13px] tracking-[-0.17px] text-ash whitespace-nowrap">
+                        {section.getLabel(row)}
+                      </div>
+                    </Link>
+                  ))
+                )}
               </div>
             </div>
           ))}
