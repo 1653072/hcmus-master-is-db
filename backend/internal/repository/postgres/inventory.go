@@ -12,7 +12,7 @@ import (
 // GetInventory fetches the inventory record for a book without acquiring a lock.
 func (q *Queries) GetInventory(ctx context.Context, bookID string) (*domain.Inventory, error) {
 	var inventory domain.Inventory
-	err := q.db.WithContext(ctx).First(&inventory, "book_id = ?", bookID).Error
+	err := q.db.WithContext(ctx).Table("inventory").First(&inventory, "book_id = ?", bookID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -27,6 +27,7 @@ func (q *Queries) GetInventoryForUpdate(ctx context.Context, bookID string) (*do
 	var inventory domain.Inventory
 	err := q.db.WithContext(ctx).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Table("inventory").
 		First(&inventory, "book_id = ?", bookID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -36,7 +37,7 @@ func (q *Queries) GetInventoryForUpdate(ctx context.Context, bookID string) (*do
 
 // CreateInventory inserts a new inventory row for a book.
 func (q *Queries) CreateInventory(ctx context.Context, inv *domain.Inventory) error {
-	return q.db.WithContext(ctx).Create(inv).Error
+	return q.db.WithContext(ctx).Table("inventory").Create(inv).Error
 }
 
 // UpdateStock adjusts stock_quantity by delta (positive = restock, negative = deduct).
@@ -44,7 +45,7 @@ func (q *Queries) CreateInventory(ctx context.Context, inv *domain.Inventory) er
 // Must be called inside a Transaction after GetInventoryForUpdate to prevent race conditions.
 func (q *Queries) UpdateStock(ctx context.Context, bookID string, delta int) error {
 	return q.db.WithContext(ctx).
-		Model(&domain.Inventory{}).
+		Table("inventory").
 		Where("book_id = ?", bookID).
 		UpdateColumn("stock_quantity", gorm.Expr("stock_quantity + ?", delta)).Error
 }
