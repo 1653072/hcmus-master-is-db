@@ -54,25 +54,26 @@ export function ConfirmDialog({
       {/* Overlay */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 z-[60] bg-zinc-950/40 backdrop-blur-sm"
+        className="fixed inset-0 z-[60] bg-midnight/40 backdrop-blur-sm"
         onClick={onCancel}
       />
 
       {/* Dialog */}
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
         <div
-          className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,0.12)]"
+          className="w-full max-w-md rounded-cards-lg border border-stone-surface bg-white p-6"
+          style={{ boxShadow: 'var(--shadow-md)' }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="font-display text-lg font-bold tracking-[-0.02em] text-zinc-900">{title}</h3>
-              <p className="mt-2 text-sm leading-6 text-zinc-600">{description}</p>
+              <h3 className="font-display text-lg font-bold tracking-[-0.02em] text-charcoal">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-graphite">{description}</p>
             </div>
             <button
               type="button"
               onClick={onCancel}
-              className="ml-4 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-stone-100 hover:text-zinc-600"
+              className="ml-4 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ash transition-colors hover:bg-parchment hover:text-graphite"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -82,7 +83,7 @@ export function ConfirmDialog({
               type="button"
               onClick={onCancel}
               disabled={loading}
-              className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-stone-50 disabled:opacity-50"
+              className="rounded-full border border-stone-surface bg-white px-4 py-2 text-sm font-medium text-charcoal transition-colors hover:bg-parchment disabled:opacity-50"
             >
               {cancelLabel}
             </button>
@@ -92,8 +93,8 @@ export function ConfirmDialog({
               disabled={loading}
               className={`rounded-full px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
                 variant === 'danger'
-                  ? 'bg-red-500 hover:bg-red-600 shadow-[0_4px_12px_rgba(239,68,68,0.25)]'
-                  : 'bg-orange-500 hover:bg-orange-600 shadow-[0_4px_12px_rgba(234,88,12,0.25)]'
+                  ? 'bg-coral-red hover:bg-coral-red/90 shadow-[0_4px_12px_rgba(230,84,60,0.25)]'
+                  : 'bg-ember hover:bg-ember/90 shadow-[0_4px_12px_rgba(234,88,12,0.25)]'
               }`}
             >
               {loading ? 'Processing...' : confirmLabel}

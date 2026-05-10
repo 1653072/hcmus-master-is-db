@@ -32,12 +32,12 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className="px-6 py-8 lg:px-10">
+      <div className="px-6 py-8 lg:px-10 xl:px-24">
         <div className="space-y-4">
-          <div className="h-8 w-40 animate-pulse rounded-xl bg-stone-200" />
+          <div className="h-8 w-40 animate-pulse rounded-xl bg-stone-surface" />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-28 animate-pulse rounded-2xl bg-stone-200/60" />
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-stone-surface/60" />
             ))}
           </div>
         </div>
@@ -50,30 +50,30 @@ export default function Page() {
       label: 'Total Revenue',
       value: sales?.total_revenue != null ? `$${sales.total_revenue.toLocaleString()}` : '$0',
       icon: DollarSign,
-      color: 'bg-emerald-50 text-emerald-500',
+      color: 'bg-meadow/10 text-meadow',
     },
     {
       label: 'Total Orders',
       value: sales?.total_orders?.toLocaleString() ?? '0',
       icon: Package,
-      color: 'bg-blue-50 text-blue-500',
+      color: 'bg-sky-accent/10 text-sky-accent',
     },
     {
       label: 'Best Sellers',
       value: String(bestSellers.length),
       icon: TrendingUp,
-      color: 'bg-orange-50 text-orange-500',
+      color: 'bg-ember/10 text-ember',
     },
   ];
 
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="px-6 py-8 lg:px-10 xl:px-24">
       <div className="mb-8">
-        <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-zinc-900">
+        <div className="h-1.5 w-14 rounded-full bg-ember/20" aria-hidden="true" />
+        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-charcoal">
           Analytics
         </h1>
-        <p className="mt-3 text-sm text-zinc-500">
+        <p className="mt-3 text-sm text-graphite">
           Monitor storefront performance and demand.
         </p>
       </div>

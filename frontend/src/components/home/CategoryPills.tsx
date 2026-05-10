@@ -10,20 +10,22 @@ function toSlug(value: string) {
 }
 
 const categoryIcons = [BookOpen, Compass, Rocket, Brain, Gem];
+const iconColors = ['text-ember', 'text-sky-accent', 'text-meadow', 'text-violet-pop', 'text-sunburst'];
+const iconBackgrounds = ['bg-ember/10', 'bg-sky-accent/10', 'bg-meadow/10', 'bg-violet-pop/10', 'bg-sunburst/10'];
 
 export function CategoryPills({ categories }: CategoryPillsProps) {
   return (
-    <section className="mx-auto max-w-[1280px] px-6 py-16 lg:px-10 xl:px-24">
+    <section className="mx-auto max-w-page px-6 py-16 lg:px-10 xl:px-24">
+      {/* Section heading */}
       <div className="mb-8 flex items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-          <h2 className="font-display text-[clamp(1.75rem,3vw,2.35rem)] leading-[1.05] tracking-[-0.02em] text-zinc-900">Categories</h2>
-        </div>
-        <Link className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-800 transition hover:text-orange-600" href="/categories">
+        <h2 className="font-inter text-[44px] font-semibold leading-[1.09] tracking-[-1.14px] text-midnight">Categories</h2>
+        <Link className="inline-flex items-center gap-2 text-[14px] font-medium tracking-[-0.18px] text-ember transition hover:text-ember/80" href="/categories">
           See all
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
+
+      {/* Pills — pill-shaped with stone border */}
       <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {categories.map((item, index) => {
           const Icon = categoryIcons[index % categoryIcons.length];
@@ -31,13 +33,14 @@ export function CategoryPills({ categories }: CategoryPillsProps) {
             <Link
               key={item}
               href={`/categories/${toSlug(item)}`}
-              className="inline-flex min-h-12 shrink-0 items-center gap-3 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-[0_8px_22px_rgba(68,53,33,0.05)] transition hover:-translate-y-0.5 hover:border-stone-300 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40"
+              className="inline-flex min-h-12 shrink-0 items-center gap-3 rounded-pill bg-white px-5 py-3 text-[14px] font-medium tracking-[-0.18px] text-graphite transition hover:bg-parchment hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/40"
+              style={{ boxShadow: 'var(--shadow-subtle)' }}
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-stone-100 to-amber-50 text-zinc-600">
-                <Icon className="h-4.5 w-4.5" />
+              <span className={`flex h-9 w-9 items-center justify-center rounded-icons ${iconBackgrounds[index % iconBackgrounds.length]} ${iconColors[index % iconColors.length]}`}>
+                <Icon className="h-4 w-4" />
               </span>
               <span>{item}</span>
-              <ChevronRight className="h-4 w-4 text-stone-400" />
+              <ChevronRight className="h-4 w-4 text-fog" />
             </Link>
           );
         })}

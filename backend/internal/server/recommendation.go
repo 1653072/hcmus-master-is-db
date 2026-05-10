@@ -169,7 +169,7 @@ func (s *Service) GetTopDailyViewed(c *gin.Context) {
 // @Success      200  {array}  domain.MostViewedBook
 // @Router       /most-viewed/30days [get]
 func (s *Service) GetTopMostViewed30Days(c *gin.Context) {
-	if !s.features.RedisMostViewedDaily {
+	if !s.features.RedisMostViewed30D {
 		respondOK(c, []any{})
 		return
 	}

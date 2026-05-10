@@ -23,7 +23,7 @@ import (
 //  3. INSERT order header (status = 'pending').
 //  4. INSERT order_items (price snapshot at purchase time).
 //  5. UPDATE stock_quantity per book (deduct purchased quantity).
-//  6. INSERT order_status_history (old_status = NULL, new_status = 'pending').
+//  6. INSERT order_status_histories (old_status = NULL, new_status = 'pending').
 //
 // After transaction: invalidate Redis cart cache, order-history cache, and stock cache.
 //
@@ -41,7 +41,7 @@ import (
 func (s *Service) Checkout(c *gin.Context) {
 	var checkoutRequest domain.CheckoutRequest
 	if err := c.ShouldBindJSON(&checkoutRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 
@@ -184,7 +184,7 @@ func (s *Service) Checkout(c *gin.Context) {
 func (s *Service) BuyNow(c *gin.Context) {
 	var buyNowRequest domain.BuyNowRequest
 	if err := c.ShouldBindJSON(&buyNowRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 

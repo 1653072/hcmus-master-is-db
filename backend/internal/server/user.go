@@ -5,6 +5,7 @@ import (
 	"bookstore/backend/internal/middleware"
 	"bookstore/backend/utils/password"
 	"bookstore/backend/utils/token"
+	"bookstore/backend/utils/validator"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,12 @@ import (
 func (s *Service) Register(c *gin.Context) {
 	var req domain.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
+		return
+	}
+
+	if !validator.IsValidPhone(req.Phone) {
+		respondError(c, http.StatusBadRequest, "invalid phone number format")
 		return
 	}
 
@@ -78,7 +84,7 @@ func (s *Service) Register(c *gin.Context) {
 func (s *Service) Login(c *gin.Context) {
 	var req domain.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 
@@ -170,7 +176,7 @@ func (s *Service) GetProfile(c *gin.Context) {
 func (s *Service) UpdateProfile(c *gin.Context) {
 	var req domain.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 
@@ -187,6 +193,10 @@ func (s *Service) UpdateProfile(c *gin.Context) {
 		user.FullName = req.FullName
 	}
 	if req.Phone != "" {
+		if !validator.IsValidPhone(req.Phone) {
+			respondError(c, http.StatusBadRequest, "invalid phone number format")
+			return
+		}
 		user.Phone = req.Phone
 	}
 	if req.DefaultAddr != "" {

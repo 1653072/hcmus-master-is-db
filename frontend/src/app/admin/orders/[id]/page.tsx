@@ -60,10 +60,10 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className="px-6 py-8 lg:px-10">
+      <div className="px-6 py-8 lg:px-10 xl:px-24">
         <div className="space-y-4">
-          <div className="h-8 w-40 animate-pulse rounded-xl bg-stone-200" />
-          <div className="h-64 animate-pulse rounded-2xl bg-stone-200/60" />
+          <div className="h-8 w-40 animate-pulse rounded-xl bg-stone-surface" />
+          <div className="h-64 animate-pulse rounded-2xl bg-stone-surface/60" />
         </div>
       </div>
     );
@@ -71,9 +71,9 @@ export default function Page() {
 
   if (!order) {
     return (
-      <div className="px-6 py-8 lg:px-10">
-        <p className="text-sm text-zinc-500">Order not found.</p>
-        <Link href="/admin/orders" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-orange-600 hover:underline">
+      <div className="px-6 py-8 lg:px-10 xl:px-24">
+        <p className="text-sm text-graphite">Order not found.</p>
+        <Link href="/admin/orders" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-ember hover:underline">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to orders
         </Link>
       </div>
@@ -81,15 +81,14 @@ export default function Page() {
   }
 
   return (
-    <div className="px-6 py-8 lg:px-10">
-      {/* Back link */}
-      <Link href="/admin/orders" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-700">
+    <div className="px-6 py-8 lg:px-10 xl:px-24">
+      <Link href="/admin/orders" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-graphite transition-colors hover:text-charcoal">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to orders
       </Link>
 
       <div className="mb-6">
-        <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-[clamp(1.8rem,3vw,2.4rem)] leading-[0.98] tracking-[-0.03em] text-zinc-900">
+        <div className="h-1.5 w-14 rounded-full bg-ember/20" aria-hidden="true" />
+        <h1 className="mt-4 font-display text-[clamp(1.8rem,3vw,2.4rem)] leading-[0.98] tracking-[-0.03em] text-charcoal">
           Order {orderId.substring(0, 8)}…
         </h1>
       </div>

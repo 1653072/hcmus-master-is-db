@@ -11,7 +11,7 @@ import (
 )
 
 // CreateOrder inserts the order header, all its line items, and the initial
-// order_status_history row (old_status = NULL, new_status = "pending") — all
+// order_status_histories row (old_status = NULL, new_status = "pending") — all
 // within the same database transaction.
 func (q *Queries) CreateOrder(ctx context.Context, order *domain.Order, historyRepository domain.OrderStatusHistoryRepository) error {
 	if err := q.db.WithContext(ctx).Omit("Items.*").Create(order).Error; err != nil {
@@ -111,7 +111,7 @@ func isValidOrderStatusTransition(current, next domain.OrderStatus) bool {
 }
 
 // UpdateOrderStatus validates the state machine transition, updates the order status,
-// and appends an audit row to order_status_history — all within the same database call.
+// and appends an audit row to order_status_histories — all within the same database call.
 // id is the internal BIGSERIAL int64 PK; adminAliasID is the acting admin's alias_id UUID
 // (stored directly in the history record — denormalised for zero-join serialisation).
 // Pass adminAliasID = nil for system-initiated updates.

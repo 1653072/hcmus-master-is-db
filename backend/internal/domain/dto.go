@@ -7,8 +7,8 @@ import "github.com/google/uuid"
 type RegisterRequest struct {
 	FullName string `json:"full_name" binding:"required,min=2,max=100"`
 	Email    string `json:"email"     binding:"required,email"`
-	Phone    string `json:"phone"     binding:"omitempty,e164"`
-	Password string `json:"password"  binding:"required,min=8"`
+	Phone    string `json:"phone"     binding:"required"`
+	Password string `json:"password"  binding:"required,min=6"`
 }
 
 type LoginRequest struct {
@@ -33,7 +33,7 @@ type UserInfo struct {
 
 type UpdateProfileRequest struct {
 	FullName    string `json:"full_name"    binding:"omitempty,min=2,max=100"`
-	Phone       string `json:"phone"        binding:"omitempty,e164"`
+	Phone       string `json:"phone"        binding:"omitempty"`
 	DefaultAddr string `json:"default_addr" binding:"omitempty,max=500"`
 }
 
@@ -47,6 +47,16 @@ type CreateAddressRequest struct {
 	District     string `json:"district"`
 	City         string `json:"city"          binding:"required"`
 	IsDefault    bool   `json:"is_default"`
+}
+
+type UpdateAddressRequest struct {
+	ReceiverName string `json:"receiver_name"`
+	Phone        string `json:"phone"         binding:"omitempty"`
+	AddressLine  string `json:"address_line"`
+	Ward         string `json:"ward"`
+	District     string `json:"district"`
+	City         string `json:"city"`
+	IsDefault    *bool  `json:"is_default"`
 }
 
 // ─── Book DTOs ────────────────────────────────────────────────────────────────
@@ -73,16 +83,16 @@ type CreateBookRequest struct {
 }
 
 type UpdateBookRequest struct {
-	Name              string       `json:"name"`
-	ShortDescription  string       `json:"short_description"`
-	DetailDescription string       `json:"detail_description"`
-	ProductStatus     string       `json:"product_status"`
-	Pricing           *BookPricing `json:"pricing"`
+	Name              string        `json:"name"`
+	ShortDescription  string        `json:"short_description"`
+	DetailDescription string        `json:"detail_description"`
+	ProductStatus     string        `json:"product_status"`
+	Pricing           *BookPricing  `json:"pricing"`
 	Category          *BookCategory `json:"category"`
-	Images            []BookImage  `json:"images"`
-	Series            *BookSeries  `json:"series"`
-	Authors           []BookAuthor `json:"authors"`
-	Tags              []BookTag    `json:"tags"`
+	Images            []BookImage   `json:"images"`
+	Series            *BookSeries   `json:"series"`
+	Authors           []BookAuthor  `json:"authors"`
+	Tags              []BookTag     `json:"tags"`
 }
 
 type UpdateStockRequest struct {

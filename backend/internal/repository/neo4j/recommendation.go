@@ -30,13 +30,14 @@ MATCH (source:Book {mongo_id: $mongoID, is_active: true})
 
 // Use pre-computed SIMILARITY_TO edges first (fast path)
 OPTIONAL MATCH (source)-[sim_rel:SIMILARITY_TO]->(precomputed:Book {is_active: true})
-WITH source, collect({book: precomputed, score: sim_rel.score}) AS precomputedSimilar
+WITH source, collect(
+  CASE WHEN precomputed IS NOT NULL THEN {book: precomputed, score: sim_rel.score} ELSE null END
+) AS precomputedSimilar
 
 // Fall back to live weighted traversal when no pre-computed edges exist
 CALL {
   WITH source, precomputedSimilar
-  WITH source, precomputedSimilar
-  WHERE size(precomputedSimilar) = 0
+  WITH source, precomputedSimilar WHERE size(precomputedSimilar) = 0
 
   OPTIONAL MATCH (source)-[:BELONGS_TO]->(cat:Category)<-[:BELONGS_TO]-(sim:Book {is_active: true})
     WHERE sim.mongo_id <> $mongoID
@@ -46,7 +47,8 @@ CALL {
   WITH source, sim, categoryScore, COUNT(a) * $weightAuthor AS authorScore
 
   OPTIONAL MATCH (source)-[:PUBLISHED_BY]->(p:Publisher)<-[:PUBLISHED_BY]-(sim)
-  WITH sim, categoryScore + authorScore + COUNT(p) * $weightPublisher AS totalScore
+  WITH sim, categoryScore, authorScore, COUNT(p) * $weightPublisher AS publisherScore
+  WITH sim, categoryScore + authorScore + publisherScore AS totalScore
 
   WHERE sim IS NOT NULL AND totalScore > 0
   RETURN sim AS book, totalScore AS score
@@ -54,7 +56,8 @@ CALL {
   UNION
 
   WITH source, precomputedSimilar
-  WHERE size(precomputedSimilar) > 0
+  WITH source, precomputedSimilar WHERE size(precomputedSimilar) > 0
+  
   UNWIND precomputedSimilar AS entry
   RETURN entry.book AS book, entry.score AS score
 }
@@ -188,7 +191,8 @@ OPTIONAL MATCH (source)-[:WRITTEN_BY]->(a:Author)<-[:WRITTEN_BY]-(other)
 WITH source, other, categoryScore, COUNT(a) * $weightAuthor AS authorScore
 
 OPTIONAL MATCH (source)-[:PUBLISHED_BY]->(p:Publisher)<-[:PUBLISHED_BY]-(other)
-WITH source, other, categoryScore + authorScore + COUNT(p) * $weightPublisher AS totalScore
+WITH source, other, categoryScore, authorScore, COUNT(p) * $weightPublisher AS publisherScore
+WITH source, other, categoryScore + authorScore + publisherScore AS totalScore
 
 WHERE totalScore > 0
 MERGE (source)-[rel:SIMILARITY_TO]->(other)

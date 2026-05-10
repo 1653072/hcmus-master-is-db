@@ -18,16 +18,16 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
 
   return (
     <div className="flex items-center justify-between pt-4">
-      <p className="text-sm text-zinc-500">
-        Showing <span className="font-medium text-zinc-700">{from}–{to}</span> of{' '}
-        <span className="font-medium text-zinc-700">{total}</span>
+      <p className="text-sm text-graphite">
+        Showing <span className="font-medium text-charcoal">{from}–{to}</span> of{' '}
+        <span className="font-medium text-charcoal">{total}</span>
       </p>
       <div className="flex items-center gap-1">
         <button
           type="button"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-zinc-600 transition-colors hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-stone-surface bg-white text-graphite transition-colors hover:bg-parchment disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Previous page"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
@@ -50,8 +50,8 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
               onClick={() => onPageChange(pageNum)}
               className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                 pageNum === page
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'border border-stone-200 bg-white text-zinc-600 hover:bg-stone-50'
+                  ? 'bg-ember text-white shadow-sm'
+                  : 'border border-stone-surface bg-white text-graphite hover:bg-parchment'
               }`}
             >
               {pageNum}
@@ -62,7 +62,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
           type="button"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-zinc-600 transition-colors hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-stone-surface bg-white text-graphite transition-colors hover:bg-parchment disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Next page"
         >
           <ChevronRight className="h-3.5 w-3.5" />

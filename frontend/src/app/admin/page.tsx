@@ -13,13 +13,13 @@ const sections = [
 
 export default function Page() {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="mx-auto max-w-page px-6 py-8 lg:px-10 xl:px-24">
       <div className="mb-8">
-        <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-zinc-900">
+        <div className="h-1.5 w-14 rounded-full bg-ember/20" aria-hidden="true" />
+        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-charcoal">
           Admin Dashboard
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-500">
+        <p className="mt-3 max-w-xl text-sm leading-7 text-graphite">
           Manage catalog, users, orders, and analytics from one clear control center.
         </p>
       </div>
@@ -31,15 +31,16 @@ export default function Page() {
             <Link
               key={section.title}
               href={section.href}
-              className="group rounded-2xl border border-stone-200 bg-white/85 p-5 shadow-[0_6px_20px_rgba(68,53,33,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(68,53,33,0.1)]"
+              className="group rounded-cards-lg border border-stone-surface bg-white p-5 transition-all duration-200 hover:-translate-y-0.5"
+              style={{ boxShadow: 'var(--shadow-sm)' }}
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500 transition-colors group-hover:bg-orange-500 group-hover:text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ember/5 text-ember transition-colors group-hover:bg-ember group-hover:text-white">
                 <Icon className="h-5 w-5" />
               </div>
-              <h2 className="mt-4 font-display text-[1.2rem] leading-tight tracking-[-0.02em] text-zinc-900">
+              <h2 className="mt-4 font-display text-[1.2rem] leading-tight tracking-[-0.02em] text-charcoal">
                 {section.title}
               </h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-500">{section.desc}</p>
+              <p className="mt-2 text-sm leading-6 text-graphite">{section.desc}</p>
             </Link>
           );
         })}

@@ -3,6 +3,7 @@
 > HCMUS Master — Information Systems Database Final Project
 > Group N06 — Polyglot Persistence Architecture
 > Backend: **Go 1.23** · PostgreSQL · MongoDB · Neo4j · Redis
+> Frontend: **Next.js 14** · React 18 · TypeScript · Tailwind CSS · Zustand
 
 ---
 
@@ -42,6 +43,13 @@
   - [8.2. Makefile Commands](#82-makefile-commands)
 - [9. Swagger API Docs](#9-swagger-api-docs)
 - [10. Frontend](#10-frontend)
+  - [10.1. Technology Stack](#101-technology-stack)
+  - [10.2. Project Structure](#102-project-structure)
+  - [10.3. Pages & Routing](#103-pages--routing)
+  - [10.4. State Management](#104-state-management)
+  - [10.5. API Client Layer](#105-api-client-layer)
+  - [10.6. Component Architecture](#106-component-architecture)
+  - [10.7. Getting Started](#107-getting-started)
 
 ---
 
@@ -115,55 +123,46 @@ The system solves four core technical challenges:
 
 ### 2.1. Overall System Architecture
 
-```
-┌──────────────────┐    REST / JSON (HTTPS)      ┌────────────────────────────────────────────┐
-│  Next.js          │ ──────────────────────────► │         Gin HTTP Server                    │
-│  Frontend         │ ◄──────────────────────────  │   internal/server  (Port 8080)             │
-│  (Port 3000)      │                              └───────────────┬────────────────────────────┘
-└──────────────────┘                                               │
-                                                        JWT Authentication Middleware
-                                                      (RequireAuth / RequireUser / RequireAdmin)
-                                                                   │
-                                                 ┌─────────────────▼───────────────────────────┐
-                                                 │           internal/domain                    │
-                                                 │   Repository Interfaces + Domain Models       │
-                                                 └──┬──────────┬───────────┬────────────────────┘
-                                                    │          │           │            │
-                                         ┌──────────▼──┐ ┌────▼───┐ ┌────▼────┐ ┌────▼──────────┐
-                                         │ PostgreSQL   │ │MongoDB │ │  Neo4j  │ │    Redis       │
-                                         │ (Port 5432)  │ │(27017) │ │  (7687) │ │   (6379)       │
-                                         │              │ │        │ │         │ │                │
-                                         │ users        │ │books   │ │ Book    │ │ Sessions       │
-                                         │ addresses    │ │catego- │ │ Author  │ │ Cart cache     │
-                                         │ books_ref    │ │ ries   │ │ Catego- │ │ Best sellers   │
-                                         │ inventory    │ │view_   │ │  ry     │ │ Most viewed    │
-                                         │ carts        │ │event_  │ │ Publish-│ │ Order history  │
-                                         │ cart_items   │ │ logs   │ │  er     │ │ Category list  │
-                                         │ orders       │ │        │ │ Tag     │ │ Buy-now session│
-                                         │ order_items  │ │        │ │ Series  │ │                │
-                                         │ order_status │ │        │ │         │ │                │
-                                         │  _history    │ │        │ │         │ │                │
-                                         │ payments     │ │        │ │         │ │                │
-                                         │ shipments    │ │        │ │         │ │                │
-                                         └──────────────┘ └────────┘ └─────────┘ └────────────────┘
-                                                                           ▲
-                                           ┌───────────────────────────────┘
-                                           │         internal/worker/
-                                           │
-                                           │  best_seller_worker.go  (daily 00:00 UTC)
-                                           │    → Query PostgreSQL order_items (past 30 days)
-                                           │    → Write top-10 JSON to Redis "books:best_sellers"
-                                           │       (Snappy-compressed STRING, TTL 1 day)
-                                           │
-                                           │  most_viewed_worker.go  (daily 00:00 UTC)
-                                           │    → Aggregate MongoDB view_event_logs (past 30 days)
-                                           │    → Write JSON to Redis "books:most_viewed:30d:data"
-                                           │       (Snappy-compressed STRING, TTL 1 day)
-                                           │    → DEL "books:most_viewed:daily:count"
-                                           │       (new day starts from zero)
-                                           │    → DEL "books:most_viewed:daily:data"
-                                           │       (force fresh rebuild on next API call)
-                                           └───────────────────────────────────────────────────
+```text
+┌──────────────────┐      REST / JSON (HTTPS)      ┌────────────────────────────────────────────┐
+│     Next.js      │ ────────────────────────────► │              Gin HTTP Server               │
+│    Frontend      │ ◄──────────────────────────── │        internal/server  (Port 8080)        │
+│   (Port 3000)    │                               └─────────────────────┬──────────────────────┘
+└──────────────────┘                                                     │
+                                                           JWT Authentication Middleware
+                                                     (RequireAuth / RequireUser / RequireAdmin)
+                                                                         │
+                                               ┌─────────────────────────▼──────────────────────┐
+                                               │                internal/domain                 │
+                                               │      Repository Interfaces + Domain Models     │
+                                               └──────┬───────────┬────────────┬───────────┬────┘
+                                                      │           │            │           │
+                 ┌────────────────────────────────────┘           │            │           └──────────────────────────────────┐
+                 │                                                │            │                                              │
+      ┌──────────▼──────────┐                          ┌──────────▼────────┐ ┌────▼──────────────┐                     ┌──────▼──────────────┐
+      │     PostgreSQL      │                          │      MongoDB      │ │       Neo4j       │                     │        Redis        │
+      │    (Port 5432)      │                          │    (Port 27017)   │ │    (Port 7687)    │                     │    (Port 6379)      │
+      ├─────────────────────┤                          ├───────────────────┤ ├───────────────────┤                     ├─────────────────────┤
+      │ users               │                          │ books             │ │ Book              │                     │ Sessions            │
+      │ addresses           │                          │ categories        │ │ Author            │                     │ Cart cache          │
+      │ books_ref           │                          │ view_event_logs   │ │ Category          │                     │ Best sellers        │
+      │ inventory           │                          └──────────▲────────┘ │ Publisher         │                     │ Most viewed         │
+      │ carts               │                                     │          │ Tag               │                     │ Order history       │
+      │ cart_items          │                                     │          │ Series            │                     │ Category list       │
+      │ orders              │                                     │          └───────────────────┘                     │ Buy-now session     │
+      │ order_items         │                                     │                                                    └──────────▲──────────┘
+      │ order_status        │                                     │                                                               │
+      │  _histories         │                                     │                internal/worker/                               │
+      │ payments            │                                     │                                                               │
+      │ shipments           │                                     └─────── best_seller_worker.go  (daily 00:00 UTC) ──────────────┘
+      └──────────▲──────────┘                                              → Query PostgreSQL order_items (past 30 days)
+                 │                                                        → Write top-10 JSON to Redis "books:best_sellers"
+                 │
+                 └──────────────────────────────────────────────────────── most_viewed_worker.go  (daily 00:00 UTC)
+                                                                           → Aggregate MongoDB view_event_logs (past 30 days)
+                                                                           → Write JSON to Redis "books:most_viewed:30d:data"
+                                                                           → DEL "books:most_viewed:daily:count"
+                                                                           → DEL "books:most_viewed:daily:data"
 ```
 
 ---
@@ -177,7 +176,7 @@ The system solves four core technical challenges:
    - `DELETE cart_items` via `carts` cascade
    - `INSERT orders` + `INSERT order_items` (price snapshot at purchase time)
    - `UPDATE inventory stock_quantity` (deduct purchased quantity)
-   - `INSERT order_status_history` (`old_status = NULL`, `new_status = 'pending'`)
+   - `INSERT order_status_histories` (`old_status = NULL`, `new_status = 'pending'`)
 3. **After transaction**: invalidate Redis cart cache + order-history cache + stale stock cache entries
 
 #### View Book Flow (B2 + E3)
@@ -238,7 +237,7 @@ and API ergonomics:
 | `cart_items` | `(cart_id BIGINT FK, book_id TEXT FK)` composite | — | `quantity INT CHECK(>0)`, `updated_at` | Cart line items; ON DELETE CASCADE from carts |
 | `orders` | `id BIGSERIAL` | `alias_id UUID` | `user_id BIGINT FK→users.id`, `status` ENUM, `total_amount NUMERIC`, `address_id BIGINT FK→addresses.id nullable`, `note`, `created_at` | Order headers |
 | `order_items` | `id BIGSERIAL` | — | `order_id BIGINT FK→orders.id`, `mongo_book_id TEXT`, `name TEXT` (snapshot), `quantity INT`, `unit_price NUMERIC` (snapshot) | Immutable price snapshots; remains readable even if the MongoDB document changes |
-| `order_status_history` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `old_status VARCHAR nullable`, `new_status VARCHAR`, `changed_by_admin_alias_id UUID nullable` (denormalised), `note`, `changed_at` | Full audit trail of every status transition |
+| `order_status_histories` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `old_status VARCHAR nullable`, `new_status VARCHAR`, `changed_by_admin_alias_id UUID nullable` (denormalised), `note`, `changed_at` | Full audit trail of every status transition |
 | `payments` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `method`, `status`, `amount NUMERIC`, `provider_ref`, `paid_at`, `created_at` | Payment records linked to orders |
 | `shipments` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `status`, `carrier`, `tracking_no`, `shipped_at`, `delivered_at`, `created_at` | Shipment tracking records |
 
@@ -269,6 +268,7 @@ and API ergonomics:
 | | `is_default` | `BOOLEAN` | `NOT NULL`, Default: `false` | Default flag |
 | | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Creation timestamp |
 | | `updated_at` | `TIMESTAMPTZ` | `NOT NULL` | Last update timestamp |
+| | `deleted_at` | `TIMESTAMPTZ` | | Soft-delete timestamp |
 | `books_ref` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
 | | `mongo_id` | `TEXT` | `UNIQUE`, `NOT NULL` | Natural Key from MongoDB |
 | | `price` | `NUMERIC(12,2)` | `NOT NULL`, `CHECK > 0` | Current price |
@@ -291,7 +291,7 @@ and API ergonomics:
 | | `title` | `TEXT` | `NOT NULL` | Snapshot: Book title |
 | | `quantity` | `INTEGER` | `NOT NULL`, `CHECK > 0` | Purchased quantity |
 | | `unit_price` | `NUMERIC(12,2)` | `NOT NULL`, `CHECK > 0` | Snapshot: Price at purchase |
-| `order_status_history` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
+| `order_status_histories` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
 | | `alias_id` | `UUID` | `UNIQUE`, `NOT NULL` | External public ID |
 | | `order_id` | `BIGINT` | `FK → orders.id`, `ON DELETE CASCADE` | Linked order |
 | | `old_status` | `VARCHAR(20)` | | Previous state |
@@ -395,21 +395,21 @@ and API ergonomics:
 
 #### Redis Data Models
 
-| Key Pattern | Data Type | Value Structure | Description |
-|---|---|---|---|
-| `users:current_sessions:{aliasID}` | `STRING` | Snappy-compressed JWT | Active user session |
-| `users:blacklist_sessions:{token}` | `STRING` | `"revoked"` | Logged-out token storage |
-| `users:carts:{aliasID}` | `STRING` | Snappy-compressed JSON | Cart cache (List of items) |
-| `users:checkouts:{sessionID}` | `STRING` | Snappy-compressed JSON | Temporary Buy-Now data |
-| `users:orders:{userID}:{page}:{size}` | `STRING` | Snappy-compressed JSON | Paginated order history |
-| `books:details:{bookID}` | `STRING` | Snappy-compressed JSON | Book doc + stock snapshot |
-| `books:newest` | `STRING` | Snappy-compressed JSON | List of newest books |
-| `books:stocks:{bookID}` | `STRING` | `Int` (as String) | Real-time stock counter |
-| `books:categories:{page}:{size}` | `STRING` | Snappy-compressed JSON | Category list cache |
-| `books:best_sellers` | `STRING` | Snappy-compressed JSON | Top 10 books (30d sales) |
-| `books:most_viewed:daily:count` | `ZSET` | `Member: bookID, Score: count` | Live daily view counter |
-| `books:most_viewed:daily:data` | `STRING` | Snappy-compressed JSON | Enriched daily top 10 |
-| `books:most_viewed:30d:data` | `STRING` | Snappy-compressed JSON | Nightly aggregated top 10 |
+| Key Pattern | Data Type | Value Structure | Description | Feature Flag |
+|---|---|---|---|---|
+| `users:current_sessions:{aliasID}` | `STRING` | Snappy-compressed JWT | Active user session | — (always active) |
+| `users:blacklist_sessions:{token}` | `STRING` | `"revoked"` | Logged-out token storage | — (always active) |
+| `users:carts:{aliasID}` | `STRING` | Snappy-compressed JSON | Cart cache (List of items) | `REDIS_CART_CACHE` |
+| `users:checkouts:{sessionID}` | `STRING` | Snappy-compressed JSON | Temporary Buy-Now data | — (always active) |
+| `users:orders:{userID}:{page}:{size}` | `STRING` | Snappy-compressed JSON | Paginated order history | `REDIS_ORDER_HISTORY` |
+| `books:details:{bookID}` | `STRING` | Snappy-compressed JSON | Book doc + stock snapshot | `REDIS_BOOK_CACHE` |
+| `books:newest` | `STRING` | Snappy-compressed JSON | List of newest books | `REDIS_NEWEST_BOOKS` |
+| `books:stocks:{bookID}` | `STRING` | `Int` (as String) | Real-time stock counter | `REDIS_STOCK_CACHE` |
+| `books:categories:{page}:{size}` | `STRING` | Snappy-compressed JSON | Category list cache | `REDIS_CATEGORY_CACHE` |
+| `books:best_sellers` | `STRING` | Snappy-compressed JSON | Top 10 books (30d sales) | `REDIS_BEST_SELLERS` |
+| `books:most_viewed:daily:count` | `ZSET` | `Member: bookID, Score: count` | Live daily view counter | `REDIS_MOST_VIEWED_DAILY` |
+| `books:most_viewed:daily:data` | `STRING` | Snappy-compressed JSON | Enriched daily top 10 | `REDIS_MOST_VIEWED_DAILY` |
+| `books:most_viewed:30d:data` | `STRING` | Snappy-compressed JSON | Nightly aggregated top 10 | `REDIS_MOST_VIEWED_30D` |
 
 #### Database Indexes
 
@@ -432,9 +432,9 @@ and API ergonomics:
 | `orders` | `created_at DESC` | B-TREE | Sorting by date |
 | `order_items` | `order_id` | B-TREE | Order line items |
 | `order_items` | `mongo_book_id` | B-TREE | Sales analytics per book |
-| `order_status_history` | `alias_id` | UNIQUE | External lookup |
-| `order_status_history` | `order_id` | B-TREE | Audit trail lookup |
-| `order_status_history` | `changed_at DESC` | B-TREE | Chronological audit |
+| `order_status_histories` | `alias_id` | UNIQUE | External lookup |
+| `order_status_histories` | `order_id` | B-TREE | Audit trail lookup |
+| `order_status_histories` | `changed_at DESC` | B-TREE | Chronological audit |
 | `carts` | `user_id` | UNIQUE | User cart lookup |
 | `cart_items` | `cart_id` | B-TREE | Cart content lookup |
 | `payments` | `alias_id` | UNIQUE | External lookup |
@@ -478,7 +478,7 @@ and API ergonomics:
 | `books:most_viewed:daily:count` | ZSET | Sorted ranking by view count |
 | `users:blacklist_sessions:{token}` | STRING | Fast token revocation check |
 
-> **Note on `order_status_history.changed_by_admin_alias_id`:** The admin's `alias_id` UUID is
+> **Note on `order_status_histories.changed_by_admin_alias_id`:** The admin's `alias_id` UUID is
 > stored directly in the history row (denormalised). This avoids a JOIN back to the `users` table
 > when serialising history entries — the int64 FK is not stored here because the audit log is
 > write-once and never needs FK enforcement.
@@ -680,7 +680,7 @@ backend/
 │   │   │   ├── user.go
 │   │   │   ├── order.go                 # CreateOrder, UpdateOrderStatus (state machine),
 │   │   │   │                            #  isValidOrderStatusTransition
-│   │   │   ├── order_status_history.go
+│   │   │   ├── order_status_histories.go
 │   │   │   ├── inventory.go             # GetInventoryForUpdate (SELECT FOR UPDATE —
 │   │   │   │                            #  ACID lock for concurrent checkout + admin stock updates)
 │   │   │   ├── cart.go                  # GetOrCreateCartByUserID, UpsertCartItem,
@@ -824,11 +824,14 @@ Set to `false` to bypass the cache layer and always read/write from the primary 
 
 | Config Key | Environment Variable | Default | Controls |
 |---|---|---|---|
-| `redis_book_cache` | `FEATURES_REDIS_BOOK_CACHE` | `true` | NV-B2/B3: book detail, newest books, and stock quantity caches |
+| `redis_book_cache` | `FEATURES_REDIS_BOOK_CACHE` | `true` | NV-B2: book detail cache |
+| `redis_newest_books` | `FEATURES_REDIS_NEWEST_BOOKS` | `true` | NV-B3: newest books list cache |
+| `redis_stock_cache` | `FEATURES_REDIS_STOCK_CACHE` | `true` | NV-F3: real-time stock quantity cache |
 | `redis_cart_cache` | `FEATURES_REDIS_CART_CACHE` | `true` | NV-C1/C2: Redis cart cache read/write layer |
 | `redis_best_sellers` | `FEATURES_REDIS_BEST_SELLERS` | `true` | NV-E2: bestseller JSON cache reads (data written by BestSellerWorker regardless of flag) |
 | `redis_order_history` | `FEATURES_REDIS_ORDER_HISTORY` | `true` | NV-D2: order history page cache (TTL 30 min) |
-| `redis_most_viewed_daily` | `FEATURES_REDIS_MOST_VIEWED_DAILY` | `true` | NV-E3: daily ZINCRBY view counter + on-demand data cache refresh + 30-day cache reads |
+| `redis_most_viewed_daily` | `FEATURES_REDIS_MOST_VIEWED_DAILY` | `true` | NV-E3: daily view counter + daily data cache refresh |
+| `redis_most_viewed_30d` | `FEATURES_REDIS_MOST_VIEWED_30D` | `true` | NV-E3: 30-day aggregated most viewed cache reads |
 | `redis_category_cache` | `FEATURES_REDIS_CATEGORY_CACHE` | `true` | NV-F4: category list page cache |
 
 > **Note:** Session and buy-now checkout session operations (auth-critical) are not flag-controlled and are always active.
@@ -941,10 +944,21 @@ make db-init-mongo
 # 6. Verify Redis connection
 make db-init-redis
 
-# 7. Start the API server
+# 7. Seed large dataset (optional)
+make db-seed
+
+# 8. Verify seeded data (optional)
+make db-seed-verification
+
+# 9. Start the API server
 make run
 # → API:     http://localhost:8080
 # → Swagger: http://localhost:8080/swagger/index.html
+```
+
+**One-liner for easy copy-paste (from Step 2 to 9):**
+```bash
+make db-start && make db-init-pg && make db-admin-pg && make db-init-neo4j && make db-init-mongo && make db-init-redis && make db-seed && make db-seed-verification && make run
 ```
 
 ### 6.3. Troubleshooting & Database Reset
@@ -1012,11 +1026,14 @@ All settings have embedded defaults and can be overridden via environment variab
 
 | Environment Variable | Default | Feature Controlled |
 |---|---|---|
-| `FEATURES_REDIS_BOOK_CACHE` | `true` | Book detail / newest / stock caches (B2, B3) |
+| `FEATURES_REDIS_BOOK_CACHE` | `true` | Book detail cache (B2) |
+| `FEATURES_REDIS_NEWEST_BOOKS` | `true` | Newest books list cache (B3) |
+| `FEATURES_REDIS_STOCK_CACHE` | `true` | Stock quantity cache (F3) |
 | `FEATURES_REDIS_CART_CACHE` | `true` | Cart Redis cache layer (C1, C2) |
 | `FEATURES_REDIS_BEST_SELLERS` | `true` | Best-seller ZSET + cache (E2) |
 | `FEATURES_REDIS_ORDER_HISTORY` | `true` | Order history page cache 30 min TTL (D2) |
-| `FEATURES_REDIS_MOST_VIEWED_DAILY` | `true` | Most-viewed daily ZSET + 30d cache (E3) |
+| `FEATURES_REDIS_MOST_VIEWED_DAILY` | `true` | Most-viewed daily ZSET + daily data cache (E3) |
+| `FEATURES_REDIS_MOST_VIEWED_30D` | `true` | Most-viewed 30-day cache reads (E3) |
 | `FEATURES_REDIS_CATEGORY_CACHE` | `true` | Category list cache (F4) |
 
 Example — disable order-history cache only:
@@ -1041,7 +1058,8 @@ Migrations are managed by **golang-migrate** and live in `db/postgres/migrations
 ```bash
 # Database lifecycle
 make db-start           # docker-compose up -d (all 4 DBs)
-make db-stop            # docker-compose down
+make db-stop            # docker-compose down (stop containers)
+make db-delete          # docker-compose down -v (stop containers and DELETE volumes)
 make db-logs            # Follow container logs
 
 # Initialization
@@ -1050,6 +1068,8 @@ make db-admin-pg        # Create bookstore_admin PG role
 make db-init-mongo      # Create MongoDB collections + indexes
 make db-init-neo4j      # Apply Neo4j constraints/indexes
 make db-init-redis      # Ping Redis to verify connection
+make db-seed            # Seed large dataset (10k+ users, 2k+ books, etc.)
+make db-seed-verification # Verify seeded data across all 4 databases
 
 # Development
 make run                # Start API server (reads .env)
@@ -1087,4 +1107,305 @@ Generated files are committed to `docs/` (`docs.go`, `swagger.json`, `swagger.ya
 
 ## 10. Frontend
 
-> Documentation for the frontend (Next.js) will be added here once implemented.
+> **Next.js 14** (App Router) · React 18 · TypeScript · Tailwind CSS · Zustand · Axios
+
+The frontend is a server-side rendered (SSR) Next.js application that consumes all REST endpoints documented in [Section 5](#5-api-reference). It mirrors the three actor scopes (Guest, Customer, Admin) through client-side route protection and conditional UI rendering.
+
+---
+
+### 10.1. Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 14.2 (App Router) |
+| Language | TypeScript 5.9 |
+| UI Library | React 18.3 |
+| Styling | Tailwind CSS 3.4 + PostCSS + Autoprefixer |
+| HTTP Client | Axios (with interceptor for JWT Bearer) |
+| State Management | Zustand 5 (persist middleware for auth) |
+| Form Handling | React Hook Form 7 + Zod 4 (schema validation) |
+| UI Primitives | Radix UI (`@radix-ui/react-slot`) + CVA (class-variance-authority) |
+| Icons | Lucide React |
+| Notifications | Sonner (toast) |
+| CSS Utilities | clsx + tailwind-merge |
+
+---
+
+### 10.2. Project Structure
+
+```
+frontend/
+├── next.config.mjs                    # Next.js configuration
+├── tailwind.config.ts                 # Tailwind CSS configuration
+├── tsconfig.json                      # TypeScript paths (@/ alias → src/)
+├── postcss.config.mjs                 # PostCSS plugins
+├── package.json                       # Dependencies & scripts
+├── .env.local                         # NEXT_PUBLIC_API_BASE_URL (git-ignored)
+│
+├── src/
+│   ├── app/                           # Next.js App Router — file-based routing
+│   │   ├── layout.tsx                 # Root layout (HTML shell, <Toaster />, global CSS)
+│   │   ├── globals.css                # Tailwind directives + global styles
+│   │   ├── page.tsx                   # Homepage — Hero, Trending, BooksGrid, Rankings, Services
+│   │   │
+│   │   ├── login/page.tsx             # NV-A2: Login form (react-hook-form + zod)
+│   │   ├── (auth)/register/page.tsx   # NV-A1: Register form
+│   │   ├── profile/page.tsx           # NV-A4: View & update profile
+│   │   │
+│   │   ├── books/
+│   │   │   ├── page.tsx               # NV-B1: Book catalog with search & filters
+│   │   │   └── [id]/page.tsx          # NV-B2: Book detail + stock + similar + series
+│   │   ├── categories/
+│   │   │   ├── page.tsx               # NV-F4: Category listing
+│   │   │   └── [slug]/page.tsx        # Books filtered by category slug
+│   │   ├── search/page.tsx            # NV-B1: Search results page
+│   │   ├── best-sellers/page.tsx      # NV-E2: Top-10 best sellers
+│   │   ├── most-viewed/
+│   │   │   ├── daily/page.tsx         # NV-E3: Most viewed today
+│   │   │   └── 30days/page.tsx        # NV-E3: Most viewed past 30 days
+│   │   ├── authors/page.tsx           # Author listing page
+│   │   ├── blog/page.tsx              # Blog placeholder page
+│   │   │
+│   │   ├── cart/page.tsx              # NV-C1/C2: Cart view & edit
+│   │   ├── checkout/page.tsx          # NV-D1: Checkout flow (cart or buy-now session)
+│   │   ├── orders/
+│   │   │   ├── page.tsx               # NV-D2: Order history
+│   │   │   └── [id]/page.tsx          # NV-D3: Order detail
+│   │   │
+│   │   └── admin/                     # Admin panel (role: admin only)
+│   │       ├── layout.tsx             # Admin sidebar layout
+│   │       ├── page.tsx               # Dashboard overview
+│   │       ├── books/page.tsx         # NV-F2: Book CRUD + stock management
+│   │       ├── categories/page.tsx    # NV-F4: Category CRUD
+│   │       ├── orders/
+│   │       │   ├── page.tsx           # NV-F1: Order management
+│   │       │   └── [id]/page.tsx      # NV-F1: Order detail + status update + audit trail
+│   │       ├── users/page.tsx         # User management (activate/deactivate)
+│   │       └── analytics/page.tsx     # NV-E2: Best-seller analytics + sales summary
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── SiteHeader.tsx         # Main navigation bar (responsive, auth-aware)
+│   │   │   ├── Header.tsx             # Legacy header wrapper
+│   │   │   ├── Footer.tsx             # Site footer with navigation links
+│   │   │   └── RouteShell.tsx         # Page wrapper (Header + Footer + content)
+│   │   │
+│   │   ├── home/
+│   │   │   ├── HeroSection.tsx        # Homepage hero banner
+│   │   │   ├── TrendingSection.tsx    # Trending books carousel
+│   │   │   ├── BooksGridSection.tsx   # Book grid (newest / best sellers)
+│   │   │   ├── CategoryPills.tsx      # Category pill buttons
+│   │   │   ├── RankingSection.tsx     # Most-viewed + best-seller rankings
+│   │   │   ├── ServicesSection.tsx    # Service features showcase
+│   │   │   └── TestimonialsSection.tsx # Customer testimonials
+│   │   │
+│   │   ├── books/
+│   │   │   ├── book-card.tsx          # Reusable book card component
+│   │   │   ├── BooksPage.tsx          # Shared book listing page logic
+│   │   │   ├── BooksToolbar.tsx       # Filter & sort toolbar
+│   │   │   └── section-header.tsx     # Section header with "See all" link
+│   │   │
+│   │   ├── sections/
+│   │   │   ├── BookCard.tsx           # Alternative book card (sections context)
+│   │   │   ├── SectionTitle.tsx       # Styled section title
+│   │   │   └── section-title.tsx      # Section title variant
+│   │   │
+│   │   ├── admin/
+│   │   │   ├── BookFormDrawer.tsx     # Slide-over drawer for book create/edit
+│   │   │   ├── CategoryFormDrawer.tsx # Slide-over drawer for category create/edit
+│   │   │   ├── ConfirmDialog.tsx      # Confirmation modal (delete / status change)
+│   │   │   ├── Pagination.tsx         # Reusable pagination controls
+│   │   │   └── StatusBadge.tsx        # Order status badge (colour-coded)
+│   │   │
+│   │   └── ui/
+│   │       ├── button.tsx             # CVA-based Button component (variants: primary, secondary, outline)
+│   │       └── container.tsx          # Max-width content container
+│   │
+│   ├── lib/
+│   │   ├── api/
+│   │   │   ├── client.ts             # Axios instance (baseURL + JWT interceptor)
+│   │   │   ├── auth.ts               # register, login, logout
+│   │   │   ├── books.ts              # search, getNewBooks, getDetail, getSimilar, getSeries, admin CRUD
+│   │   │   ├── categories.ts         # list, admin CRUD
+│   │   │   ├── cart.ts               # get, add, updateItem, removeItem
+│   │   │   ├── orders.ts             # checkout, buyNow, history, detail, admin operations
+│   │   │   ├── recommendations.ts    # similarBooks, seriesBooks
+│   │   │   └── admin.ts              # listUsers, getUser, deactivateUser, bestSellers, sales
+│   │   │
+│   │   ├── types/
+│   │   │   └── index.ts              # All TypeScript interfaces & request/response DTOs
+│   │   │
+│   │   ├── routes.ts                 # Navigation link definitions (navLinks, footerLinks)
+│   │   ├── design-tokens.ts          # Design system constants (colours, spacing, typography)
+│   │   ├── books.ts                  # Book utility helpers
+│   │   ├── cn.ts                     # clsx + tailwind-merge utility
+│   │   └── utils.ts                  # General utility functions
+│   │
+│   └── stores/
+│       ├── auth.store.ts             # Zustand: token + user state (persist to localStorage)
+│       └── cart.store.ts             # Zustand: cart items + total price (in-memory)
+│
+├── DESIGN.md                          # Design system documentation
+├── DESIGN_GUIDE.md                    # Visual style reference guide
+├── PLANNING.md                        # Feature planning notes
+└── PRODUCT.md                         # Product requirements
+```
+
+---
+
+### 10.3. Pages & Routing
+
+The application uses **Next.js App Router** with file-based routing. Pages are organised by actor scope:
+
+#### Public Pages (Guest)
+
+| Route | File | NV | Description |
+|---|---|---|---|
+| `/` | `page.tsx` | — | Homepage with hero, trending books, book grid, rankings, services, testimonials |
+| `/login` | `login/page.tsx` | A2 | Login form with email + password validation |
+| `/register` | `(auth)/register/page.tsx` | A1 | Registration form with name, email, phone, password |
+| `/books` | `books/page.tsx` | B1 | Book catalog with search, filter by author/publisher/year/price |
+| `/books/:id` | `books/[id]/page.tsx` | B2 | Book detail: metadata, stock, similar books (Neo4j), series volumes |
+| `/categories` | `categories/page.tsx` | F4 | All categories listing |
+| `/categories/:slug` | `categories/[slug]/page.tsx` | B1 | Books filtered by category slug |
+| `/search` | `search/page.tsx` | B1 | Search results page |
+| `/best-sellers` | `best-sellers/page.tsx` | E2 | Top-10 bestselling books (30-day, from Redis) |
+| `/most-viewed/daily` | `most-viewed/daily/page.tsx` | E3 | Top-10 most viewed today (Redis ZSET) |
+| `/most-viewed/30days` | `most-viewed/30days/page.tsx` | E3 | Top-10 most viewed past 30 days (Redis cache) |
+| `/authors` | `authors/page.tsx` | — | Author listing page |
+| `/blog` | `blog/page.tsx` | — | Blog page |
+
+#### Customer Pages (JWT, `role: user`)
+
+| Route | File | NV | Description |
+|---|---|---|---|
+| `/profile` | `profile/page.tsx` | A4 | View & update user profile (name, phone, default address) |
+| `/cart` | `cart/page.tsx` | C1/C2 | View cart items, update quantities, remove items |
+| `/checkout` | `checkout/page.tsx` | D1 | Checkout from cart or buy-now session |
+| `/orders` | `orders/page.tsx` | D2 | Order history list (paginated) |
+| `/orders/:id` | `orders/[id]/page.tsx` | D3 | Order detail with line items and status |
+
+#### Admin Pages (JWT, `role: admin`)
+
+| Route | File | NV | Description |
+|---|---|---|---|
+| `/admin` | `admin/page.tsx` | — | Admin dashboard overview |
+| `/admin/books` | `admin/books/page.tsx` | F2 | Book CRUD table + stock management (drawer form) |
+| `/admin/categories` | `admin/categories/page.tsx` | F4 | Category CRUD table (drawer form) |
+| `/admin/orders` | `admin/orders/page.tsx` | F1 | Order list with status filter |
+| `/admin/orders/:id` | `admin/orders/[id]/page.tsx` | F1 | Order detail + status update + audit trail |
+| `/admin/users` | `admin/users/page.tsx` | — | User management: list, view, activate/deactivate |
+| `/admin/analytics` | `admin/analytics/page.tsx` | E2 | Best-seller analytics + sales summary |
+
+---
+
+### 10.4. State Management
+
+Two Zustand stores handle client-side state. Authentication state is persisted to `localStorage` via the `persist` middleware; cart state is kept in-memory only (source of truth is always the backend).
+
+| Store | File | Persistence | State | Actions |
+|---|---|---|---|---|
+| `useAuthStore` | `stores/auth.store.ts` | `localStorage` (`auth-storage`) | `token: string`, `user: UserInfo` | `setAuth(token, user)`, `clearAuth()` |
+| `useCartStore` | `stores/cart.store.ts` | In-memory only | `items: CartItem[]`, `totalPrice: number` | `setCart(items, totalPrice)`, `clearCart()` |
+
+**Authentication flow:**
+1. `POST /auth/login` → receive `{ access_token, user }`.
+2. Store token in `localStorage` as `access_token` (for Axios interceptor) and in Zustand `auth-storage` (for UI state).
+3. Axios request interceptor reads `localStorage.access_token` and attaches `Authorization: Bearer <token>` header.
+4. On logout: `POST /auth/logout` → `clearAuth()` → remove `access_token` from `localStorage`.
+
+---
+
+### 10.5. API Client Layer
+
+All backend communication goes through a centralised Axios instance (`lib/api/client.ts`) configured with:
+
+| Setting | Value |
+|---|---|
+| `baseURL` | `NEXT_PUBLIC_API_BASE_URL` env var (default: `http://localhost:8080/api/v1`) |
+| `Content-Type` | `application/json` |
+| JWT injection | Request interceptor reads `localStorage.access_token` and sets `Authorization` header |
+
+#### API Modules
+
+Each module exports a plain object with async methods that call the backend and unwrap the response:
+
+| Module | File | Methods | Backend Scope |
+|---|---|---|---|
+| `authApi` | `lib/api/auth.ts` | `register`, `login`, `logout` | Public + Customer |
+| `booksApi` | `lib/api/books.ts` | `search`, `getNewBooks`, `getDetail`, `getSimilar`, `getSeries`, `adminList`, `adminCreate`, `adminUpdate`, `adminDelete`, `adminUpdateStock` | Public + Admin |
+| `categoriesApi` | `lib/api/categories.ts` | `list`, `adminList`, `adminCreate`, `adminUpdate`, `adminDelete` | Public + Admin |
+| `cartApi` | `lib/api/cart.ts` | `get`, `add`, `updateItem`, `removeItem` | Customer |
+| `ordersApi` | `lib/api/orders.ts` | `checkout`, `buyNow`, `history`, `detail`, `adminList`, `adminGet`, `adminUpdateStatus`, `adminHistory` | Customer + Admin |
+| `recommendationsApi` | `lib/api/recommendations.ts` | `similarBooks`, `seriesBooks` | Public |
+| `adminApi` | `lib/api/admin.ts` | `listUsers`, `getUser`, `deactivateUser`, `bestSellers`, `sales` | Admin |
+
+#### TypeScript Interfaces
+
+All request/response types are defined in `lib/types/index.ts` (351 lines), including:
+
+| Category | Interfaces |
+|---|---|
+| Domain Models | `User`, `Book`, `BookDetail`, `Category`, `CartItem`, `Order`, `OrderItem`, `OrderStatusHistory`, `Payment`, `Shipment` |
+| Book Sub-types | `BookImage`, `BookSeries`, `BookAuthor`, `BookTag`, `BookPricing`, `BookCategoryRef` |
+| Recommendations | `SimilarBook`, `SeriesBook`, `BestSellerBook`, `MostViewedBook` |
+| Request DTOs | `RegisterRequest`, `LoginRequest`, `UpdateProfileRequest`, `CreateBookRequest`, `UpdateBookRequest`, `AddToCartRequest`, `CheckoutRequest`, `BuyNowRequest`, `UpdateOrderStatusRequest`, `DeactivateUserRequest` |
+| Response DTOs | `LoginResponse`, `BookListResponse`, `CategoryListResponse`, `CartResponse`, `OrderListResponse`, `UserListResponse`, `RecommendationResponse`, `BuyNowResponse`, `SalesSummary` |
+
+---
+
+### 10.6. Component Architecture
+
+Components are organised into five directories by responsibility:
+
+| Directory | Scope | Components |
+|---|---|---|
+| `components/layout/` | App-wide shell | `SiteHeader` (navigation + auth-aware menu), `Footer` (links + branding), `RouteShell` (Header + Footer wrapper), `Header` (legacy) |
+| `components/home/` | Homepage sections | `HeroSection`, `TrendingSection`, `BooksGridSection`, `CategoryPills`, `RankingSection`, `ServicesSection`, `TestimonialsSection` |
+| `components/books/` | Book catalog | `book-card` (card with cover, title, author, price), `BooksPage` (shared listing logic), `BooksToolbar` (search + filter bar), `section-header` (title + "See all" link) |
+| `components/admin/` | Admin panel | `BookFormDrawer` (slide-over for book CRUD), `CategoryFormDrawer` (slide-over for category CRUD), `ConfirmDialog` (delete/status confirmation), `Pagination` (page controls), `StatusBadge` (colour-coded order status) |
+| `components/ui/` | Design system primitives | `button` (CVA variants: primary, secondary, outline, ghost + sizes), `container` (max-width wrapper) |
+
+#### Design System
+
+The frontend uses a token-based design system documented in `DESIGN.md` and `DESIGN_GUIDE.md`:
+
+- **Colour palette**: Defined in `lib/design-tokens.ts` — warm canvas backgrounds, accent colours, semantic status colours.
+- **Typography**: System font stack configured via Tailwind CSS.
+- **Spacing & Layout**: Consistent max-width container (`components/ui/container.tsx`) across all pages.
+- **Button variants**: Built with `class-variance-authority` (CVA) for type-safe variant props (`variant`, `size`).
+- **Utility functions**: `cn()` from `lib/cn.ts` — merges `clsx` + `tailwind-merge` for conflict-free class composition.
+
+---
+
+### 10.7. Getting Started
+
+```bash
+cd hcmus-master-is-db/frontend
+
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.local.example .env.local
+# Or create manually:
+echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1" > .env.local
+
+# 3. Start development server
+npm run dev
+# → http://localhost:3000
+
+# 4. Build for production (optional)
+npm run build
+npm start
+```
+
+| Script | Command | Description |
+|---|---|---|
+| `dev` | `next dev` | Start development server with hot reload |
+| `build` | `next build` | Create production build |
+| `start` | `next start` | Start production server |
+| `lint` | `next lint` | Run ESLint checks |
+
+> **Note:** The backend API server must be running on `http://localhost:8080` before starting the frontend.
+> See [Section 6.2](#62-quick-start-with-docker) for backend setup instructions.

@@ -63,9 +63,10 @@ type Address struct {
 	Ward         string    `                                                                       json:"ward,omitempty"`
 	District     string    `                                                                       json:"district,omitempty"`
 	City         string    `gorm:"not null"                                                        json:"city"`
-	IsDefault    bool      `gorm:"not null;default:false"                                          json:"is_default"`
-	CreatedAt    time.Time `                                                                       json:"created_at"`
-	UpdatedAt    time.Time `                                                                       json:"-"`
+	IsDefault    bool       `gorm:"not null;default:false"                                          json:"is_default"`
+	CreatedAt    time.Time  `                                                                       json:"created_at"`
+	UpdatedAt    time.Time  `                                                                       json:"-"`
+	DeletedAt    *time.Time `gorm:"index"                                                           json:"-"`
 }
 
 // ─── Book (Catalog — MongoDB) ─────────────────────────────────────────────────
@@ -150,11 +151,11 @@ type BookDetail struct {
 // Category is a document stored in the MongoDB "categories" collection.
 type Category struct {
 	ID             string    `bson:"_id,omitempty" json:"id"`
-	CategoryName   string    `bson:"categoryName"  json:"category_name"`
+	CategoryName   string    `bson:"category_name" json:"category_name"`
 	Slug           string    `bson:"slug"          json:"slug"`
-	ParentCategory string    `bson:"parentCategory,omitempty" json:"parent_category,omitempty"`
-	CreatedAt      time.Time `bson:"createdAt"     json:"created_at"`
-	UpdatedAt      time.Time `bson:"updatedAt"     json:"updated_at"`
+	ParentCategory string    `bson:"parent_category,omitempty" json:"parent_category,omitempty"`
+	CreatedAt      time.Time `bson:"created_at"    json:"created_at"`
+	UpdatedAt      time.Time `bson:"updated_at"    json:"updated_at"`
 }
 
 // ─── Cart (PostgreSQL) ────────────────────────────────────────────────────────
@@ -206,7 +207,7 @@ const (
 // Order is the header record of a placed order.
 //
 // Dual-identifier pattern: ID (BIGSERIAL) is the internal FK used by order_items,
-// order_status_history, payments, and shipments tables; AliasID (UUID) is the
+// order_status_histories, payments, and shipments tables; AliasID (UUID) is the
 // external identifier exposed in all API responses and accepted in URL parameters.
 type Order struct {
 	ID          int64       `gorm:"primaryKey;autoIncrement"                                        json:"-"`
@@ -247,6 +248,9 @@ type OrderStatusHistory struct {
 	Note                  string     `                                                                       json:"note,omitempty"`
 	ChangedAt             time.Time  `gorm:"not null;default:now()"                                          json:"changed_at"`
 }
+
+// TableName overrides the default GORM table name.
+func (OrderStatusHistory) TableName() string { return "order_status_histories" }
 
 // Payment stores payment details for an order.
 //

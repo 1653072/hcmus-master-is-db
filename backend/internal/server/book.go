@@ -118,7 +118,7 @@ func (s *Service) GetNewBooks(c *gin.Context) {
 	limit := queryInt(c, "limit", 20)
 	ctx := c.Request.Context()
 
-	if s.features.RedisBookCache {
+	if s.features.RedisNewestBooksCache {
 		if cached, hit, _ := s.bookCache.GetNewest(ctx); hit {
 			respondOK(c, s.enrichBooks(ctx, cached))
 			return
@@ -132,7 +132,7 @@ func (s *Service) GetNewBooks(c *gin.Context) {
 		return
 	}
 
-	if s.features.RedisBookCache {
+	if s.features.RedisNewestBooksCache {
 		_ = s.bookCache.SetNewest(ctx, books)
 	}
 	respondOK(c, s.enrichBooks(ctx, books))
@@ -186,7 +186,7 @@ func (s *Service) enrichBooks(ctx context.Context, books []*domain.Book) []domai
 	for _, book := range books {
 		detail := domain.BookDetail{Book: *book, Price: book.Pricing.Price}
 
-		if s.features.RedisBookCache {
+		if s.features.RedisStockCache {
 			if quantity, hit, _ := s.bookCache.GetStock(ctx, book.ID); hit {
 				detail.StockQuantity = quantity
 				details = append(details, detail)
@@ -196,7 +196,7 @@ func (s *Service) enrichBooks(ctx context.Context, books []*domain.Book) []domai
 
 		if inventory, err := s.pg.GetInventory(ctx, book.ID); err == nil && inventory != nil {
 			detail.StockQuantity = inventory.StockQuantity
-			if s.features.RedisBookCache {
+			if s.features.RedisStockCache {
 				_ = s.bookCache.SetStock(ctx, book.ID, inventory.StockQuantity)
 			}
 		}

@@ -9,42 +9,56 @@ import { RouteShell } from '@/components/layout/RouteShell';
 import { booksApi } from '@/lib/api/books';
 import { toFeaturedBook } from '@/lib/books';
 
+import { categoriesApi, type Category } from '@/lib/api/categories';
+
 function BooksContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
   const queryParam = searchParams.get('query') || searchParams.get('q');
 
   const [books, setBooks] = useState<FeaturedBook[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    async function loadBooks() {
+    async function loadData() {
       try {
         setLoading(true);
         setError(null);
         const queryTerm = categoryParam || queryParam || undefined;
-        const res = await booksApi.search({ page: 1, page_size: 12, query: queryTerm });
-        const list = Array.isArray((res as { books?: unknown }).books) ? ((res as { books?: unknown }).books as unknown[]) : [];
+        
+        const [booksRes, categoriesList] = await Promise.all([
+          booksApi.search({ page: 1, page_size: 12, query: queryTerm }),
+          categoriesApi.list().catch(() => []),
+        ]);
+
         if (!mounted) return;
+        
+        const list = Array.isArray((booksRes as any).data) ? ((booksRes as any).data as unknown[]) : [];
         setBooks(list.map((book, index) => toFeaturedBook(book as never, index)));
+        
+        // Filter out empty category names and deduplicate
+        const rawCategories = Array.isArray((categoriesList as any).data) ? (categoriesList as any).data : [];
+        const uniqueCats = Array.from(new Map(rawCategories.filter((c: Category) => c.category_name && c.category_name.trim() !== '').map((c: Category) => [c.category_name, c])).values());
+        setCategories(uniqueCats as Category[]);
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : 'Failed to load books');
+        setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    loadBooks();
+    loadData();
     return () => {
       mounted = false;
     };
   }, [categoryParam, queryParam]);
 
-  return <BooksPage books={books} loading={loading} error={error} currentCategory={categoryParam} currentQuery={queryParam} />;
+  return <BooksPage books={books} categories={categories} loading={loading} error={error} currentCategory={categoryParam} currentQuery={queryParam} />;
 }
 
 export default function Page() {

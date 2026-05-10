@@ -53,13 +53,13 @@ export default function Page() {
   };
 
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="px-6 py-8 lg:px-10 xl:px-24">
       <div className="mb-8">
-        <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-zinc-900">
+        <div className="h-1.5 w-14 rounded-full bg-ember/20" aria-hidden="true" />
+        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-charcoal">
           Manage Users
         </h1>
-        <p className="mt-3 text-sm text-zinc-500">{total} user{total !== 1 ? 's' : ''} registered</p>
+        <p className="mt-3 text-sm text-graphite">{total} user{total !== 1 ? 's' : ''} registered</p>
       </div>
 
       {loading ? (

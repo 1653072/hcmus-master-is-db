@@ -11,6 +11,27 @@ definitions:
     - book_id
     - quantity
     type: object
+  domain.Address:
+    properties:
+      address_line:
+        type: string
+      alias_id:
+        type: string
+      city:
+        type: string
+      created_at:
+        type: string
+      district:
+        type: string
+      is_default:
+        type: boolean
+      phone:
+        type: string
+      receiver_name:
+        type: string
+      ward:
+        type: string
+    type: object
   domain.BestSellerBook:
     properties:
       book_id:
@@ -193,6 +214,28 @@ definitions:
         description: for Buy-Now flow
         type: string
     type: object
+  domain.CreateAddressRequest:
+    properties:
+      address_line:
+        type: string
+      city:
+        type: string
+      district:
+        type: string
+      is_default:
+        type: boolean
+      phone:
+        type: string
+      receiver_name:
+        type: string
+      ward:
+        type: string
+    required:
+    - address_line
+    - city
+    - phone
+    - receiver_name
+    type: object
   domain.CreateBookRequest:
     properties:
       authors:
@@ -348,7 +391,7 @@ definitions:
         minLength: 2
         type: string
       password:
-        minLength: 8
+        minLength: 6
         type: string
       phone:
         type: string
@@ -388,6 +431,23 @@ definitions:
       score:
         type: number
       title:
+        type: string
+    type: object
+  domain.UpdateAddressRequest:
+    properties:
+      address_line:
+        type: string
+      city:
+        type: string
+      district:
+        type: string
+      is_default:
+        type: boolean
+      phone:
+        type: string
+      receiver_name:
+        type: string
+      ward:
         type: string
     type: object
   domain.UpdateBookRequest:
@@ -1524,6 +1584,140 @@ paths:
       summary: Checkout
       tags:
       - orders
+  /users/addresses:
+    get:
+      description: Return all active delivery addresses for the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Address'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List addresses
+      tags:
+      - addresses
+    post:
+      consumes:
+      - application/json
+      description: Add a new delivery address to the user's profile
+      parameters:
+      - description: Address details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateAddressRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Address'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create address
+      tags:
+      - addresses
+  /users/addresses/{id}:
+    delete:
+      description: Mark a delivery address as deleted
+      parameters:
+      - description: Address AliasID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete address
+      tags:
+      - addresses
+    put:
+      consumes:
+      - application/json
+      description: Update fields of an existing delivery address
+      parameters:
+      - description: Address AliasID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Address update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateAddressRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Address'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update address
+      tags:
+      - addresses
+  /users/addresses/{id}/default:
+    patch:
+      description: Set an existing address as the default delivery address
+      parameters:
+      - description: Address AliasID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set default address
+      tags:
+      - addresses
   /users/me:
     get:
       description: Return the current user's profile

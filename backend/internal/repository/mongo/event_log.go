@@ -27,6 +27,9 @@ type eventLogDoc struct {
 type viewCountResult struct {
 	BookID    string `bson:"_id"`
 	ViewCount int64  `bson:"viewCount"`
+	BookDocs  []struct {
+		Name string `bson:"name"`
+	} `bson:"bookDocs"`
 }
 
 // EventLogRepository implements domain.EventLogRepository against MongoDB.
@@ -76,6 +79,28 @@ func (r *EventLogRepository) AggregateTopViewed(ctx context.Context, from time.T
 		{
 			{Key: "$limit", Value: int64(limit)},
 		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "books"},
+				{Key: "let", Value: bson.D{{Key: "bookIdStr", Value: "$_id"}}},
+				{Key: "pipeline", Value: mongo.Pipeline{
+					{
+						{Key: "$match", Value: bson.D{
+							{Key: "$expr", Value: bson.D{
+								{Key: "$eq", Value: bson.A{
+									"$_id",
+									bson.D{{Key: "$toObjectId", Value: "$$bookIdStr"}},
+								}},
+							}},
+						}},
+					},
+					{
+						{Key: "$project", Value: bson.D{{Key: "name", Value: 1}}},
+					},
+				}},
+				{Key: "as", Value: "bookDocs"},
+			}},
+		},
 	}
 
 	cur, err := r.col.Aggregate(ctx, pipeline, options.Aggregate())
@@ -91,8 +116,13 @@ func (r *EventLogRepository) AggregateTopViewed(ctx context.Context, from time.T
 
 	result := make([]domain.MostViewedBook, 0, len(rows))
 	for _, row := range rows {
+		title := "Unknown title"
+		if len(row.BookDocs) > 0 && row.BookDocs[0].Name != "" {
+			title = row.BookDocs[0].Name
+		}
 		result = append(result, domain.MostViewedBook{
 			BookID:    row.BookID,
+			Title:     title,
 			ViewCount: float64(row.ViewCount),
 		})
 	}

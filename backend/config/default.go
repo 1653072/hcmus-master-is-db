@@ -40,9 +40,12 @@ logger:
 
 features:
   redis_book_cache: true
+  redis_newest_books: true
+  redis_stock_cache: true
   redis_cart_cache: true
   redis_best_sellers: true
   redis_order_history: true
   redis_most_viewed_daily: true
+  redis_most_viewed_30d: true
   redis_category_cache: true
 `

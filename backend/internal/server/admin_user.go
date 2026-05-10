@@ -89,7 +89,7 @@ func (s *Service) AdminDeactivateUser(c *gin.Context) {
 
 	var req domain.DeactivateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 

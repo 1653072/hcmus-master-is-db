@@ -15,7 +15,7 @@ MIGRATIONS_DIR=db/postgres/migrations
 
 .PHONY: all build run dev clean tidy \
         migrate-up migrate-down migrate-create sqlc-generate swagger-gen \
-        db-start db-stop db-init-pg db-admin-pg db-init-mongo db-init-neo4j db-init-redis
+        db-start db-stop db-delete db-init-pg db-admin-pg db-init-mongo db-init-neo4j db-init-redis
 
 all: build
 
@@ -80,8 +80,13 @@ db-start:
 	done
 	@echo "Neo4j is ready."
 
+# This command only stops all database containers without truly deleting their volumes or storages.
 db-stop:
 	docker-compose down
+
+# This command stops all database containers and completely delete their volumes or storages through the "-v" argument (i.e., "-volume").
+db-delete:
+	docker-compose down -v
 
 db-logs:
 	docker-compose logs -f postgres mongo neo4j redis
@@ -112,6 +117,14 @@ db-init-neo4j:
 db-init-redis:
 	@echo "Pinging Redis..."
 	docker exec bookstore_redis redis-cli -a "$(REDIS_PASSWORD)" PING
+
+db-seed:
+	@echo "Running data generator (seeding)..."
+	cd data_generator && go run main.go
+
+db-seed-verification:
+	@echo "Running data generator (verification)..."
+	cd data_generator && go run main.go -verify
 
 ## ── Cleanup ──────────────────────────────────────────────────────────────────
 

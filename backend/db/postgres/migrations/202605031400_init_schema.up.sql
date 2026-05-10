@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS order_items (
 CREATE INDEX idx_order_items_order_id ON order_items (order_id);
 
 -- ── Order Status History ─────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS order_status_history (
+CREATE TABLE IF NOT EXISTS order_status_histories (
     id                       BIGSERIAL   NOT NULL,
     alias_id                 UUID        NOT NULL DEFAULT gen_random_uuid(),
     order_id                 BIGINT      NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -136,9 +136,9 @@ CREATE TABLE IF NOT EXISTS order_status_history (
     CONSTRAINT osh_alias_unique UNIQUE      (alias_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_osh_alias      ON order_status_history(alias_id);
-CREATE INDEX IF NOT EXISTS idx_osh_order_id   ON order_status_history(order_id);
-CREATE INDEX IF NOT EXISTS idx_osh_changed_at ON order_status_history(changed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_osh_alias      ON order_status_histories(alias_id);
+CREATE INDEX IF NOT EXISTS idx_osh_order_id   ON order_status_histories(order_id);
+CREATE INDEX IF NOT EXISTS idx_osh_changed_at ON order_status_histories(changed_at DESC);
 
 -- ── Carts ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS carts (

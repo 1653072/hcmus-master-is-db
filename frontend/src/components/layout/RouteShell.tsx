@@ -34,22 +34,22 @@ export function RouteShell({ title, subtitle, children }: RouteShellProps) {
   const breadcrumbs = getBreadcrumbs(pathname);
 
   return (
-    <main className="min-h-screen bg-stone-50 text-zinc-800">
+    <main className="min-h-screen bg-canvas text-graphite">
       <Header />
 
-      <section className="mx-auto max-w-[1280px] px-6 pt-8 lg:px-10 xl:px-24">
-        <p className="text-sm text-zinc-500">
+      <section className="mx-auto max-w-page px-6 pt-8 lg:px-10 xl:px-24">
+        <p className="text-[13px] tracking-[-0.17px] text-ash">
           {breadcrumbs.map((crumb, index) => (
             <span key={crumb.href}>
               {index > 0 ? ' / ' : ''}
-              <Link href={crumb.href} className="transition hover:text-zinc-900">
+              <Link href={crumb.href} className="transition hover:text-charcoal">
                 {normalizeLabel(crumb.label)}
               </Link>
             </span>
           ))}
         </p>
-        {title ? <h1 className="mt-4 font-display text-[clamp(2.25rem,5vw,3.75rem)] leading-[0.98] tracking-[-0.03em] text-zinc-900">{title}</h1> : null}
-        {subtitle ? <p className="mt-4 max-w-2xl text-[1.05rem] leading-8 text-zinc-600">{subtitle}</p> : null}
+        {title ? <h1 className="mt-4 font-display text-[clamp(2.25rem,5vw,3.75rem)] font-medium leading-[1.09] tracking-[-0.031em] text-charcoal">{title}</h1> : null}
+        {subtitle ? <p className="mt-4 max-w-[560px] text-[17px] leading-[1.47] tracking-[-0.22px] text-graphite">{subtitle}</p> : null}
       </section>
 
       {children}

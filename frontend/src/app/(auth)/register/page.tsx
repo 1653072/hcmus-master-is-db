@@ -66,55 +66,55 @@ export default function Page() {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-stone-50 text-zinc-800">
-        <section className="mx-auto flex min-h-screen max-w-[1280px] items-center justify-center px-6 py-12 lg:px-10 xl:px-14">
-          <form onSubmit={handleSubmit(onSubmit)} className="w-full rounded-[32px] border border-stone-200 bg-white/90 p-8 shadow-[0_14px_36px_rgba(68,53,33,0.08)] lg:max-w-2xl">
-            <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">Create account</p>
-            <h1 className="mt-3 font-display text-[clamp(2.4rem,5vw,3.5rem)] leading-[0.95] tracking-[-0.03em] text-zinc-900">Register</h1>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">Create an account to save favourites, place orders faster, and keep track of your reading history.</p>
+      <main className="min-h-screen bg-canvas text-graphite">
+        <section className="mx-auto flex min-h-screen max-w-page items-center justify-center px-6 py-12 lg:px-10 xl:px-24">
+          <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-2xl rounded-[var(--radius-buttons)] bg-white p-8" style={{ boxShadow: 'var(--shadow-sm)' }}>
+            <div className="h-1.5 w-14 rounded-full bg-ember" aria-hidden="true" />
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-ash">Create account</p>
+            <h1 className="mt-3 font-display text-[clamp(2.4rem,5vw,3.5rem)] leading-[0.95] tracking-[-0.03em] text-charcoal">Register</h1>
+            <p className="mt-4 max-w-xl text-sm leading-7 text-graphite">Create an account to save favourites, place orders faster, and keep track of your reading history.</p>
             
             {errors.root && (
-              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50/50 p-4">
-                <p className="text-sm font-medium text-red-600">{errors.root.message}</p>
+              <div className="mt-6 rounded-2xl border border-coral-red/20 bg-coral-red/5 p-4">
+                <p className="text-sm font-medium text-coral-red">{errors.root.message}</p>
               </div>
             )}
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <div>
                 <input 
                   {...register('full_name')}
-                  className={`w-full rounded-full border bg-stone-50 px-4 py-3 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 ${errors.full_name ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : 'border-stone-200 focus:border-orange-300 focus:ring-orange-500/20'}`} 
+                  className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.full_name ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
                   placeholder="Full name" 
                 />
-                {errors.full_name && <p className="mt-1 ml-4 text-xs text-red-500">{errors.full_name.message}</p>}
+                {errors.full_name && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.full_name.message}</p>}
               </div>
               
               <div>
                 <input 
                   {...register('phone')}
-                  className={`w-full rounded-full border bg-stone-50 px-4 py-3 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 ${errors.phone ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : 'border-stone-200 focus:border-orange-300 focus:ring-orange-500/20'}`} 
+                  className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.phone ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
                   placeholder="Phone" 
                 />
-                {errors.phone && <p className="mt-1 ml-4 text-xs text-red-500">{errors.phone.message}</p>}
+                {errors.phone && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.phone.message}</p>}
               </div>
               
               <div className="md:col-span-2">
                 <input 
                   {...register('email')}
-                  className={`w-full rounded-full border bg-stone-50 px-4 py-3 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 ${errors.email ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : 'border-stone-200 focus:border-orange-300 focus:ring-orange-500/20'}`} 
+                  className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.email ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
                   placeholder="Email" 
                 />
-                {errors.email && <p className="mt-1 ml-4 text-xs text-red-500">{errors.email.message}</p>}
+                {errors.email && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.email.message}</p>}
               </div>
               
               <div className="md:col-span-2">
                 <input 
                   {...register('password')}
-                  className={`w-full rounded-full border bg-stone-50 px-4 py-3 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 ${errors.password ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : 'border-stone-200 focus:border-orange-300 focus:ring-orange-500/20'}`} 
+                  className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.password ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
                   placeholder="Password" 
                   type="password" 
                 />
-                {errors.password && <p className="mt-1 ml-4 text-xs text-red-500">{errors.password.message}</p>}
+                {errors.password && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.password.message}</p>}
               </div>
             </div>
             
@@ -126,7 +126,7 @@ export default function Page() {
               {isLoading ? 'Creating account...' : 'Create account'}
             </Button>
             
-            <p className="mt-4 text-sm text-zinc-600">Already have an account? <Link className="font-medium text-orange-600 hover:text-orange-700" href="/login">Sign in</Link></p>
+            <p className="mt-4 text-sm text-graphite">Already have an account? <Link className="font-medium text-ember hover:text-ember/80" href="/login">Sign in</Link></p>
           </form>
         </section>
       </main>

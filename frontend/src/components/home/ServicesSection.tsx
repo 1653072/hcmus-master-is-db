@@ -1,36 +1,37 @@
 import Link from 'next/link';
-import { ArrowRight, ChevronRight, Headphones, RotateCcw, Truck, WalletCards } from 'lucide-react';
+import { Headphones, RotateCcw, Truck, WalletCards } from 'lucide-react';
 
 interface ServicesSectionProps {
   services: Array<{ title: string; desc: string; icon: string }>;
 }
 
 const serviceIcons = [Truck, WalletCards, Headphones, RotateCcw];
+const iconColors = ['text-ember', 'text-meadow', 'text-sky-accent', 'text-sunburst'];
+const iconBgColors = ['bg-ember/10', 'bg-meadow/10', 'bg-sky-accent/10', 'bg-sunburst/10'];
 
 export function ServicesSection({ services }: ServicesSectionProps) {
   return (
-    <section className="mx-auto max-w-[1280px] border-y border-stone-200 bg-stone-50/60 px-6 py-12 lg:px-10 xl:px-24">
+    <section className="mx-auto max-w-page border-y border-stone-surface px-6 py-12 lg:px-10 xl:px-24">
+      {/* Section heading — Inter 44px/600 */}
       <div className="mb-8 flex items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-          <h2 className="font-display text-[clamp(1.75rem,3vw,2.35rem)] leading-[1.05] tracking-[-0.02em] text-zinc-900">Services</h2>
-        </div>
-        <Link className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-800 transition hover:text-orange-600" href="/about">
-          See all
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+        <h2 className="font-inter text-[44px] font-semibold leading-[1.09] tracking-[-1.14px] text-midnight">Services</h2>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {services.map((service, index) => {
           const Icon = serviceIcons[index % serviceIcons.length];
           return (
-            <div key={service.title} className="flex items-start gap-4 rounded-[24px] border border-stone-200 bg-white/80 p-4 shadow-[0_8px_24px_rgba(68,53,33,0.05)]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-600">
+            <div
+              key={service.title}
+              className="flex items-start gap-4 rounded-cards bg-white p-6"
+              style={{ boxShadow: '#f2f0ed 0px 0px 0px 1px inset' }}
+            >
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-icons ${iconBgColors[index % iconBgColors.length]} ${iconColors[index % iconColors.length]}`}>
                 <Icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-zinc-900">{service.title}</p>
-                <p className="text-sm leading-6 text-zinc-600">{service.desc}</p>
+                <p className="text-[14px] font-medium tracking-[-0.18px] text-charcoal">{service.title}</p>
+                <p className="text-[13px] leading-[1.47] tracking-[-0.17px] text-graphite">{service.desc}</p>
               </div>
             </div>
           );
