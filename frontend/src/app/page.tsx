@@ -13,6 +13,7 @@ import { ServicesSection } from '@/components/home/ServicesSection';
 import { TestimonialsSection } from '@/components/home/TestimonialsSection';
 import { TrendingSection } from '@/components/home/TrendingSection';
 import { booksApi } from '@/lib/api/books';
+import { categoriesApi } from '@/lib/api/categories';
 import { toFeaturedBook } from '@/lib/books';
 
 function Loading() {
@@ -43,6 +44,7 @@ function ErrorState({ message }: { message: string }) {
 
 export default function Page() {
   const [books, setBooks] = useState<FeaturedBook[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,10 +55,18 @@ export default function Page() {
       try {
         setLoading(true);
         setError(null);
-        const res = await booksApi.search({ page: 1, page_size: 10 });
-        const list = Array.isArray((res as { books?: unknown }).books) ? ((res as { books?: unknown }).books as unknown[]) : [];
+        const [booksRes, categoriesRes] = await Promise.all([
+          booksApi.search({ page: 1, page_size: 10 }),
+          categoriesApi.list({ page: 1, page_size: 12 }),
+        ]);
+
+        const bookList = Array.isArray((booksRes as any).data) ? ((booksRes as any).data as unknown[]) : [];
+        const categoryList = Array.isArray((categoriesRes as any).data) ? (categoriesRes as any).data : [];
+
         if (!mounted) return;
-        setBooks(list.map((book, index) => toFeaturedBook(book as never, index)));
+        setBooks(bookList.map((book, index) => toFeaturedBook(book as never, index)));
+        const uniqueCategories = Array.from(new Set(categoryList.map((category: any) => category.category_name || category.slug || 'Category').filter(Boolean)));
+        setCategories(uniqueCategories as string[]);
       } catch (err) {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : 'Failed to load homepage books');
@@ -73,7 +83,6 @@ export default function Page() {
 
   const featuredBooks = useMemo(() => books, [books]);
 
-  const categories = ['History', 'Children\'s corner', 'Science fiction', 'Self improvement', 'Comics'];
   const trending = featuredBooks.slice(0, 4);
   const services = [
     { title: 'Free shipping', desc: 'Anywhere in Bangladesh', icon: '🚚' },

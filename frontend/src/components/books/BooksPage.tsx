@@ -5,15 +5,18 @@ import { BookCard, type FeaturedBook } from '@/components/books/book-card';
 import { BooksToolbar } from '@/components/books/BooksToolbar';
 import { Button } from '@/components/ui/button';
 
+import { type Category } from '@/lib/api/categories';
+
 interface BooksPageProps {
   books: FeaturedBook[];
+  categories?: Category[];
   loading?: boolean;
   error?: string | null;
   currentCategory?: string | null;
   currentQuery?: string | null;
 }
 
-const filters = {
+const fallbackFilters = {
   category: ['Business', 'Fiction', 'Self help', 'Children', 'Science', 'Psychology', 'Communication', 'Creativity', 'Finance'],
   format: ['Hardcover', 'Paperback', 'E-book'],
 };
@@ -44,7 +47,7 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
-export function BooksPage({ books, loading = false, error = null, currentCategory, currentQuery }: BooksPageProps) {
+export function BooksPage({ books, categories = [], loading = false, error = null, currentCategory, currentQuery }: BooksPageProps) {
   const router = useRouter();
 
   const handleCategoryClick = (cat: string) => {
@@ -54,6 +57,10 @@ export function BooksPage({ books, loading = false, error = null, currentCategor
       router.push(`/books?category=${encodeURIComponent(cat)}`);
     }
   };
+
+  const categoryNames = categories.length > 0 
+    ? categories.map(c => c.category_name)
+    : fallbackFilters.category;
 
   return (
     <section className="mx-auto max-w-page px-6 pb-16 pt-10 lg:px-10 xl:px-24">
@@ -70,7 +77,7 @@ export function BooksPage({ books, loading = false, error = null, currentCategor
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">Category</h3>
               <div className="mt-3 flex flex-wrap gap-2">
-                {filters.category.map((item) => {
+                {categoryNames.map((item) => {
                   const isActive = currentCategory?.toLowerCase() === item.toLowerCase();
                   return (
                     <Button 
@@ -89,7 +96,7 @@ export function BooksPage({ books, loading = false, error = null, currentCategor
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">Format</h3>
               <div className="mt-3 space-y-2 text-sm text-zinc-600">
-                {filters.format.map((item) => (
+                {fallbackFilters.format.map((item) => (
                   <label key={item} className="flex items-center gap-2.5">
                     <input type="checkbox" className="accent-orange-500" />
                     {item}
@@ -120,7 +127,7 @@ export function BooksPage({ books, loading = false, error = null, currentCategor
           ) : (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {books.map((book) => (
-                <Link key={`${book.title}-${book.author}`} href={`/books/${encodeURIComponent(book.title.toLowerCase().replace(/\s+/g, '-'))}`} className="block rounded-[28px] transition duration-200 ease-out-quart hover:-translate-y-0.5">
+                <Link key={`${book.id}`} href={`/books/${book.id}`} className="block rounded-[28px] transition duration-200 ease-out-quart hover:-translate-y-0.5">
                   <BookCard book={book} compact />
                 </Link>
               ))}

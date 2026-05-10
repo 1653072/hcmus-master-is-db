@@ -1,6 +1,13 @@
 import { apiClient } from './client';
 import type { ApiListParams, CategoryListResponse, CreateCategoryRequest, UpdateCategoryRequest } from '@/lib/types';
 
+export interface Category {
+  id: string;
+  category_name: string;
+  slug?: string;
+  parent_category?: string;
+}
+
 export const categoriesApi = {
   list: async (params?: ApiListParams) => {
     const { data } = await apiClient.get<{ data: any[]; total: number; page: number; page_size: number }>('/categories', { params });
