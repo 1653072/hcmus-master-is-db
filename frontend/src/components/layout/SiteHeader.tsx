@@ -270,7 +270,7 @@ export function SiteHeader() {
               aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ''}`}
             >
               <ShoppingCart className="h-[18px] w-[18px]" aria-hidden="true" />
-              {cartCount > 0 && (
+              {mounted && cartCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-ember px-1 text-[10px] font-bold leading-none text-white">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>

@@ -74,33 +74,17 @@ func (r *BookRepository) SearchBooks(ctx context.Context, filter domain.BookFilt
 	return books, total, nil
 }
 
-// GetBookByID fetches a single book by its MongoDB ObjectID string.
 func (r *BookRepository) GetBookByID(ctx context.Context, id string) (*domain.Book, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, fmt.Errorf("invalid book id: %w", err)
-	}
-
 	var book domain.Book
-	err = r.col.FindOne(ctx, bson.M{"_id": oid}).Decode(&book)
+	err := r.col.FindOne(ctx, bson.M{"_id": id}).Decode(&book)
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
 	return &book, err
 }
 
-// GetBooksByIDs fetches multiple books by their MongoDB ObjectID strings.
 func (r *BookRepository) GetBooksByIDs(ctx context.Context, ids []string) ([]*domain.Book, error) {
-	oids := make([]primitive.ObjectID, 0, len(ids))
-	for _, id := range ids {
-		oid, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
-			continue
-		}
-		oids = append(oids, oid)
-	}
-
-	cur, err := r.col.Find(ctx, bson.M{"_id": bson.M{"$in": oids}})
+	cur, err := r.col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
 	if err != nil {
 		return nil, fmt.Errorf("find books by ids: %w", err)
 	}
@@ -150,24 +134,13 @@ func (r *BookRepository) CreateBook(ctx context.Context, book *domain.Book) (str
 	return oid.Hex(), nil
 }
 
-// UpdateBook replaces mutable fields on an existing book document.
 func (r *BookRepository) UpdateBook(ctx context.Context, id string, book *domain.Book) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("invalid book id: %w", err)
-	}
-
 	update := bson.M{"$set": book}
-	_, err = r.col.UpdateOne(ctx, bson.M{"_id": oid}, update)
+	_, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, update)
 	return err
 }
 
-// DeleteBook removes a book document by ID.
 func (r *BookRepository) DeleteBook(ctx context.Context, id string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("invalid book id: %w", err)
-	}
-	_, err = r.col.DeleteOne(ctx, bson.M{"_id": oid})
+	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
 	return err
 }

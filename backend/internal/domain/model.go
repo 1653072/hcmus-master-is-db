@@ -139,6 +139,9 @@ type Inventory struct {
 	UpdatedAt     time.Time `gorm:"not null;default:now()"`
 }
 
+// TableName overrides the default GORM table name.
+func (Inventory) TableName() string { return "inventory" }
+
 // BookDetail combines a MongoDB Book document with live stock data from PostgreSQL.
 type BookDetail struct {
 	Book

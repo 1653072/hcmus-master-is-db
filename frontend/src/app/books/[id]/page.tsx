@@ -2,15 +2,19 @@
 
 import { ArrowLeft, Star, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { RouteShell } from '@/components/layout/RouteShell';
 import { Button } from '@/components/ui/button';
 import { booksApi } from '@/lib/api/books';
+import { cartApi } from '@/lib/api/cart';
 import { recommendationsApi } from '@/lib/api/recommendations';
 import { toFeaturedBook } from '@/lib/books';
 import type { BookDetail, SimilarBook } from '@/lib/types';
+import { useCartStore } from '@/stores/cart.store';
+import { useAuthStore } from '@/stores/auth.store';
+import { toast } from 'sonner';
 
 function formatPrice(value?: number) {
   if (typeof value !== 'number') return '$0';
@@ -18,12 +22,50 @@ function formatPrice(value?: number) {
 }
 
 export default function Page() {
-  const params = useParams<{ id: string }>();
-  const id = params?.id;
+  const params = useParams();
+  const router = useRouter();
+  const id = params?.id as string;
   const [book, setBook] = useState<BookDetail | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<SimilarBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const setCart = useCartStore((s) => s.setCart);
+  const setCheckoutItems = useCartStore((s) => s.setCheckoutItems);
+
+  const handleBuyNow = () => {
+    if (!book) return;
+    setCheckoutItems([{
+      book_id: book.id,
+      name: book.name,
+      price: book.price ?? book.pricing?.price ?? 0,
+      quantity: 1,
+    }]);
+    router.push('/checkout');
+  };
+
+  const handleAddToCart = async () => {
+    if (!book) return;
+    if (!user) {
+      toast.error('Please sign in to add items to your cart.');
+      return;
+    }
+    
+    try {
+      setAddingToCart(true);
+      await cartApi.add({ book_id: book.id, quantity: 1 });
+      const currentCart = await cartApi.get();
+      if (currentCart && currentCart.items) {
+        setCart(currentCart.items, currentCart.total_price || 0);
+        toast.success(`Added ${book.name} to cart`);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to add to cart');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -90,10 +132,18 @@ export default function Page() {
           <>
             <div className="mt-6 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="rounded-cards-lg bg-white p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
-                <div className="relative overflow-hidden rounded-cards bg-gradient-to-br from-midnight via-pepper to-charcoal p-8">
-                  <div className="flex h-[520px] items-end justify-center rounded-cards border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]">
-                    <div className="mb-4 h-[420px] w-[280px] rounded-cards border border-white/15 bg-[linear-gradient(160deg,#0c1724_0%,#111f2f_45%,#223346_100%)] shadow-2xl" />
-                  </div>
+                <div className="relative overflow-hidden rounded-cards bg-stone-surface/20 flex items-center justify-center p-8 min-h-[520px]">
+                  {book.images?.[0]?.url ? (
+                    <img
+                      src={book.images[0].url}
+                      alt={book.images[0].alt || book.name}
+                      className="max-h-[520px] w-auto object-contain rounded-cards shadow-2xl"
+                    />
+                  ) : (
+                    <div className="mb-4 h-[420px] w-[280px] rounded-cards border border-stone-surface bg-parchment shadow-2xl flex items-center justify-center text-graphite/50 text-sm font-medium">
+                      No Image Available
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -116,11 +166,11 @@ export default function Page() {
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4">
-                  <Button>
+                  <Button onClick={handleAddToCart} disabled={addingToCart}>
                     <ShoppingCart className="mr-2 h-4 w-4" />
-                    Add to cart
+                    {addingToCart ? 'Adding...' : 'Add to cart'}
                   </Button>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={handleBuyNow}>
                     Buy now
                   </Button>
                 </div>

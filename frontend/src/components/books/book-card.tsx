@@ -47,7 +47,11 @@ export function BookCard({ book, className, compact, href }: BookCardProps) {
           'relative overflow-hidden rounded-tags bg-parchment transition duration-200 ease-out',
           compact ? 'h-[132px]' : 'h-56',
         )}
-        style={{ background: currentBook.image }}
+        style={
+          currentBook.image.startsWith('http') || currentBook.image.startsWith('/')
+            ? { backgroundImage: `url(${currentBook.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+            : { background: currentBook.image }
+        }
       />
 
       {/* Book info */}

@@ -41,14 +41,9 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, cat *domain.Cat
 	return oid.Hex(), nil
 }
 
-// GetCategoryByID fetches a single category by its MongoDB ObjectID string.
 func (r *CategoryRepository) GetCategoryByID(ctx context.Context, id string) (*domain.Category, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, fmt.Errorf("invalid category id: %w", err)
-	}
 	var cat domain.Category
-	err = r.col.FindOne(ctx, bson.M{"_id": oid}).Decode(&cat)
+	err := r.col.FindOne(ctx, bson.M{"_id": id}).Decode(&cat)
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
@@ -87,23 +82,13 @@ func (r *CategoryRepository) ListCategories(ctx context.Context, page, pageSize 
 	return cats, total, nil
 }
 
-// UpdateCategory updates mutable fields on an existing category document.
 func (r *CategoryRepository) UpdateCategory(ctx context.Context, id string, cat *domain.Category) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("invalid category id: %w", err)
-	}
 	cat.UpdatedAt = time.Now()
-	_, err = r.col.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": cat})
+	_, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": cat})
 	return err
 }
 
-// DeleteCategory removes a category document by ID.
 func (r *CategoryRepository) DeleteCategory(ctx context.Context, id string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("invalid category id: %w", err)
-	}
-	_, err = r.col.DeleteOne(ctx, bson.M{"_id": oid})
+	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
 	return err
 }

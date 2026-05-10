@@ -14,7 +14,7 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Footer } from '@/components/layout/Footer';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string().min(1, 'Please enter your email'),
   password: z.string().min(1, 'Password is required'),
 });
 

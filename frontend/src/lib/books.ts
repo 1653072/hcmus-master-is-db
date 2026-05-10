@@ -14,6 +14,7 @@ type ApiBookLike = {
   coverImage?: string;
   image?: string;
   thumbnail?: string;
+  images?: { url: string }[];
 };
 
 function getText(value: unknown, fallback: string) {
@@ -40,7 +41,9 @@ function getCategory(category: ApiBookLike['category'], categories: ApiBookLike[
   return 'General';
 }
 
-function getImage(index: number, image?: string) {
+function getImage(index: number, book: ApiBookLike) {
+  if (book.images && book.images.length > 0 && book.images[0].url) return book.images[0].url;
+  const image = book.coverImage ?? book.image ?? book.thumbnail;
   if (image) return image;
   const palette = [
     'linear-gradient(135deg, #091824 0%, #101f2e 100%)',
@@ -60,7 +63,7 @@ export function toFeaturedBook(book: ApiBookLike, index = 0): FeaturedBook {
   const bookPrice = book.pricing?.price ?? book.price;
   const price = typeof bookPrice === 'number' ? `$${bookPrice.toFixed(2)}` : getText(bookPrice, '$32');
   const rating = typeof book.rating === 'number' ? String(book.rating) : getText(book.rating, '4.9');
-  const image = getImage(index, book.coverImage ?? book.image ?? book.thumbnail);
+  const image = getImage(index, book);
 
   return {
     id: book.id !== undefined ? String(book.id) : undefined,
