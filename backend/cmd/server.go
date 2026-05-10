@@ -89,7 +89,7 @@ func runServer(cfg *config.Config, logger *zap.Logger) error {
 	categoryCache   := redisrepo.NewCategoryCacheRepository(redisClient)
 
 	// ── Background workers ────────────────────────────────────────────────
-	bestSellerWorker := worker.NewBestSellerWorker(gormDB, bestSellerRepo, logger)
+	bestSellerWorker := worker.NewBestSellerWorker(gormDB, bestSellerRepo, bookRepo, logger)
 	bestSellerWorker.Start()
 	defer bestSellerWorker.Stop()
 

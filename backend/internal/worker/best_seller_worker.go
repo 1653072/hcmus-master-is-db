@@ -25,19 +25,21 @@ type bestSellerQueryRow struct {
 // No Redis sorted set is used for best sellers — the authoritative data source
 // is always the PostgreSQL order_items table.
 type BestSellerWorker struct {
-	postgresDatabase   *gorm.DB
+	postgresDatabase     *gorm.DB
 	bestSellerRepository domain.BestSellerRepository
-	logger             *zap.Logger
-	cron               *cron.Cron
+	bookRepository       domain.BookRepository
+	logger               *zap.Logger
+	cron                 *cron.Cron
 }
 
 // NewBestSellerWorker creates a BestSellerWorker.
-func NewBestSellerWorker(postgresDatabase *gorm.DB, bestSellerRepository domain.BestSellerRepository, logger *zap.Logger) *BestSellerWorker {
+func NewBestSellerWorker(postgresDatabase *gorm.DB, bestSellerRepository domain.BestSellerRepository, bookRepository domain.BookRepository, logger *zap.Logger) *BestSellerWorker {
 	return &BestSellerWorker{
-		postgresDatabase:   postgresDatabase,
+		postgresDatabase:     postgresDatabase,
 		bestSellerRepository: bestSellerRepository,
-		logger:             logger,
-		cron:               cron.New(cron.WithLocation(time.UTC)),
+		bookRepository:       bookRepository,
+		logger:               logger,
+		cron:                 cron.New(cron.WithLocation(time.UTC)),
 	}
 }
 
@@ -91,11 +93,34 @@ func (w *BestSellerWorker) run() {
 	}
 
 	bestSellerBooks := make([]domain.BestSellerBook, 0, len(queryRows))
-	for _, row := range queryRows {
-		bestSellerBooks = append(bestSellerBooks, domain.BestSellerBook{
-			BookID:    row.MongoBookID,
-			TotalSold: row.TotalSold,
-		})
+	if len(queryRows) > 0 {
+		var ids []string
+		for _, row := range queryRows {
+			ids = append(ids, row.MongoBookID)
+		}
+
+		books, err := w.bookRepository.GetBooksByIDs(ctx, ids)
+		if err != nil {
+			w.logger.Error("best seller worker: fetch books from Mongo failed", zap.Error(err))
+		}
+		w.logger.Info("best seller worker fetched books", zap.Int("books_count", len(books)))
+
+		titleMap := make(map[string]string)
+		for _, b := range books {
+			titleMap[b.ID] = b.Name
+		}
+
+		for _, row := range queryRows {
+			title := "Unknown title"
+			if t, ok := titleMap[row.MongoBookID]; ok {
+				title = t
+			}
+			bestSellerBooks = append(bestSellerBooks, domain.BestSellerBook{
+				BookID:    row.MongoBookID,
+				Title:     title,
+				TotalSold: row.TotalSold,
+			})
+		}
 	}
 
 	if err := w.bestSellerRepository.SetTopBestSellers(ctx, bestSellerBooks); err != nil {
