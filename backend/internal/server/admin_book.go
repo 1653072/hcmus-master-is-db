@@ -60,7 +60,7 @@ func (s *Service) AdminListBooks(c *gin.Context) {
 func (s *Service) AdminCreateBook(c *gin.Context) {
 	var createRequest domain.CreateBookRequest
 	if err := c.ShouldBindJSON(&createRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 
@@ -150,7 +150,7 @@ func (s *Service) AdminUpdateBook(c *gin.Context) {
 	bookID := c.Param("id")
 	var updateRequest domain.UpdateBookRequest
 	if err := c.ShouldBindJSON(&updateRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 
@@ -272,7 +272,7 @@ func (s *Service) AdminUpdateStock(c *gin.Context) {
 	bookID := c.Param("id")
 	var updateStockRequest domain.UpdateStockRequest
 	if err := c.ShouldBindJSON(&updateStockRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 

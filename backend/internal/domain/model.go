@@ -63,9 +63,10 @@ type Address struct {
 	Ward         string    `                                                                       json:"ward,omitempty"`
 	District     string    `                                                                       json:"district,omitempty"`
 	City         string    `gorm:"not null"                                                        json:"city"`
-	IsDefault    bool      `gorm:"not null;default:false"                                          json:"is_default"`
-	CreatedAt    time.Time `                                                                       json:"created_at"`
-	UpdatedAt    time.Time `                                                                       json:"-"`
+	IsDefault    bool       `gorm:"not null;default:false"                                          json:"is_default"`
+	CreatedAt    time.Time  `                                                                       json:"created_at"`
+	UpdatedAt    time.Time  `                                                                       json:"-"`
+	DeletedAt    *time.Time `gorm:"index"                                                           json:"-"`
 }
 
 // ─── Book (Catalog — MongoDB) ─────────────────────────────────────────────────

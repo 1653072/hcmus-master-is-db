@@ -96,7 +96,7 @@ func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
 
 	var statusUpdateRequest domain.UpdateOrderStatusRequest
 	if err := c.ShouldBindJSON(&statusUpdateRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 

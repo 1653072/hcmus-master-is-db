@@ -24,7 +24,7 @@ import (
 func (s *Service) AddToCart(c *gin.Context) {
 	var addRequest domain.AddToCartRequest
 	if err := c.ShouldBindJSON(&addRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 
@@ -141,7 +141,7 @@ func (s *Service) GetCart(c *gin.Context) {
 func (s *Service) UpdateCartItem(c *gin.Context) {
 	var updateRequest domain.UpdateCartItemRequest
 	if err := c.ShouldBindJSON(&updateRequest); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 

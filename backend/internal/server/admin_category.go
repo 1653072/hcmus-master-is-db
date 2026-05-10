@@ -98,7 +98,7 @@ func (s *Service) AdminListCategories(c *gin.Context) {
 func (s *Service) AdminCreateCategory(c *gin.Context) {
 	var req domain.CreateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 
@@ -149,7 +149,7 @@ func (s *Service) AdminUpdateCategory(c *gin.Context) {
 	catID := c.Param("id")
 	var req domain.UpdateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondBadRequest(c, err.Error())
+		respondValidationError(c, err)
 		return
 	}
 

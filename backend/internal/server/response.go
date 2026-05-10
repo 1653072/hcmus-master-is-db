@@ -1,9 +1,11 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 // successResponse is the envelope for all successful API responses.
@@ -52,6 +54,32 @@ func respondError(c *gin.Context, status int, msg string) {
 // respondBadRequest is a shortcut for 400.
 func respondBadRequest(c *gin.Context, msg string) {
 	respondError(c, http.StatusBadRequest, msg)
+}
+
+// respondValidationError handles validation errors and returns user-friendly messages.
+func respondValidationError(c *gin.Context, err error) {
+	if ve, ok := err.(validator.ValidationErrors); ok {
+		for _, fe := range ve {
+			msg := ""
+			switch fe.Tag() {
+			case "required":
+				msg = fmt.Sprintf("%s is required", fe.Field())
+			case "min":
+				msg = fmt.Sprintf("%s length must be at least %s characters", fe.Field(), fe.Param())
+			case "max":
+				msg = fmt.Sprintf("%s length must be at most %s characters", fe.Field(), fe.Param())
+			case "email":
+				msg = "Invalid email format"
+			case "oneof":
+				msg = fmt.Sprintf("%s must be one of [%s]", fe.Field(), fe.Param())
+			default:
+				msg = fmt.Sprintf("%s is invalid", fe.Field())
+			}
+			respondBadRequest(c, msg)
+			return
+		}
+	}
+	respondBadRequest(c, err.Error())
 }
 
 // respondUnauthorized is a shortcut for 401.

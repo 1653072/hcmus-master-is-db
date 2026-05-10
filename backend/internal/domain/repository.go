@@ -31,10 +31,10 @@ type AddressRepository interface {
 	// ListAddressesByUser returns all addresses belonging to a user (by internal int64 user ID).
 	ListAddressesByUser(ctx context.Context, userInternalID int64) ([]*Address, error)
 	UpdateAddress(ctx context.Context, addr *Address) error
-	// DeleteAddress removes an address by its internal BIGSERIAL primary key.
-	DeleteAddress(ctx context.Context, id int64) error
-	// SetDefault marks one address as default; both IDs are internal BIGSERIAL values.
-	SetDefault(ctx context.Context, userInternalID, addrInternalID int64) error
+	// DeleteAddress marks an address as deleted (soft-delete).
+	DeleteAddress(ctx context.Context, userInternalID int64, aliasID uuid.UUID) error
+	// SetDefault marks one address as default; userInternalID is int64, addrAliasID is UUID.
+	SetDefault(ctx context.Context, userInternalID int64, addrAliasID uuid.UUID) error
 }
 
 // OrderRepository covers order persistence operations backed by PostgreSQL.

@@ -68,6 +68,13 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 		user.GET("/users/me", svc.GetProfile)
 		user.PUT("/users/me", svc.UpdateProfile)
 
+		// Address management
+		user.GET("/users/addresses", svc.ListAddresses)
+		user.POST("/users/addresses", svc.CreateAddress)
+		user.PUT("/users/addresses/:id", svc.UpdateAddress)
+		user.DELETE("/users/addresses/:id", svc.DeleteAddress)
+		user.PATCH("/users/addresses/:id/default", svc.SetDefaultAddress)
+
 		user.GET("/cart", svc.GetCart)
 		user.POST("/cart", svc.AddToCart)
 		user.PUT("/cart/:bookId", svc.UpdateCartItem)

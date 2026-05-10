@@ -268,6 +268,7 @@ and API ergonomics:
 | | `is_default` | `BOOLEAN` | `NOT NULL`, Default: `false` | Default flag |
 | | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Creation timestamp |
 | | `updated_at` | `TIMESTAMPTZ` | `NOT NULL` | Last update timestamp |
+| | `deleted_at` | `TIMESTAMPTZ` | | Soft-delete timestamp |
 | `books_ref` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
 | | `mongo_id` | `TEXT` | `UNIQUE`, `NOT NULL` | Natural Key from MongoDB |
 | | `price` | `NUMERIC(12,2)` | `NOT NULL`, `CHECK > 0` | Current price |
