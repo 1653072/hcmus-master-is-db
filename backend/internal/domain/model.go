@@ -151,11 +151,11 @@ type BookDetail struct {
 // Category is a document stored in the MongoDB "categories" collection.
 type Category struct {
 	ID             string    `bson:"_id,omitempty" json:"id"`
-	CategoryName   string    `bson:"categoryName"  json:"category_name"`
+	CategoryName   string    `bson:"category_name" json:"category_name"`
 	Slug           string    `bson:"slug"          json:"slug"`
-	ParentCategory string    `bson:"parentCategory,omitempty" json:"parent_category,omitempty"`
-	CreatedAt      time.Time `bson:"createdAt"     json:"created_at"`
-	UpdatedAt      time.Time `bson:"updatedAt"     json:"updated_at"`
+	ParentCategory string    `bson:"parent_category,omitempty" json:"parent_category,omitempty"`
+	CreatedAt      time.Time `bson:"created_at"    json:"created_at"`
+	UpdatedAt      time.Time `bson:"updated_at"    json:"updated_at"`
 }
 
 // ─── Cart (PostgreSQL) ────────────────────────────────────────────────────────

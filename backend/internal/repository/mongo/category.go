@@ -70,7 +70,7 @@ func (r *CategoryRepository) ListCategories(ctx context.Context, page, pageSize 
 	}
 
 	opts := options.Find().
-		SetSort(bson.D{{Key: "categoryName", Value: 1}}).
+		SetSort(bson.D{{Key: "category_name", Value: 1}}).
 		SetSkip(int64((page - 1) * pageSize)).
 		SetLimit(int64(pageSize))
 
