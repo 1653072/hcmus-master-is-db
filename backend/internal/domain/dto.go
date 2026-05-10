@@ -34,7 +34,6 @@ type UserInfo struct {
 type UpdateProfileRequest struct {
 	FullName    string `json:"full_name"    binding:"omitempty,min=2,max=100"`
 	Phone       string `json:"phone"        binding:"omitempty"`
-	DefaultAddr string `json:"default_addr" binding:"omitempty,max=500"`
 }
 
 // ─── Address DTOs ─────────────────────────────────────────────────────────────
@@ -195,4 +194,15 @@ type SalesSummary struct {
 	TotalRevenue float64 `json:"total_revenue"`
 	DateFrom     string  `json:"date_from"`
 	DateTo       string  `json:"date_to"`
+}
+
+// ─── Shipment DTOs ────────────────────────────────────────────────────────────
+
+type UpdateShipmentStatusRequest struct {
+	Status ShipmentStatus `json:"status" binding:"required,oneof=pending shipped delivered failed returned"`
+}
+
+type UpdateShipmentDetailsRequest struct {
+	Carrier    string `json:"carrier"     binding:"required"`
+	TrackingNo string `json:"tracking_no"  binding:"required"`
 }

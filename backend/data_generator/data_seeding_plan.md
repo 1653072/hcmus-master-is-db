@@ -44,7 +44,8 @@ Initialization must follow the Dependency Tree order to ensure Foreign Key and R
     - Create a `Book` node in Neo4j and connect `BELONGS_TO`, `WRITTEN_BY` relationships.
 
 ### Step 3: Initialize Users & Addresses
-- Create 10,000+ users in PostgreSQL.
+- Create 5 admin accounts with emails `admin1@paperhaven.com` to `admin5@paperhaven.com`.
+- Create 10,000+ regular users in PostgreSQL.
 - Create 10,000+ addresses, randomly assigning a `user_id` from the user list.
 
 ### Step 4: Initialize Carts & Cart Items

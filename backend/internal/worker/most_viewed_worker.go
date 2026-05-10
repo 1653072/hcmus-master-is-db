@@ -46,6 +46,8 @@ func NewMostViewedWorker(
 
 // Start registers the daily 00:00 UTC schedule and fires an initial run on startup
 // to populate the 30-day cache immediately.
+// Note: The initial run only re-aggregates the 30-day data; it does NOT reset
+// the daily counters (that only happens at the scheduled 00:00 UTC time).
 func (w *MostViewedWorker) Start() {
 	_, err := w.cron.AddFunc("0 0 * * *", func() {
 		w.run()
@@ -58,7 +60,8 @@ func (w *MostViewedWorker) Start() {
 	w.cron.Start()
 	w.logger.Info("most viewed worker started (daily 00:00 UTC)")
 
-	go w.run()
+	// Initial run: only refresh 30-day aggregation, don't clear daily counts.
+	go w.RunAggregation()
 }
 
 // Stop gracefully halts the cron scheduler.
@@ -72,25 +75,35 @@ func (w *MostViewedWorker) Stop() {
 //  1. Aggregates 30-day view counts from MongoDB and writes to Redis 30-day data cache.
 //  2. Clears the daily count sorted set and daily data cache (new day starts from zero).
 func (w *MostViewedWorker) run() {
+	w.RunAggregation()
+	w.ResetDaily()
+}
+
+// RunAggregation aggregates 30-day view counts from MongoDB and writes to Redis.
+func (w *MostViewedWorker) RunAggregation() {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancelFunc()
 
-	// Step 1: Aggregate 30-day view counts from MongoDB → 30-day data cache.
+	w.logger.Info("most viewed worker: starting 30-day aggregation...")
 	cutoffDate := time.Now().UTC().AddDate(0, 0, -domain.MostViewedWindowDays)
 	topViewedLast30Days, err := w.eventLogRepository.AggregateTopViewed(ctx, cutoffDate, domain.MostViewedTopN)
 	if err != nil {
 		w.logger.Error("most viewed worker: aggregate 30-day views from MongoDB failed", zap.Error(err))
-	} else {
-		if err := w.mostViewedRepository.Set30DaysTopViewedData(ctx, topViewedLast30Days); err != nil {
-			w.logger.Error("most viewed worker: write 30-day cache to Redis failed", zap.Error(err))
-		} else {
-			w.logger.Info("most viewed worker: 30-day cache updated", zap.Int("books", len(topViewedLast30Days)))
-		}
+		return
 	}
 
-	// Step 2: Clear both daily Redis keys so the new day starts from zero.
-	// The API handler (GetTopDailyViewed) is responsible for populating the daily data
-	// cache on demand when clients request the daily ranking.
+	if err := w.mostViewedRepository.Set30DaysTopViewedData(ctx, topViewedLast30Days); err != nil {
+		w.logger.Error("most viewed worker: write 30-day cache to Redis failed", zap.Error(err))
+	} else {
+		w.logger.Info("most viewed worker: 30-day cache updated", zap.Int("books", len(topViewedLast30Days)))
+	}
+}
+
+// ResetDaily clears the daily count sorted set and daily data cache.
+func (w *MostViewedWorker) ResetDaily() {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelFunc()
+
 	if err := w.mostViewedRepository.ResetDailyViewCountSet(ctx); err != nil {
 		w.logger.Error("most viewed worker: reset daily count set failed", zap.Error(err))
 		return

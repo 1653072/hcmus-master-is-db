@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT         NOT NULL,
     role          user_role    NOT NULL DEFAULT 'user',
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
-    default_addr  TEXT,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 

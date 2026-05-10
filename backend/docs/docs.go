@@ -2457,7 +2457,8 @@ const docTemplate = `{
             "required": [
                 "email",
                 "full_name",
-                "password"
+                "password",
+                "phone"
             ],
             "properties": {
                 "email": {
@@ -2653,10 +2654,6 @@ const docTemplate = `{
         "domain.UpdateProfileRequest": {
             "type": "object",
             "properties": {
-                "default_addr": {
-                    "type": "string",
-                    "maxLength": 500
-                },
                 "full_name": {
                     "type": "string",
                     "maxLength": 100,

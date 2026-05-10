@@ -229,7 +229,7 @@ and API ergonomics:
 
 | Table | PK | Alias | Key Columns | Purpose |
 |---|---|---|---|---|
-| `users` | `id BIGSERIAL` | `alias_id UUID` | `full_name`, `email` (unique), `phone`, `password_hash`, `role` ENUM('user','admin'), `is_active`, `default_addr`, `created_at` | User accounts |
+| `users` | `id BIGSERIAL` | `alias_id UUID` | `full_name`, `email` (unique), `phone`, `password_hash`, `role` ENUM('user','admin'), `is_active`, `created_at` | User accounts |
 | `addresses` | `id BIGSERIAL` | `alias_id UUID` | `user_id BIGINT FK→users.id`, `receiver_name`, `phone`, `address_line`, `ward`, `district`, `city`, `is_default`, `created_at` | Delivery addresses per user (one marked as default) |
 | `books_ref` | `mongo_id TEXT` | — | `id BIGSERIAL`, `is_active BOOLEAN` | Bridge table: maps MongoDB book ObjectID to PostgreSQL for inventory and cart FKs |
 | `inventory` | `book_id TEXT FK→books_ref.mongo_id` | — | `stock_quantity INT CHECK(≥0)`, `updated_at` | Book stock levels — `SELECT FOR UPDATE` during checkout and admin stock updates ensures ACID correctness |
@@ -239,7 +239,7 @@ and API ergonomics:
 | `order_items` | `id BIGSERIAL` | — | `order_id BIGINT FK→orders.id`, `mongo_book_id TEXT`, `name TEXT` (snapshot), `quantity INT`, `unit_price NUMERIC` (snapshot) | Immutable price snapshots; remains readable even if the MongoDB document changes |
 | `order_status_histories` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `old_status VARCHAR nullable`, `new_status VARCHAR`, `changed_by_admin_alias_id UUID nullable` (denormalised), `note`, `changed_at` | Full audit trail of every status transition |
 | `payments` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `method`, `status`, `amount NUMERIC`, `provider_ref`, `paid_at`, `created_at` | Payment records linked to orders |
-| `shipments` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `status`, `carrier`, `tracking_no`, `shipped_at`, `delivered_at`, `created_at` | Shipment tracking records |
+| `shipments` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `status` ENUM, `carrier`, `tracking_no`, `shipped_at`, `delivered_at`, `created_at` | Shipment tracking records |
 
 #### PostgreSQL Data Models
 
@@ -253,7 +253,6 @@ and API ergonomics:
 | | `password_hash` | `TEXT` | `NOT NULL` | Bcrypt hashed password |
 | | `role` | `user_role` | `NOT NULL`, Default: `user` | Enum: `user`, `admin` |
 | | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Soft-deactivate flag |
-| | `default_addr` | `TEXT` | | Default address string |
 | | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, Default: `NOW()` | Creation timestamp |
 | | `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, Default: `NOW()` | Last update timestamp |
 | `addresses` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
@@ -319,7 +318,7 @@ and API ergonomics:
 | `shipments` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
 | | `alias_id` | `UUID` | `UNIQUE`, `NOT NULL` | External public ID |
 | | `order_id` | `BIGINT` | `FK → orders.id`, `ON DELETE CASCADE` | Linked order |
-| | `status` | `VARCHAR(30)` | `NOT NULL`, Default: `pending` | Delivery state |
+| | `status` | `VARCHAR(30)` | `NOT NULL`, Default: `pending` | Enum: `pending`, `shipped`, `delivered`, `failed`, `returned` |
 | | `carrier` | `TEXT` | | Shipping provider |
 | | `tracking_no` | `TEXT` | | Tracking number |
 | | `shipped_at` | `TIMESTAMPTZ` | | Dispatched time |
@@ -495,6 +494,19 @@ Rules:
   • When an order is cancelled, the stock quantities of all line items are
     restored to the inventory inside the same database transaction.
 ```
+
+**Shipment status lifecycle (state machine — enforced in PostgreSQL repository):**
+```
+pending ──► shipped ──► delivered (terminal)
+   │           │
+   └───────────┴──────────► failed (terminal)
+               │
+               └──────────► returned (terminal)
+```
+Rules:
+  • "delivered", "failed", and "returned" are terminal states.
+  • "pending" can transition to "shipped" or "failed".
+  • "shipped" can transition to "delivered", "failed", or "returned".
 
 ---
 
@@ -875,6 +887,7 @@ All endpoints are prefixed with `/api/v1`. Interactive docs: `http://localhost:8
 | `POST` | `/orders/checkout` | D1 | Checkout from cart or buy-now session (atomic PG TX) |
 | `GET` | `/orders` | D2 | List own orders — Redis cached (30 min) |
 | `GET` | `/orders/:id` | D3 | Order detail (PG + MongoDB book metadata) |
+| `GET` | `/orders/:id/shipment` | — | View shipment tracking details |
 | `POST` | `/books/:id/view` | E3 | Record book view → insert into MongoDB `view_event_logs` + ZINCRBY daily Redis count sorted set (no Neo4j write) |
 
 > Admin accounts (`role: admin`) are blocked from all customer purchase endpoints.
@@ -898,6 +911,10 @@ All endpoints are prefixed with `/api/v1`. Interactive docs: `http://localhost:8
 | `GET` | `/admin/orders/:id` | D3 | Full order detail |
 | `PATCH` | `/admin/orders/:id/status` | F1 | Update order status + write history row |
 | `GET` | `/admin/orders/:id/history` | F1 | Order status change audit trail |
+| `GET` | `/admin/shipments/:id` | — | Get shipment details |
+| `GET` | `/admin/orders/:id/shipment` | — | Get shipment by order |
+| `PATCH` | `/admin/shipments/:id/status` | — | Update shipment status |
+| `PUT` | `/admin/shipments/:id` | — | Update shipment details (carrier, tracking) |
 | `GET` | `/admin/users` | — | List all users |
 | `GET` | `/admin/users/:id` | — | View any user |
 | `PATCH` | `/admin/users/:id/deactivate` | — | Activate / deactivate account |

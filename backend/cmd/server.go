@@ -23,16 +23,19 @@ import (
 )
 
 func newServerCmd(cfg *config.Config, logger *zap.Logger) *cobra.Command {
-	return &cobra.Command{
+	var triggerAllWorkersNow bool
+	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Start the HTTP API server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServer(cfg, logger)
+			return runServer(cfg, logger, triggerAllWorkersNow)
 		},
 	}
+	cmd.Flags().BoolVar(&triggerAllWorkersNow, "trigger-all-workers-now", false, "Refresh best sellers and most viewed caches on startup")
+	return cmd
 }
 
-func runServer(cfg *config.Config, logger *zap.Logger) error {
+func runServer(cfg *config.Config, logger *zap.Logger, triggerAllWorkersNow bool) error {
 	ctx := context.Background()
 
 	// ── PostgreSQL ────────────────────────────────────────────────────────
@@ -90,10 +93,18 @@ func runServer(cfg *config.Config, logger *zap.Logger) error {
 
 	// ── Background workers ────────────────────────────────────────────────
 	bestSellerWorker := worker.NewBestSellerWorker(gormDB, bestSellerRepo, bookRepo, logger)
+	mostViewedWorker := worker.NewMostViewedWorker(eventLogRepo, mostViewedRepo, logger)
+
+	if triggerAllWorkersNow {
+		logger.Info("trigger-all-workers-now flag detected: running workers synchronously before startup")
+		bestSellerWorker.Run()
+		mostViewedWorker.RunAggregation()
+		logger.Info("synchronous refresh completed")
+	}
+
 	bestSellerWorker.Start()
 	defer bestSellerWorker.Stop()
 
-	mostViewedWorker := worker.NewMostViewedWorker(eventLogRepo, mostViewedRepo, logger)
 	mostViewedWorker.Start()
 	defer mostViewedWorker.Stop()
 

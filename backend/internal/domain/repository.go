@@ -81,6 +81,18 @@ type OrderStatusHistoryRepository interface {
 	ListByOrder(ctx context.Context, orderInternalID int64) ([]*OrderStatusHistory, error)
 }
 
+// ShipmentRepository covers shipment tracking operations backed by PostgreSQL.
+type ShipmentRepository interface {
+	CreateShipment(ctx context.Context, shipment *Shipment) error
+	GetShipmentByAliasID(ctx context.Context, aliasID uuid.UUID) (*Shipment, error)
+	// GetShipmentByOrderAliasID fetches the shipment record for a specific order using its UUID alias.
+	GetShipmentByOrderAliasID(ctx context.Context, orderAliasID uuid.UUID) (*Shipment, error)
+	// UpdateShipmentStatus updates the status of a shipment; id is the internal BIGSERIAL PK.
+	UpdateShipmentStatus(ctx context.Context, id int64, status ShipmentStatus) error
+	// UpdateShipmentDetails updates carrier and tracking number; id is the internal BIGSERIAL PK.
+	UpdateShipmentDetails(ctx context.Context, id int64, carrier, trackingNo string) error
+}
+
 // BookRefRepository manages the PostgreSQL bridge table between MongoDB book
 // documents and their active status.
 type BookRefRepository interface {
@@ -99,6 +111,7 @@ type PostgresTransactor interface {
 	CartRepository
 	OrderStatusHistoryRepository
 	AddressRepository
+	ShipmentRepository
 	// Transaction runs fn inside a single PostgreSQL ACID transaction.
 	Transaction(ctx context.Context, fn func(tx PostgresTransactor) error) error
 }

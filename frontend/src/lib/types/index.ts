@@ -2,6 +2,7 @@ export type UUID = string;
 
 export type UserRole = 'user' | 'admin';
 export type OrderStatus = 'pending' | 'confirmed' | 'packing' | 'shipping' | 'completed' | 'cancelled';
+export type ShipmentStatus = 'pending' | 'shipped' | 'delivered' | 'failed' | 'returned';
 
 export interface User {
   id?: number;
@@ -11,7 +12,6 @@ export interface User {
   phone?: string;
   role: UserRole;
   is_active: boolean;
-  default_addr?: string;
   created_at: string;
 }
 
@@ -139,7 +139,7 @@ export interface Payment {
 export interface Shipment {
   id?: number;
   alias_id: UUID;
-  status: string;
+  status: ShipmentStatus;
   carrier?: string;
   tracking_number?: string;
   shipped_at?: string | null;
@@ -254,7 +254,6 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
   full_name?: string;
   phone?: string;
-  default_addr?: string;
 }
 
 export interface CreateAddressRequest {

@@ -48,6 +48,10 @@ type ExportFiles struct {
 	Neo4j    *os.File
 }
 
+func escapeSQL(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
+}
+
 func main() {
 	// 1. Load Environment Variables and Config
 	_ = godotenv.Load("../.env")
@@ -142,15 +146,15 @@ func main() {
 	users := seedUsers(pgDB, defaultHash, exports)
 	fmt.Printf("Seeded %d users\n", len(users))
 
-	seedAddresses(pgDB, users, exports)
-	fmt.Println("Seeded addresses")
+	addresses := seedAddresses(pgDB, users, exports)
+	fmt.Printf("Seeded %d addresses\n", len(addresses))
 
 	// 7. Seed Carts & Cart Items (Postgres)
 	seedCarts(pgDB, users, books, exports)
 	fmt.Println("Seeded carts and cart items")
 
 	// 8. Seed Orders & Related (Postgres)
-	seedOrders(pgDB, users, books, exports)
+	seedOrders(pgDB, users, books, addresses, exports)
 	fmt.Println("Seeded orders, items, history, payments, and shipments")
 
 	// 9. Seed View Event Logs (Mongo)
@@ -185,7 +189,7 @@ func seedCategories(ctx context.Context, client *mongo.Client, dbName string, ne
 		// Export
 		jsonData, _ := json.Marshal(cat)
 		exports.Mongo.WriteString(fmt.Sprintf("db.categories.insertOne(%s);\n", string(jsonData)))
-		exports.Neo4j.WriteString(fmt.Sprintf("MERGE (c:Category {categoryId: '%s'}) SET c.name = '%s', c.slug = '%s';\n", cat.ID, cat.CategoryName, cat.Slug))
+		exports.Neo4j.WriteString(fmt.Sprintf("MERGE (c:Category {categoryId: '%s'}) SET c.name = '%s', c.slug = '%s';\n", cat.ID, escapeSQL(cat.CategoryName), cat.Slug))
 		if cat.ParentCategory != "" {
 			exports.Neo4j.WriteString(fmt.Sprintf("MATCH (p:Category {categoryId: '%s'}), (c:Category {categoryId: '%s'}) MERGE (p)-[:PARENT_OF]->(c);\n", cat.ParentCategory, cat.ID))
 		}
@@ -251,7 +255,7 @@ func seedBooks(ctx context.Context, client *mongo.Client, dbName string, pgDB *g
 		exports.Mongo.WriteString(fmt.Sprintf("db.books.insertOne(%s);\n", string(jsonData)))
 		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO books_ref (mongo_id, is_active) VALUES ('%s', true);\n", mongoID))
 		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO inventory (book_id, stock_quantity, updated_at) VALUES ('%s', %d, NOW());\n", mongoID, stock))
-		exports.Neo4j.WriteString(fmt.Sprintf("MERGE (b:Book {mongo_id: '%s'}) SET b.title = '%s', b.is_active = true;\n", mongoID, book.Name))
+		exports.Neo4j.WriteString(fmt.Sprintf("MERGE (b:Book {mongo_id: '%s'}) SET b.title = '%s', b.is_active = true;\n", mongoID, escapeSQL(book.Name)))
 
 		bookIDs = append(bookIDs, mongoID)
 	}
@@ -260,12 +264,58 @@ func seedBooks(ctx context.Context, client *mongo.Client, dbName string, pgDB *g
 
 func seedUsers(pgDB *gorm.DB, hash string, exports *ExportFiles) []domain.User {
 	var users []domain.User
+	usedEmails := make(map[string]bool)
+
+	// 1. Seed 5 Admin accounts
+	for i := 0; i < 5; i++ {
+		aliasID := uuid.New()
+		email := fmt.Sprintf("admin%d@paperhaven.com", i+1)
+		usedEmails[email] = true
+
+		user := domain.User{
+			AliasID:      aliasID,
+			FullName:     fmt.Sprintf("Admin %d", i+1),
+			Email:        email,
+			Phone:        gofakeit.Phone(),
+			PasswordHash: hash,
+			Role:         domain.RoleAdmin,
+			IsActive:     true,
+			CreatedAt:    time.Now(),
+		}
+		if err := pgDB.Create(&user).Error; err == nil {
+			users = append(users, user)
+			exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO users (alias_id, full_name, email, phone, password_hash, role, is_active, created_at) VALUES ('%s', '%s', '%s', '%s', '%s', 'admin', true, NOW());\n",
+				user.AliasID, escapeSQL(user.FullName), escapeSQL(user.Email), escapeSQL(user.Phone), user.PasswordHash))
+		}
+	}
+
+	// 2. Seed regular users
 	for i := 0; i < int(TargetUsers*1.5); i++ {
 		aliasID := uuid.New()
+		email := gofakeit.Email()
+
+		// Ensure uniqueness within this generation run to avoid collisions
+		// before hitting the database unique constraint.
+		attempts := 0
+		for usedEmails[email] && attempts < 10 {
+			email = gofakeit.Email()
+			attempts++
+		}
+		if usedEmails[email] {
+			// If still duplicate after 10 attempts, append a short UUID fragment
+			// to the local part of the email to guarantee uniqueness while
+			// maintaining a valid email format.
+			parts := strings.Split(email, "@")
+			if len(parts) == 2 {
+				email = fmt.Sprintf("%s.%s@%s", parts[0], aliasID.String()[:4], parts[1])
+			}
+		}
+		usedEmails[email] = true
+
 		user := domain.User{
 			AliasID:      aliasID,
 			FullName:     gofakeit.Name(),
-			Email:        gofakeit.Email() + aliasID.String()[:8],
+			Email:        email,
 			Phone:        gofakeit.Phone(),
 			PasswordHash: hash,
 			Role:         domain.RoleUser,
@@ -273,18 +323,20 @@ func seedUsers(pgDB *gorm.DB, hash string, exports *ExportFiles) []domain.User {
 			CreatedAt:    time.Now(),
 		}
 		if err := pgDB.Create(&user).Error; err != nil {
+			// This handles collisions with existing data in the DB
 			continue
 		}
 		users = append(users, user)
 
 		// Export
 		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO users (alias_id, full_name, email, phone, password_hash, role, is_active, created_at) VALUES ('%s', '%s', '%s', '%s', '%s', 'user', true, NOW());\n",
-			user.AliasID, user.FullName, user.Email, user.Phone, user.PasswordHash))
+			user.AliasID, escapeSQL(user.FullName), escapeSQL(user.Email), escapeSQL(user.Phone), user.PasswordHash))
 	}
 	return users
 }
 
-func seedAddresses(pgDB *gorm.DB, users []domain.User, exports *ExportFiles) {
+func seedAddresses(pgDB *gorm.DB, users []domain.User, exports *ExportFiles) []domain.Address {
+	var addresses []domain.Address
 	for i := 0; i < int(TargetAddresses*1.5); i++ {
 		user := users[rand.Intn(len(users))]
 		addr := domain.Address{
@@ -300,11 +352,13 @@ func seedAddresses(pgDB *gorm.DB, users []domain.User, exports *ExportFiles) {
 		if err := pgDB.Create(&addr).Error; err != nil {
 			continue
 		}
+		addresses = append(addresses, addr)
 
 		// Export (Note: user_id is internal, so we use a subquery for the export file to be usable)
 		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO addresses (alias_id, user_id, receiver_name, phone, address_line, city, is_default, created_at) SELECT '%s', id, '%s', '%s', '%s', '%s', true, NOW() FROM users WHERE alias_id = '%s';\n",
-			addr.AliasID, addr.ReceiverName, addr.Phone, addr.AddressLine, addr.City, user.AliasID))
+			addr.AliasID, escapeSQL(addr.ReceiverName), escapeSQL(addr.Phone), escapeSQL(addr.AddressLine), escapeSQL(addr.City), user.AliasID))
 	}
+	return addresses
 }
 
 func seedCarts(pgDB *gorm.DB, users []domain.User, books []string, exports *ExportFiles) {
@@ -355,19 +409,59 @@ func seedCarts(pgDB *gorm.DB, users []domain.User, books []string, exports *Expo
 	}
 }
 
-func seedOrders(pgDB *gorm.DB, users []domain.User, books []string, exports *ExportFiles) {
+func seedOrders(pgDB *gorm.DB, users []domain.User, books []string, addresses []domain.Address, exports *ExportFiles) {
 	statuses := []domain.OrderStatus{
 		domain.OrderStatusPending, domain.OrderStatusConfirmed,
 		domain.OrderStatusPacking, domain.OrderStatusShipping,
 		domain.OrderStatusCompleted, domain.OrderStatusCancelled,
 	}
 
+	// Group addresses by user ID for faster lookup
+	userAddresses := make(map[int64][]domain.Address)
+	for _, addr := range addresses {
+		userAddresses[addr.UserID] = append(userAddresses[addr.UserID], addr)
+	}
+
 	for i := 0; i < int(TargetOrders*1.5); i++ {
 		user := users[rand.Intn(len(users))]
 		status := statuses[rand.Intn(len(statuses))]
+
+		// Pick a random address for this user
+		var addressID *int64
+		var addressAliasID *uuid.UUID
+
+		addrs := userAddresses[user.ID]
+		if len(addrs) == 0 {
+			// Create ad-hoc address if user has none
+			addr := domain.Address{
+				AliasID:      uuid.New(),
+				UserID:       user.ID,
+				ReceiverName: user.FullName,
+				Phone:        user.Phone,
+				AddressLine:  gofakeit.Address().Address,
+				City:         gofakeit.Address().City,
+				IsDefault:    true,
+				CreatedAt:    time.Now(),
+			}
+			if err := pgDB.Create(&addr).Error; err == nil {
+				userAddresses[user.ID] = append(userAddresses[user.ID], addr)
+				addressID = &addr.ID
+				addressAliasID = &addr.AliasID
+
+				// Export the ad-hoc address
+				exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO addresses (alias_id, user_id, receiver_name, phone, address_line, city, is_default, created_at) SELECT '%s', id, '%s', '%s', '%s', '%s', true, NOW() FROM users WHERE alias_id = '%s';\n",
+					addr.AliasID, escapeSQL(addr.ReceiverName), escapeSQL(addr.Phone), escapeSQL(addr.AddressLine), escapeSQL(addr.City), user.AliasID))
+			}
+		} else {
+			selectedAddr := addrs[rand.Intn(len(addrs))]
+			addressID = &selectedAddr.ID
+			addressAliasID = &selectedAddr.AliasID
+		}
+
 		order := domain.Order{
 			AliasID:     uuid.New(),
 			UserID:      user.ID,
+			AddressID:   addressID,
 			Status:      status,
 			TotalAmount: 0,
 			CreatedAt:   time.Now().AddDate(0, 0, -rand.Intn(30)),
@@ -381,8 +475,14 @@ func seedOrders(pgDB *gorm.DB, users []domain.User, books []string, exports *Exp
 			continue
 		}
 
-		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO orders (alias_id, user_id, status, total_amount, created_at) SELECT '%s', id, '%s', 0, '%s' FROM users WHERE alias_id = '%s';\n",
-			order.AliasID, status, order.CreatedAt.Format("2006-01-02 15:04:05"), user.AliasID))
+		// Export order with address_id subquery
+		addrSubquery := "NULL"
+		if addressAliasID != nil {
+			addrSubquery = fmt.Sprintf("(SELECT id FROM addresses WHERE alias_id = '%s')", addressAliasID.String())
+		}
+
+		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO orders (alias_id, user_id, address_id, status, total_amount, created_at) SELECT '%s', id, %s, '%s', 0, '%s' FROM users WHERE alias_id = '%s';\n",
+			order.AliasID, addrSubquery, status, order.CreatedAt.Format("2006-01-02 15:04:05"), user.AliasID))
 
 		numItems := rand.Intn(4) + 1
 		var total float64
@@ -402,7 +502,7 @@ func seedOrders(pgDB *gorm.DB, users []domain.User, books []string, exports *Exp
 			}
 			total += price * float64(qty)
 			exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO order_items (order_id, mongo_book_id, name, quantity, unit_price) SELECT id, '%s', '%s', %d, %f FROM orders WHERE alias_id = '%s';\n",
-				bookID, gofakeit.BookTitle(), qty, price, order.AliasID))
+				bookID, escapeSQL(item.Name), qty, price, order.AliasID))
 		}
 		pgDB.Model(&order).Update("total_amount", total)
 		exports.Postgres.WriteString(fmt.Sprintf("UPDATE orders SET total_amount = %f WHERE alias_id = '%s';\n", total, order.AliasID))
@@ -432,29 +532,68 @@ func seedOrders(pgDB *gorm.DB, users []domain.User, books []string, exports *Exp
 		}
 
 		// Payment & Shipment
+		var paidAt *time.Time
+		if status != domain.OrderStatusPending && status != domain.OrderStatusCancelled {
+			t := order.CreatedAt.Add(time.Duration(rand.Intn(60)+10) * time.Minute)
+			paidAt = &t
+		}
+
 		payment := domain.Payment{
 			AliasID:   uuid.New(),
 			OrderID:   order.ID,
 			Method:    "COD",
 			Status:    "completed",
 			Amount:    total,
+			PaidAt:    paidAt,
 			CreatedAt: order.CreatedAt,
 		}
 		pgDB.Create(&payment)
-		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO payments (alias_id, order_id, method, status, amount, created_at) SELECT gen_random_uuid(), id, 'COD', 'completed', %f, '%s' FROM orders WHERE alias_id = '%s';\n",
-			total, order.CreatedAt.Format("2006-01-02 15:04:05"), order.AliasID))
+
+		paidAtStr := "NULL"
+		if paidAt != nil {
+			paidAtStr = fmt.Sprintf("'%s'", paidAt.Format("2006-01-02 15:04:05"))
+		}
+		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO payments (alias_id, order_id, method, status, amount, paid_at, created_at) SELECT gen_random_uuid(), id, 'COD', 'completed', %f, %s, '%s' FROM orders WHERE alias_id = '%s';\n",
+			total, paidAtStr, order.CreatedAt.Format("2006-01-02 15:04:05"), order.AliasID))
+
+		var shippedAt, deliveredAt *time.Time
+		shipStatus := domain.ShipmentStatusPending
+
+		if status == domain.OrderStatusShipping || status == domain.OrderStatusCompleted {
+			t1 := order.CreatedAt.AddDate(0, 0, rand.Intn(2)+1)
+			shippedAt = &t1
+			shipStatus = domain.ShipmentStatusShipped
+
+			if status == domain.OrderStatusCompleted {
+				t2 := t1.AddDate(0, 0, rand.Intn(3)+1)
+				deliveredAt = &t2
+				shipStatus = domain.ShipmentStatusDelivered
+			}
+		}
 
 		shipment := domain.Shipment{
 			AliasID:        uuid.New(),
 			OrderID:        order.ID,
-			Status:         "shipped",
+			Status:         shipStatus,
 			Carrier:        "FastDelivery",
 			TrackingNumber: gofakeit.UUID(),
+			ShippedAt:      shippedAt,
+			DeliveredAt:    deliveredAt,
 			CreatedAt:      order.CreatedAt,
 		}
 		pgDB.Create(&shipment)
-		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO shipments (alias_id, order_id, status, carrier, tracking_no, created_at) SELECT gen_random_uuid(), id, 'shipped', 'FastDelivery', '%s', '%s' FROM orders WHERE alias_id = '%s';\n",
-			shipment.TrackingNumber, order.CreatedAt.Format("2006-01-02 15:04:05"), order.AliasID))
+
+		shippedAtStr := "NULL"
+		if shippedAt != nil {
+			shippedAtStr = fmt.Sprintf("'%s'", shippedAt.Format("2006-01-02 15:04:05"))
+		}
+		deliveredAtStr := "NULL"
+		if deliveredAt != nil {
+			deliveredAtStr = fmt.Sprintf("'%s'", deliveredAt.Format("2006-01-02 15:04:05"))
+		}
+
+		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO shipments (alias_id, order_id, status, carrier, tracking_no, shipped_at, delivered_at, created_at) SELECT gen_random_uuid(), id, '%s', 'FastDelivery', '%s', %s, %s, '%s' FROM orders WHERE alias_id = '%s';\n",
+			shipStatus, shipment.TrackingNumber, shippedAtStr, deliveredAtStr, order.CreatedAt.Format("2006-01-02 15:04:05"), order.AliasID))
 	}
 }
 

@@ -84,6 +84,7 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 		user.POST("/orders/buy-now", svc.BuyNow)
 		user.GET("/orders", svc.GetOrderHistory)
 		user.GET("/orders/:id", svc.GetOrderDetail)
+		user.GET("/orders/:id/shipment", svc.GetShipmentByOrder)
 
 		user.POST("/books/:id/view", svc.ViewBook)
 	}
@@ -109,6 +110,12 @@ func NewServer(svc *Service, cfg *config.Config, logger *zap.Logger) *gin.Engine
 		admin.GET("/orders/:id", svc.AdminGetOrder)
 		admin.PATCH("/orders/:id/status", svc.AdminUpdateOrderStatus)
 		admin.GET("/orders/:id/history", svc.AdminGetOrderHistory)
+
+		// Shipment management
+		admin.GET("/shipments/:id", svc.AdminGetShipment)
+		admin.GET("/orders/:id/shipment", svc.AdminGetShipmentByOrder)
+		admin.PATCH("/shipments/:id/status", svc.AdminUpdateShipmentStatus)
+		admin.PUT("/shipments/:id", svc.AdminUpdateShipmentDetails)
 
 		// User management
 		admin.GET("/users", svc.AdminListUsers)

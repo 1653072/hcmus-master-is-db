@@ -3,10 +3,11 @@ package server
 import (
 	"bookstore/backend/internal/domain"
 	"bookstore/backend/utils/validator"
-	"go.uber.org/zap"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // ─── Addresses ────────────────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ build:
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./main.go
 
 run:
-	go run ./main.go server
+	go run ./main.go server --trigger-all-workers-now
 
 dev:
 	air

@@ -44,10 +44,10 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (*domain.Use
 	return &user, err
 }
 
-// UpdateUser persists changes to full_name, phone, and default_addr.
+// UpdateUser persists changes to full_name and phone.
 func (q *Queries) UpdateUser(ctx context.Context, user *domain.User) error {
 	return q.db.WithContext(ctx).Model(user).
-		Select("full_name", "phone", "default_addr").
+		Select("full_name", "phone").
 		Updates(user).Error
 }
 

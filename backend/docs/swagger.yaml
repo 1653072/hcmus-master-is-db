@@ -399,6 +399,7 @@ definitions:
     - email
     - full_name
     - password
+    - phone
     type: object
   domain.SalesSummary:
     properties:
@@ -515,9 +516,6 @@ definitions:
     type: object
   domain.UpdateProfileRequest:
     properties:
-      default_addr:
-        maxLength: 500
-        type: string
       full_name:
         maxLength: 100
         minLength: 2

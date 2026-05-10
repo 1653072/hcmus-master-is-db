@@ -42,7 +42,6 @@ type User struct {
 	PasswordHash string    `gorm:"not null"                                                        json:"-"`
 	Role         UserRole  `gorm:"type:varchar(10);not null;default:'user'"                        json:"role"`
 	IsActive     bool      `gorm:"not null;default:true"                                           json:"is_active"`
-	DefaultAddr  string    `                                                                       json:"default_addr,omitempty"`
 	CreatedAt    time.Time `                                                                       json:"created_at"`
 	UpdatedAt    time.Time `                                                                       json:"-"`
 }
@@ -267,19 +266,30 @@ type Payment struct {
 	CreatedAt   time.Time  `                                                                       json:"created_at"`
 }
 
+// ShipmentStatus represents the current state of a delivery.
+type ShipmentStatus string
+
+const (
+	ShipmentStatusPending   ShipmentStatus = "pending"
+	ShipmentStatusShipped   ShipmentStatus = "shipped"
+	ShipmentStatusDelivered ShipmentStatus = "delivered"
+	ShipmentStatusFailed    ShipmentStatus = "failed"
+	ShipmentStatusReturned  ShipmentStatus = "returned"
+)
+
 // Shipment stores shipment details for an order.
 //
 // Dual-identifier pattern: ID (BIGSERIAL) internal; AliasID (UUID) external.
 type Shipment struct {
-	ID             int64      `gorm:"primaryKey;autoIncrement"                                        json:"-"`
-	AliasID        uuid.UUID  `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
-	OrderID        int64      `gorm:"not null;index"                                                  json:"-"`
-	Status         string     `gorm:"not null;default:'pending'"                                      json:"status"`
-	Carrier        string     `                                                                       json:"carrier,omitempty"`
-	TrackingNumber string     `gorm:"column:tracking_no"                                              json:"tracking_number,omitempty"`
-	ShippedAt      *time.Time `                                                                       json:"shipped_at,omitempty"`
-	DeliveredAt    *time.Time `                                                                       json:"delivered_at,omitempty"`
-	CreatedAt      time.Time  `                                                                       json:"created_at"`
+	ID             int64          `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID        uuid.UUID      `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	OrderID        int64          `gorm:"not null;index"                                                  json:"-"`
+	Status         ShipmentStatus `gorm:"type:varchar(30);not null;default:'pending'"                     json:"status"`
+	Carrier        string         `                                                                       json:"carrier,omitempty"`
+	TrackingNumber string         `gorm:"column:tracking_no"                                              json:"tracking_number,omitempty"`
+	ShippedAt      *time.Time     `                                                                       json:"shipped_at,omitempty"`
+	DeliveredAt    *time.Time     `                                                                       json:"delivered_at,omitempty"`
+	CreatedAt      time.Time      `                                                                       json:"created_at"`
 }
 
 // ─── Buy-Now checkout session (Redis) ────────────────────────────────────────

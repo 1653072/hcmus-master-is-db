@@ -199,9 +199,6 @@ func (s *Service) UpdateProfile(c *gin.Context) {
 		}
 		user.Phone = req.Phone
 	}
-	if req.DefaultAddr != "" {
-		user.DefaultAddr = req.DefaultAddr
-	}
 
 	if err := s.pg.UpdateUser(ctx, user); err != nil {
 		s.logger.Error("update user", zap.Error(err))

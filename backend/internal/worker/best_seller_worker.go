@@ -47,7 +47,7 @@ func NewBestSellerWorker(postgresDatabase *gorm.DB, bestSellerRepository domain.
 // and fires an initial run immediately so Redis is pre-populated on startup.
 func (w *BestSellerWorker) Start() {
 	_, err := w.cron.AddFunc("0 0 * * *", func() {
-		w.run()
+		w.Run()
 	})
 	if err != nil {
 		w.logger.Error("register best seller cron job", zap.Error(err))
@@ -57,7 +57,7 @@ func (w *BestSellerWorker) Start() {
 	w.cron.Start()
 	w.logger.Info("best seller worker started (daily 00:00 UTC)")
 
-	go w.run()
+	go w.Run()
 }
 
 // Stop gracefully stops the cron scheduler.
@@ -67,13 +67,13 @@ func (w *BestSellerWorker) Stop() {
 	w.logger.Info("best seller worker stopped")
 }
 
-// run aggregates the top-N most sold books over the past BestSellerWindowDays days
+// Run aggregates the top-N most sold books over the past BestSellerWindowDays days
 // from PostgreSQL and writes the result into the Redis best sellers cache.
-func (w *BestSellerWorker) run() {
+func (w *BestSellerWorker) Run() {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelFunc()
 
-	cutoffDate := time.Now().UTC().AddDate(0, 0, -domain.BestSellerWindowDays)
+	w.logger.Info("best seller worker: starting aggregation...")
 
 	queryRows := make([]bestSellerQueryRow, 0, domain.BestSellerTopN)
 	err := w.postgresDatabase.WithContext(ctx).Raw(`
