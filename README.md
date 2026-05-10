@@ -3,6 +3,7 @@
 > HCMUS Master — Information Systems Database Final Project
 > Group N06 — Polyglot Persistence Architecture
 > Backend: **Go 1.23** · PostgreSQL · MongoDB · Neo4j · Redis
+> Frontend: **Next.js 14** · React 18 · TypeScript · Tailwind CSS · Zustand
 
 ---
 
@@ -42,6 +43,13 @@
   - [8.2. Makefile Commands](#82-makefile-commands)
 - [9. Swagger API Docs](#9-swagger-api-docs)
 - [10. Frontend](#10-frontend)
+  - [10.1. Technology Stack](#101-technology-stack)
+  - [10.2. Project Structure](#102-project-structure)
+  - [10.3. Pages & Routing](#103-pages--routing)
+  - [10.4. State Management](#104-state-management)
+  - [10.5. API Client Layer](#105-api-client-layer)
+  - [10.6. Component Architecture](#106-component-architecture)
+  - [10.7. Getting Started](#107-getting-started)
 
 ---
 
@@ -1098,4 +1106,305 @@ Generated files are committed to `docs/` (`docs.go`, `swagger.json`, `swagger.ya
 
 ## 10. Frontend
 
-> Documentation for the frontend (Next.js) will be added here once implemented.
+> **Next.js 14** (App Router) · React 18 · TypeScript · Tailwind CSS · Zustand · Axios
+
+The frontend is a server-side rendered (SSR) Next.js application that consumes all REST endpoints documented in [Section 5](#5-api-reference). It mirrors the three actor scopes (Guest, Customer, Admin) through client-side route protection and conditional UI rendering.
+
+---
+
+### 10.1. Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 14.2 (App Router) |
+| Language | TypeScript 5.9 |
+| UI Library | React 18.3 |
+| Styling | Tailwind CSS 3.4 + PostCSS + Autoprefixer |
+| HTTP Client | Axios (with interceptor for JWT Bearer) |
+| State Management | Zustand 5 (persist middleware for auth) |
+| Form Handling | React Hook Form 7 + Zod 4 (schema validation) |
+| UI Primitives | Radix UI (`@radix-ui/react-slot`) + CVA (class-variance-authority) |
+| Icons | Lucide React |
+| Notifications | Sonner (toast) |
+| CSS Utilities | clsx + tailwind-merge |
+
+---
+
+### 10.2. Project Structure
+
+```
+frontend/
+├── next.config.mjs                    # Next.js configuration
+├── tailwind.config.ts                 # Tailwind CSS configuration
+├── tsconfig.json                      # TypeScript paths (@/ alias → src/)
+├── postcss.config.mjs                 # PostCSS plugins
+├── package.json                       # Dependencies & scripts
+├── .env.local                         # NEXT_PUBLIC_API_BASE_URL (git-ignored)
+│
+├── src/
+│   ├── app/                           # Next.js App Router — file-based routing
+│   │   ├── layout.tsx                 # Root layout (HTML shell, <Toaster />, global CSS)
+│   │   ├── globals.css                # Tailwind directives + global styles
+│   │   ├── page.tsx                   # Homepage — Hero, Trending, BooksGrid, Rankings, Services
+│   │   │
+│   │   ├── login/page.tsx             # NV-A2: Login form (react-hook-form + zod)
+│   │   ├── (auth)/register/page.tsx   # NV-A1: Register form
+│   │   ├── profile/page.tsx           # NV-A4: View & update profile
+│   │   │
+│   │   ├── books/
+│   │   │   ├── page.tsx               # NV-B1: Book catalog with search & filters
+│   │   │   └── [id]/page.tsx          # NV-B2: Book detail + stock + similar + series
+│   │   ├── categories/
+│   │   │   ├── page.tsx               # NV-F4: Category listing
+│   │   │   └── [slug]/page.tsx        # Books filtered by category slug
+│   │   ├── search/page.tsx            # NV-B1: Search results page
+│   │   ├── best-sellers/page.tsx      # NV-E2: Top-10 best sellers
+│   │   ├── most-viewed/
+│   │   │   ├── daily/page.tsx         # NV-E3: Most viewed today
+│   │   │   └── 30days/page.tsx        # NV-E3: Most viewed past 30 days
+│   │   ├── authors/page.tsx           # Author listing page
+│   │   ├── blog/page.tsx              # Blog placeholder page
+│   │   │
+│   │   ├── cart/page.tsx              # NV-C1/C2: Cart view & edit
+│   │   ├── checkout/page.tsx          # NV-D1: Checkout flow (cart or buy-now session)
+│   │   ├── orders/
+│   │   │   ├── page.tsx               # NV-D2: Order history
+│   │   │   └── [id]/page.tsx          # NV-D3: Order detail
+│   │   │
+│   │   └── admin/                     # Admin panel (role: admin only)
+│   │       ├── layout.tsx             # Admin sidebar layout
+│   │       ├── page.tsx               # Dashboard overview
+│   │       ├── books/page.tsx         # NV-F2: Book CRUD + stock management
+│   │       ├── categories/page.tsx    # NV-F4: Category CRUD
+│   │       ├── orders/
+│   │       │   ├── page.tsx           # NV-F1: Order management
+│   │       │   └── [id]/page.tsx      # NV-F1: Order detail + status update + audit trail
+│   │       ├── users/page.tsx         # User management (activate/deactivate)
+│   │       └── analytics/page.tsx     # NV-E2: Best-seller analytics + sales summary
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── SiteHeader.tsx         # Main navigation bar (responsive, auth-aware)
+│   │   │   ├── Header.tsx             # Legacy header wrapper
+│   │   │   ├── Footer.tsx             # Site footer with navigation links
+│   │   │   └── RouteShell.tsx         # Page wrapper (Header + Footer + content)
+│   │   │
+│   │   ├── home/
+│   │   │   ├── HeroSection.tsx        # Homepage hero banner
+│   │   │   ├── TrendingSection.tsx    # Trending books carousel
+│   │   │   ├── BooksGridSection.tsx   # Book grid (newest / best sellers)
+│   │   │   ├── CategoryPills.tsx      # Category pill buttons
+│   │   │   ├── RankingSection.tsx     # Most-viewed + best-seller rankings
+│   │   │   ├── ServicesSection.tsx    # Service features showcase
+│   │   │   └── TestimonialsSection.tsx # Customer testimonials
+│   │   │
+│   │   ├── books/
+│   │   │   ├── book-card.tsx          # Reusable book card component
+│   │   │   ├── BooksPage.tsx          # Shared book listing page logic
+│   │   │   ├── BooksToolbar.tsx       # Filter & sort toolbar
+│   │   │   └── section-header.tsx     # Section header with "See all" link
+│   │   │
+│   │   ├── sections/
+│   │   │   ├── BookCard.tsx           # Alternative book card (sections context)
+│   │   │   ├── SectionTitle.tsx       # Styled section title
+│   │   │   └── section-title.tsx      # Section title variant
+│   │   │
+│   │   ├── admin/
+│   │   │   ├── BookFormDrawer.tsx     # Slide-over drawer for book create/edit
+│   │   │   ├── CategoryFormDrawer.tsx # Slide-over drawer for category create/edit
+│   │   │   ├── ConfirmDialog.tsx      # Confirmation modal (delete / status change)
+│   │   │   ├── Pagination.tsx         # Reusable pagination controls
+│   │   │   └── StatusBadge.tsx        # Order status badge (colour-coded)
+│   │   │
+│   │   └── ui/
+│   │       ├── button.tsx             # CVA-based Button component (variants: primary, secondary, outline)
+│   │       └── container.tsx          # Max-width content container
+│   │
+│   ├── lib/
+│   │   ├── api/
+│   │   │   ├── client.ts             # Axios instance (baseURL + JWT interceptor)
+│   │   │   ├── auth.ts               # register, login, logout
+│   │   │   ├── books.ts              # search, getNewBooks, getDetail, getSimilar, getSeries, admin CRUD
+│   │   │   ├── categories.ts         # list, admin CRUD
+│   │   │   ├── cart.ts               # get, add, updateItem, removeItem
+│   │   │   ├── orders.ts             # checkout, buyNow, history, detail, admin operations
+│   │   │   ├── recommendations.ts    # similarBooks, seriesBooks
+│   │   │   └── admin.ts              # listUsers, getUser, deactivateUser, bestSellers, sales
+│   │   │
+│   │   ├── types/
+│   │   │   └── index.ts              # All TypeScript interfaces & request/response DTOs
+│   │   │
+│   │   ├── routes.ts                 # Navigation link definitions (navLinks, footerLinks)
+│   │   ├── design-tokens.ts          # Design system constants (colours, spacing, typography)
+│   │   ├── books.ts                  # Book utility helpers
+│   │   ├── cn.ts                     # clsx + tailwind-merge utility
+│   │   └── utils.ts                  # General utility functions
+│   │
+│   └── stores/
+│       ├── auth.store.ts             # Zustand: token + user state (persist to localStorage)
+│       └── cart.store.ts             # Zustand: cart items + total price (in-memory)
+│
+├── DESIGN.md                          # Design system documentation
+├── DESIGN_GUIDE.md                    # Visual style reference guide
+├── PLANNING.md                        # Feature planning notes
+└── PRODUCT.md                         # Product requirements
+```
+
+---
+
+### 10.3. Pages & Routing
+
+The application uses **Next.js App Router** with file-based routing. Pages are organised by actor scope:
+
+#### Public Pages (Guest)
+
+| Route | File | NV | Description |
+|---|---|---|---|
+| `/` | `page.tsx` | — | Homepage with hero, trending books, book grid, rankings, services, testimonials |
+| `/login` | `login/page.tsx` | A2 | Login form with email + password validation |
+| `/register` | `(auth)/register/page.tsx` | A1 | Registration form with name, email, phone, password |
+| `/books` | `books/page.tsx` | B1 | Book catalog with search, filter by author/publisher/year/price |
+| `/books/:id` | `books/[id]/page.tsx` | B2 | Book detail: metadata, stock, similar books (Neo4j), series volumes |
+| `/categories` | `categories/page.tsx` | F4 | All categories listing |
+| `/categories/:slug` | `categories/[slug]/page.tsx` | B1 | Books filtered by category slug |
+| `/search` | `search/page.tsx` | B1 | Search results page |
+| `/best-sellers` | `best-sellers/page.tsx` | E2 | Top-10 bestselling books (30-day, from Redis) |
+| `/most-viewed/daily` | `most-viewed/daily/page.tsx` | E3 | Top-10 most viewed today (Redis ZSET) |
+| `/most-viewed/30days` | `most-viewed/30days/page.tsx` | E3 | Top-10 most viewed past 30 days (Redis cache) |
+| `/authors` | `authors/page.tsx` | — | Author listing page |
+| `/blog` | `blog/page.tsx` | — | Blog page |
+
+#### Customer Pages (JWT, `role: user`)
+
+| Route | File | NV | Description |
+|---|---|---|---|
+| `/profile` | `profile/page.tsx` | A4 | View & update user profile (name, phone, default address) |
+| `/cart` | `cart/page.tsx` | C1/C2 | View cart items, update quantities, remove items |
+| `/checkout` | `checkout/page.tsx` | D1 | Checkout from cart or buy-now session |
+| `/orders` | `orders/page.tsx` | D2 | Order history list (paginated) |
+| `/orders/:id` | `orders/[id]/page.tsx` | D3 | Order detail with line items and status |
+
+#### Admin Pages (JWT, `role: admin`)
+
+| Route | File | NV | Description |
+|---|---|---|---|
+| `/admin` | `admin/page.tsx` | — | Admin dashboard overview |
+| `/admin/books` | `admin/books/page.tsx` | F2 | Book CRUD table + stock management (drawer form) |
+| `/admin/categories` | `admin/categories/page.tsx` | F4 | Category CRUD table (drawer form) |
+| `/admin/orders` | `admin/orders/page.tsx` | F1 | Order list with status filter |
+| `/admin/orders/:id` | `admin/orders/[id]/page.tsx` | F1 | Order detail + status update + audit trail |
+| `/admin/users` | `admin/users/page.tsx` | — | User management: list, view, activate/deactivate |
+| `/admin/analytics` | `admin/analytics/page.tsx` | E2 | Best-seller analytics + sales summary |
+
+---
+
+### 10.4. State Management
+
+Two Zustand stores handle client-side state. Authentication state is persisted to `localStorage` via the `persist` middleware; cart state is kept in-memory only (source of truth is always the backend).
+
+| Store | File | Persistence | State | Actions |
+|---|---|---|---|---|
+| `useAuthStore` | `stores/auth.store.ts` | `localStorage` (`auth-storage`) | `token: string`, `user: UserInfo` | `setAuth(token, user)`, `clearAuth()` |
+| `useCartStore` | `stores/cart.store.ts` | In-memory only | `items: CartItem[]`, `totalPrice: number` | `setCart(items, totalPrice)`, `clearCart()` |
+
+**Authentication flow:**
+1. `POST /auth/login` → receive `{ access_token, user }`.
+2. Store token in `localStorage` as `access_token` (for Axios interceptor) and in Zustand `auth-storage` (for UI state).
+3. Axios request interceptor reads `localStorage.access_token` and attaches `Authorization: Bearer <token>` header.
+4. On logout: `POST /auth/logout` → `clearAuth()` → remove `access_token` from `localStorage`.
+
+---
+
+### 10.5. API Client Layer
+
+All backend communication goes through a centralised Axios instance (`lib/api/client.ts`) configured with:
+
+| Setting | Value |
+|---|---|
+| `baseURL` | `NEXT_PUBLIC_API_BASE_URL` env var (default: `http://localhost:8080/api/v1`) |
+| `Content-Type` | `application/json` |
+| JWT injection | Request interceptor reads `localStorage.access_token` and sets `Authorization` header |
+
+#### API Modules
+
+Each module exports a plain object with async methods that call the backend and unwrap the response:
+
+| Module | File | Methods | Backend Scope |
+|---|---|---|---|
+| `authApi` | `lib/api/auth.ts` | `register`, `login`, `logout` | Public + Customer |
+| `booksApi` | `lib/api/books.ts` | `search`, `getNewBooks`, `getDetail`, `getSimilar`, `getSeries`, `adminList`, `adminCreate`, `adminUpdate`, `adminDelete`, `adminUpdateStock` | Public + Admin |
+| `categoriesApi` | `lib/api/categories.ts` | `list`, `adminList`, `adminCreate`, `adminUpdate`, `adminDelete` | Public + Admin |
+| `cartApi` | `lib/api/cart.ts` | `get`, `add`, `updateItem`, `removeItem` | Customer |
+| `ordersApi` | `lib/api/orders.ts` | `checkout`, `buyNow`, `history`, `detail`, `adminList`, `adminGet`, `adminUpdateStatus`, `adminHistory` | Customer + Admin |
+| `recommendationsApi` | `lib/api/recommendations.ts` | `similarBooks`, `seriesBooks` | Public |
+| `adminApi` | `lib/api/admin.ts` | `listUsers`, `getUser`, `deactivateUser`, `bestSellers`, `sales` | Admin |
+
+#### TypeScript Interfaces
+
+All request/response types are defined in `lib/types/index.ts` (351 lines), including:
+
+| Category | Interfaces |
+|---|---|
+| Domain Models | `User`, `Book`, `BookDetail`, `Category`, `CartItem`, `Order`, `OrderItem`, `OrderStatusHistory`, `Payment`, `Shipment` |
+| Book Sub-types | `BookImage`, `BookSeries`, `BookAuthor`, `BookTag`, `BookPricing`, `BookCategoryRef` |
+| Recommendations | `SimilarBook`, `SeriesBook`, `BestSellerBook`, `MostViewedBook` |
+| Request DTOs | `RegisterRequest`, `LoginRequest`, `UpdateProfileRequest`, `CreateBookRequest`, `UpdateBookRequest`, `AddToCartRequest`, `CheckoutRequest`, `BuyNowRequest`, `UpdateOrderStatusRequest`, `DeactivateUserRequest` |
+| Response DTOs | `LoginResponse`, `BookListResponse`, `CategoryListResponse`, `CartResponse`, `OrderListResponse`, `UserListResponse`, `RecommendationResponse`, `BuyNowResponse`, `SalesSummary` |
+
+---
+
+### 10.6. Component Architecture
+
+Components are organised into five directories by responsibility:
+
+| Directory | Scope | Components |
+|---|---|---|
+| `components/layout/` | App-wide shell | `SiteHeader` (navigation + auth-aware menu), `Footer` (links + branding), `RouteShell` (Header + Footer wrapper), `Header` (legacy) |
+| `components/home/` | Homepage sections | `HeroSection`, `TrendingSection`, `BooksGridSection`, `CategoryPills`, `RankingSection`, `ServicesSection`, `TestimonialsSection` |
+| `components/books/` | Book catalog | `book-card` (card with cover, title, author, price), `BooksPage` (shared listing logic), `BooksToolbar` (search + filter bar), `section-header` (title + "See all" link) |
+| `components/admin/` | Admin panel | `BookFormDrawer` (slide-over for book CRUD), `CategoryFormDrawer` (slide-over for category CRUD), `ConfirmDialog` (delete/status confirmation), `Pagination` (page controls), `StatusBadge` (colour-coded order status) |
+| `components/ui/` | Design system primitives | `button` (CVA variants: primary, secondary, outline, ghost + sizes), `container` (max-width wrapper) |
+
+#### Design System
+
+The frontend uses a token-based design system documented in `DESIGN.md` and `DESIGN_GUIDE.md`:
+
+- **Colour palette**: Defined in `lib/design-tokens.ts` — warm canvas backgrounds, accent colours, semantic status colours.
+- **Typography**: System font stack configured via Tailwind CSS.
+- **Spacing & Layout**: Consistent max-width container (`components/ui/container.tsx`) across all pages.
+- **Button variants**: Built with `class-variance-authority` (CVA) for type-safe variant props (`variant`, `size`).
+- **Utility functions**: `cn()` from `lib/cn.ts` — merges `clsx` + `tailwind-merge` for conflict-free class composition.
+
+---
+
+### 10.7. Getting Started
+
+```bash
+cd hcmus-master-is-db/frontend
+
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.local.example .env.local
+# Or create manually:
+echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1" > .env.local
+
+# 3. Start development server
+npm run dev
+# → http://localhost:3000
+
+# 4. Build for production (optional)
+npm run build
+npm start
+```
+
+| Script | Command | Description |
+|---|---|---|
+| `dev` | `next dev` | Start development server with hot reload |
+| `build` | `next build` | Create production build |
+| `start` | `next start` | Start production server |
+| `lint` | `next lint` | Run ESLint checks |
+
+> **Note:** The backend API server must be running on `http://localhost:8080` before starting the frontend.
+> See [Section 6.2](#62-quick-start-with-docker) for backend setup instructions.

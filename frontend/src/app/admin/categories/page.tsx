@@ -55,21 +55,21 @@ export default function Page() {
   };
 
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="px-6 py-8 lg:px-10 xl:px-24">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-          <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-zinc-900">
+          <div className="h-1.5 w-14 rounded-full bg-ember/20" aria-hidden="true" />
+          <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-charcoal">
             Manage Categories
           </h1>
-          <p className="mt-3 text-sm text-zinc-500">
+          <p className="mt-3 text-sm text-graphite">
             {total} categor{total !== 1 ? 'ies' : 'y'} in store
           </p>
         </div>
         <button
           type="button"
           onClick={() => { setEditingCategory(null); setDrawerOpen(true); }}
-          className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(234,88,12,0.25)] transition-all hover:bg-orange-600 hover:-translate-y-0.5"
+          className="inline-flex items-center gap-2 rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(234,88,12,0.25)] transition-all hover:bg-ember/90 hover:-translate-y-0.5"
         >
           <Plus className="h-4 w-4" />
           Add Category

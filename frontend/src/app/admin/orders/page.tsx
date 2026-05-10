@@ -38,16 +38,15 @@ export default function Page() {
   }, [fetchOrders]);
 
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="px-6 py-8 lg:px-10 xl:px-24">
       <div className="mb-6">
-        <div className="h-1.5 w-14 rounded-full bg-orange-200" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-zinc-900">
+        <div className="h-1.5 w-14 rounded-full bg-ember/20" aria-hidden="true" />
+        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,2.8rem)] leading-[0.98] tracking-[-0.03em] text-charcoal">
           Manage Orders
         </h1>
-        <p className="mt-3 text-sm text-zinc-500">{total} order{total !== 1 ? 's' : ''} total</p>
+        <p className="mt-3 text-sm text-graphite">{total} order{total !== 1 ? 's' : ''} total</p>
       </div>
 
-      {/* Status filter pills */}
       <div className="mb-6 flex flex-wrap gap-1.5">
         {STATUSES.map((s) => (
           <button
