@@ -1,7 +1,5 @@
 package middleware
 
-import "bookstore/backend/internal/domain"
-
 const (
 	// CtxUserAliasID is the Gin context key that holds the authenticated user's alias_id
 	// UUID string — safe to expose externally (used for Redis cache keys and API responses).
@@ -18,10 +16,4 @@ const (
 	HeaderAuthorization = "Authorization"
 	// BearerPrefix is the prefix stripped from the Authorization header value.
 	BearerPrefix = "Bearer "
-)
-
-// Exported role constants for use in route guards and tests.
-const (
-	RoleUser  = domain.RoleUser
-	RoleAdmin = domain.RoleAdmin
 )

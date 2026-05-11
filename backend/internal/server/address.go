@@ -51,7 +51,7 @@ func (s *Service) CreateAddress(c *gin.Context) {
 
 	if err := s.pg.Transaction(c.Request.Context(), func(tx domain.PostgresTransactor) error {
 		if addr.IsDefault {
-			if err := tx.SetDefault(c.Request.Context(), userInternalID, addr.AliasID); err != nil {
+			if err := tx.ResetDefault(c.Request.Context(), userInternalID); err != nil {
 				return err
 			}
 		}
@@ -143,13 +143,16 @@ func (s *Service) UpdateAddress(c *gin.Context) {
 	}
 
 	if err := s.pg.Transaction(c.Request.Context(), func(tx domain.PostgresTransactor) error {
-		if req.IsDefault != nil && *req.IsDefault {
-			if err := tx.SetDefault(c.Request.Context(), userInternalID, addr.AliasID); err != nil {
-				return err
+		if req.IsDefault != nil {
+			if *req.IsDefault {
+				// Reset các địa chỉ khác trước khi đặt địa chỉ này làm mặc định
+				if err := tx.ResetDefault(c.Request.Context(), userInternalID); err != nil {
+					return err
+				}
+				addr.IsDefault = true
+			} else {
+				addr.IsDefault = false
 			}
-			addr.IsDefault = true
-		} else if req.IsDefault != nil && !*req.IsDefault {
-			addr.IsDefault = false
 		}
 		return tx.UpdateAddress(c.Request.Context(), addr)
 	}); err != nil {

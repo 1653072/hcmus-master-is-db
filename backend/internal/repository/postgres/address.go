@@ -49,13 +49,18 @@ func (q *Queries) DeleteAddress(ctx context.Context, userInternalID int64, alias
 		Update("deleted_at", time.Now()).Error
 }
 
+// ResetDefault clears the is_default flag on all addresses for the same user.
+func (q *Queries) ResetDefault(ctx context.Context, userInternalID int64) error {
+	return q.db.WithContext(ctx).Model(&domain.Address{}).
+		Where("user_id = ?", userInternalID).
+		Update("is_default", false).Error
+}
+
 // SetDefault marks one address as the default and clears the flag on all others for the same user.
-// userInternalID is BIGSERIAL int64, addrAliasID is UUID.
 func (q *Queries) SetDefault(ctx context.Context, userInternalID int64, addrAliasID uuid.UUID) error {
 	return q.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&domain.Address{}).
-			Where("user_id = ?", userInternalID).
-			Update("is_default", false).Error; err != nil {
+		txQueries := q.withDB(tx)
+		if err := txQueries.ResetDefault(ctx, userInternalID); err != nil {
 			return err
 		}
 		return tx.Model(&domain.Address{}).

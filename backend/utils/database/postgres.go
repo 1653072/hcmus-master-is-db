@@ -25,10 +25,10 @@ func ConnectPostgres(cfg config.PostgresConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("get sql.DB: %w", err)
 	}
 
-	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxOpenConns(50)
 	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetConnMaxLifetime(5 * time.Minute)
-	sqlDB.SetConnMaxIdleTime(1 * time.Minute)
+	sqlDB.SetConnMaxLifetime(10 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(2 * time.Minute)
 
 	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("ping postgres: %w", err)

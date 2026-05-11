@@ -33,6 +33,8 @@ type AddressRepository interface {
 	UpdateAddress(ctx context.Context, addr *Address) error
 	// DeleteAddress marks an address as deleted (soft-delete).
 	DeleteAddress(ctx context.Context, userInternalID int64, aliasID uuid.UUID) error
+	// ResetDefault clears the is_default flag on all addresses for the same user.
+	ResetDefault(ctx context.Context, userInternalID int64) error
 	// SetDefault marks one address as default; userInternalID is int64, addrAliasID is UUID.
 	SetDefault(ctx context.Context, userInternalID int64, addrAliasID uuid.UUID) error
 }

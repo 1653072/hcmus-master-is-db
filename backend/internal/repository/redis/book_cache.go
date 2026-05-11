@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	bookDetailPrefix = "books:details:"  // books:details:{bookID}
-	bookNewestKey    = "books:newest"    // books:newest
-	bookStockPrefix  = "books:stocks:"   // books:stocks:{bookID}
+	bookDetailPrefix = "books:details:" // books:details:{bookID}
+	bookNewestKey    = "books:newest"   // books:newest
+	bookStockPrefix  = "books:stocks:"  // books:stocks:{bookID}
 
-	bookDetailTTL = 10 * time.Minute
-	bookStockTTL  = 5 * time.Minute
-	bookNewestTTL = 30 * time.Minute
+	bookDetailTTL = 60 * time.Minute
+	bookStockTTL  = 30 * time.Minute
+	bookNewestTTL = 60 * time.Minute
 )
 
 // BookCacheRepository implements domain.BookCacheRepository using Redis Strings.
