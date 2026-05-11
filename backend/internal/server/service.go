@@ -9,6 +9,7 @@ import (
 
 // Service holds all repository dependencies and is shared by every HTTP handler.
 type Service struct {
+	neo4jDriver 	neo4jdriver.DriverWithContext  // Híu bổ sung cái này
 	pg              domain.PostgresTransactor
 	bookRepo        domain.BookRepository
 	categoryRepo    domain.CategoryRepository
