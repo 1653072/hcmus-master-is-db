@@ -35,6 +35,11 @@ var (
 type RecommendationRepository struct {
 	driver neo4j.DriverWithContext
 }
+
+func NewRecommendationRepository(driver neo4j.DriverWithContext) *RecommendationRepository {
+	return &RecommendationRepository{driver: driver}
+}
+
 func (r *RecommendationRepository) GetSimilarBooksV2(
 	ctx context.Context,
 	mongoID string,
