@@ -651,6 +651,35 @@ func fileExists(path string) bool {
 }
 
 func loadExistingData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Client, dbName string, neo4jDriver neo4j.DriverWithContext, pgPath, mgPath, n4jPath string) {
+	// ── Clean existing data to avoid ID mismatches between databases ──────
+	fmt.Println("  Cleaning existing data before re-seeding...")
+
+	// Clean PostgreSQL seeded tables (order matters due to FK constraints)
+	for _, table := range []string{
+		"order_status_history", "order_items", "orders",
+		"cart_items", "carts",
+		"shipments",
+		"inventory", "books_ref",
+		"addresses", "user_sessions", "users",
+	} {
+		pgDB.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table))
+	}
+	fmt.Println("    [✓] PostgreSQL tables truncated")
+
+	// Clean MongoDB collections
+	mongoDB := mongoClient.Database(dbName)
+	for _, coll := range []string{"books", "categories", "view_event_logs"} {
+		_ = mongoDB.Collection(coll).Drop(ctx)
+	}
+	fmt.Println("    [✓] MongoDB collections dropped")
+
+	// Clean Neo4j
+	neo4jSession := neo4jDriver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	_, _ = neo4jSession.Run(ctx, "MATCH (n) DETACH DELETE n", nil)
+	neo4jSession.Close(ctx)
+	fmt.Println("    [✓] Neo4j nodes deleted")
+
+	// ── Load seed data ───────────────────────────────────────────────────
 	// 1. Load Postgres
 	fmt.Println("  Loading PostgreSQL data...")
 	pgContent, err := os.ReadFile(pgPath)
@@ -669,6 +698,8 @@ func loadExistingData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 	mgFile, err := os.Open(mgPath)
 	if err == nil {
 		scanner := bufio.NewScanner(mgFile)
+		buf := make([]byte, 0, 64*1024)
+		scanner.Buffer(buf, 10*1024*1024) // handle large lines
 		// Match db.collection.insertOne({...});
 		re := regexp.MustCompile(`db\.(\w+)\.insertOne\((.*)\);`)
 		for scanner.Scan() {
@@ -677,8 +708,10 @@ func loadExistingData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 			if len(matches) == 3 {
 				collName := matches[1]
 				jsonStr := matches[2]
-				var doc interface{}
+				var doc bson.D
 				if err := bson.UnmarshalExtJSON([]byte(jsonStr), true, &doc); err == nil {
+					// Remap "id" → "_id" for seed files that use "id" instead of "_id".
+					doc = remapIDField(doc)
 					_, _ = mongoClient.Database(dbName).Collection(collName).InsertOne(ctx, doc)
 				}
 			}
@@ -700,6 +733,40 @@ func loadExistingData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 			}
 		}
 	}
+}
+
+// remapIDField converts a JSON "id" field to a BSON "_id" ObjectId field.
+// This handles seed files where the book JSON was exported with "id" (Go json tag)
+// instead of "_id" (MongoDB native). Without this, MongoDB auto-generates a new
+// ObjectId causing an ID mismatch with PostgreSQL's inventory.book_id.
+func remapIDField(doc bson.D) bson.D {
+	hasUnderscoreID := false
+	idIdx := -1
+	for i, elem := range doc {
+		if elem.Key == "_id" {
+			hasUnderscoreID = true
+			break
+		}
+		if elem.Key == "id" {
+			idIdx = i
+		}
+	}
+
+	if hasUnderscoreID || idIdx < 0 {
+		return doc
+	}
+
+	// Convert string hex to ObjectId if possible
+	idValue := doc[idIdx].Value
+	if hexStr, ok := idValue.(string); ok {
+		if oid, err := primitive.ObjectIDFromHex(hexStr); err == nil {
+			idValue = oid
+		}
+	}
+
+	// Replace "id" with "_id"
+	doc[idIdx] = bson.E{Key: "_id", Value: idValue}
+	return doc
 }
 
 func verifySeededData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Client, dbName string, neo4jDriver neo4j.DriverWithContext) {

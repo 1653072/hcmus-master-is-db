@@ -76,15 +76,56 @@ func (r *BookRepository) SearchBooks(ctx context.Context, filter domain.BookFilt
 
 func (r *BookRepository) GetBookByID(ctx context.Context, id string) (*domain.Book, error) {
 	var book domain.Book
-	err := r.col.FindOne(ctx, bson.M{"_id": id}).Decode(&book)
+
+	// Try as ObjectId first (seeded data uses ObjectId), then fall back to string.
+	filter := bson.M{"_id": id}
+	if oid, err := primitive.ObjectIDFromHex(id); err == nil {
+		filter = bson.M{"_id": oid}
+	}
+
+	err := r.col.FindOne(ctx, filter).Decode(&book)
 	if err == mongo.ErrNoDocuments {
-		return nil, nil
+		// Retry with the other type in case the first attempt used the wrong one.
+		altFilter := bson.M{"_id": id}
+		if _, ok := filter["_id"].(primitive.ObjectID); ok {
+			altFilter = bson.M{"_id": id} // retry as plain string
+		} else {
+			if oid, convErr := primitive.ObjectIDFromHex(id); convErr == nil {
+				altFilter = bson.M{"_id": oid}
+			} else {
+				return nil, nil
+			}
+		}
+		err = r.col.FindOne(ctx, altFilter).Decode(&book)
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
 	}
 	return &book, err
 }
 
+// toObjectIDs converts a slice of hex strings to ObjectIDs where possible.
+func toObjectIDs(ids []string) []interface{} {
+	out := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		if oid, err := primitive.ObjectIDFromHex(id); err == nil {
+			out = append(out, oid)
+		} else {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 func (r *BookRepository) GetBooksByIDs(ctx context.Context, ids []string) ([]*domain.Book, error) {
-	cur, err := r.col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
+	// Build a mixed filter that includes both ObjectId and string representations.
+	mixedIDs := toObjectIDs(ids)
+	// Also include raw strings so we match regardless of how _id was stored.
+	for _, id := range ids {
+		mixedIDs = append(mixedIDs, id)
+	}
+
+	cur, err := r.col.Find(ctx, bson.M{"_id": bson.M{"$in": mixedIDs}})
 	if err != nil {
 		return nil, fmt.Errorf("find books by ids: %w", err)
 	}
@@ -132,13 +173,21 @@ func (r *BookRepository) CreateBook(ctx context.Context, book *domain.Book) (str
 	return oid.Hex(), nil
 }
 
+// bookIDFilter returns a bson filter that tries ObjectId first, falling back to string.
+func bookIDFilter(id string) bson.M {
+	if oid, err := primitive.ObjectIDFromHex(id); err == nil {
+		return bson.M{"_id": oid}
+	}
+	return bson.M{"_id": id}
+}
+
 func (r *BookRepository) UpdateBook(ctx context.Context, id string, book *domain.Book) error {
 	update := bson.M{"$set": book}
-	_, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, update)
+	_, err := r.col.UpdateOne(ctx, bookIDFilter(id), update)
 	return err
 }
 
 func (r *BookRepository) DeleteBook(ctx context.Context, id string) error {
-	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
+	_, err := r.col.DeleteOne(ctx, bookIDFilter(id))
 	return err
 }
