@@ -74,6 +74,7 @@ func (w *BestSellerWorker) Run() {
 	defer cancelFunc()
 
 	w.logger.Info("best seller worker: starting aggregation...")
+	cutoffDate := time.Now().UTC().AddDate(0, 0, -domain.BestSellerWindowDays)
 
 	queryRows := make([]bestSellerQueryRow, 0, domain.BestSellerTopN)
 	err := w.postgresDatabase.WithContext(ctx).Raw(`
