@@ -86,7 +86,10 @@ func (s *Service) GetBookDetail(c *gin.Context) {
 		return
 	}
 
-	inventory, _ := s.pg.GetInventory(ctx, bookID)
+	inventory, err := s.pg.GetInventory(ctx, bookID)
+	if err != nil {
+		s.logger.Warn("failed to fetch inventory for book", zap.String("book_id", bookID), zap.Error(err))
+	}
 	detail := domain.BookDetail{Book: *book}
 	if inventory != nil {
 		detail.StockQuantity = inventory.StockQuantity
@@ -96,7 +99,9 @@ func (s *Service) GetBookDetail(c *gin.Context) {
 	}
 
 	if s.features.RedisBookCache {
-		_ = s.bookCache.SetDetail(ctx, bookID, &detail)
+		if err := s.bookCache.SetDetail(ctx, bookID, &detail); err != nil {
+			s.logger.Warn("failed to cache book detail", zap.String("book_id", bookID), zap.Error(err))
+		}
 	}
 
 	respondOK(c, detail)
@@ -133,7 +138,9 @@ func (s *Service) GetNewBooks(c *gin.Context) {
 	}
 
 	if s.features.RedisNewestBooksCache {
-		_ = s.bookCache.SetNewest(ctx, books)
+		if err := s.bookCache.SetNewest(ctx, books); err != nil {
+			s.logger.Warn("failed to cache newest books", zap.Error(err))
+		}
 	}
 	respondOK(c, s.enrichBooks(ctx, books))
 }
@@ -160,12 +167,14 @@ func (s *Service) ViewBook(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// Persist view event to MongoDB view_event_logs (source of truth for 30-day aggregate).
-	_ = s.eventLogRepo.InsertEventLog(ctx, &domain.EventLog{
+	if err := s.eventLogRepo.InsertEventLog(ctx, &domain.EventLog{
 		UserID:    userID,
 		BookID:    bookID,
 		EventType: domain.EventTypeViewed,
 		CreatedAt: time.Now().UTC(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log view event to MongoDB", zap.String("book_id", bookID), zap.Error(err))
+	}
 
 	// Increment the live daily count sorted set (feature-flag guarded).
 	if s.features.RedisMostViewedDaily {
@@ -197,7 +206,9 @@ func (s *Service) enrichBooks(ctx context.Context, books []*domain.Book) []domai
 		if inventory, err := s.pg.GetInventory(ctx, book.ID); err == nil && inventory != nil {
 			detail.StockQuantity = inventory.StockQuantity
 			if s.features.RedisStockCache {
-				_ = s.bookCache.SetStock(ctx, book.ID, inventory.StockQuantity)
+				if err := s.bookCache.SetStock(ctx, book.ID, inventory.StockQuantity); err != nil {
+					s.logger.Warn("failed to cache stock", zap.String("book_id", book.ID), zap.Error(err))
+				}
 			}
 		}
 		details = append(details, detail)

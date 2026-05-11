@@ -4,6 +4,7 @@ import (
 	"bookstore/backend/internal/domain"
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,8 +39,35 @@ func (q *Queries) GetShipmentByOrderAliasID(ctx context.Context, orderAliasID uu
 	return &shipment, err
 }
 
+// isValidShipmentStatusTransition enforces the shipment state machine:
+//
+//	pending → shipped
+//	shipped → delivered
+//	delivered → terminal
+func isValidShipmentStatusTransition(current, next domain.ShipmentStatus) bool {
+	if current == domain.ShipmentStatusDelivered {
+		return false
+	}
+	switch current {
+	case domain.ShipmentStatusPending:
+		return next == domain.ShipmentStatusShipped
+	case domain.ShipmentStatusShipped:
+		return next == domain.ShipmentStatusDelivered
+	}
+	return false
+}
+
 // UpdateShipmentStatus updates the status of a shipment and sets timestamps accordingly.
 func (q *Queries) UpdateShipmentStatus(ctx context.Context, id int64, status domain.ShipmentStatus) error {
+	var shipment domain.Shipment
+	if err := q.db.WithContext(ctx).First(&shipment, "id = ?", id).Error; err != nil {
+		return err
+	}
+
+	if !isValidShipmentStatusTransition(shipment.Status, status) {
+		return fmt.Errorf("invalid shipment status transition: %s → %s", shipment.Status, status)
+	}
+
 	updates := map[string]interface{}{
 		"status": status,
 	}

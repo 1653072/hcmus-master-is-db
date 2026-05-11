@@ -47,6 +47,8 @@ type OrderRepository interface {
 	// ListOrdersByUser returns a paginated list of orders belonging to a single user (by internal int64 ID).
 	ListOrdersByUser(ctx context.Context, userInternalID int64, page, pageSize int) ([]*Order, int64, error)
 	ListAllOrders(ctx context.Context, status OrderStatus, page, pageSize int) ([]*Order, int64, error)
+	// GetSalesSummary computes total revenue and order count for a date range (YYYY-MM-DD).
+	GetSalesSummary(ctx context.Context, from, to string) (int64, float64, error)
 	// UpdateOrderStatus transitions the order to newStatus after validating the state machine.
 	// id is the internal BIGSERIAL PK; adminAliasID is the external UUID of the acting admin.
 	// Returns an error if the transition is illegal (e.g. completed → any, cancelled → any).

@@ -149,19 +149,27 @@ func (s *Service) Checkout(c *gin.Context) {
 	// ── Post-transaction side effects ─────────────────────────────────────
 
 	if checkoutRequest.SessionID != "" {
-		_ = s.checkoutSession.DeleteSession(ctx, checkoutRequest.SessionID)
+		if err := s.checkoutSession.DeleteSession(ctx, checkoutRequest.SessionID); err != nil {
+			s.logger.Warn("failed to delete checkout session", zap.String("session_id", checkoutRequest.SessionID), zap.Error(err))
+		}
 	} else if s.features.RedisCartCache {
-		_ = s.cartCache.InvalidateCart(ctx, userAliasStr)
+		if err := s.cartCache.InvalidateCart(ctx, userAliasStr); err != nil {
+			s.logger.Warn("failed to invalidate cart cache", zap.String("user", userAliasStr), zap.Error(err))
+		}
 	}
 
 	// Invalidate order-history cache keyed by internal user ID (Redis-internal key).
 	if s.features.RedisOrderHistory {
-		_ = s.orderCache.InvalidateOrderHistory(ctx, strconv.FormatInt(userInternalID, 10))
+		if err := s.orderCache.InvalidateOrderHistory(ctx, strconv.FormatInt(userInternalID, 10)); err != nil {
+			s.logger.Warn("failed to invalidate order history cache", zap.Int64("user_id", userInternalID), zap.Error(err))
+		}
 	}
 
 	if s.features.RedisBookCache {
 		for _, cartItem := range cartItems {
-			_ = s.bookCache.SetStock(ctx, cartItem.BookID, 0)
+			if err := s.bookCache.SetStock(ctx, cartItem.BookID, 0); err != nil {
+				s.logger.Warn("failed to invalidate stock cache", zap.String("book_id", cartItem.BookID), zap.Error(err))
+			}
 		}
 	}
 
@@ -202,7 +210,10 @@ func (s *Service) BuyNow(c *gin.Context) {
 		return
 	}
 
-	book, _ := s.bookRepo.GetBookByID(ctx, buyNowRequest.BookID)
+	book, err := s.bookRepo.GetBookByID(ctx, buyNowRequest.BookID)
+	if err != nil {
+		s.logger.Warn("failed to fetch book for buy-now", zap.String("book_id", buyNowRequest.BookID), zap.Error(err))
+	}
 	bookName := buyNowRequest.BookID
 	price := 0.0
 	if book != nil {
@@ -263,7 +274,9 @@ func (s *Service) GetOrderHistory(c *gin.Context) {
 	}
 
 	if s.features.RedisOrderHistory {
-		_ = s.orderCache.SetOrderHistory(ctx, cacheKey, page, pageSize, orders, total)
+		if err := s.orderCache.SetOrderHistory(ctx, cacheKey, page, pageSize, orders, total); err != nil {
+			s.logger.Warn("failed to cache order history", zap.String("user", cacheKey), zap.Error(err))
+		}
 	}
 
 	respondPaginated(c, orders, total, page, pageSize)
@@ -298,7 +311,7 @@ func (s *Service) GetOrderDetail(c *gin.Context) {
 
 	// Compare internal int64 user IDs — never compare alias_ids, which are only for external use.
 	if order.UserID != userInternalID {
-		respondForbidden(c, "access denied")
+		respondForbidden(c, "access denied due to invalid order owner")
 		return
 	}
 

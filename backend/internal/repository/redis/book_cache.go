@@ -18,7 +18,7 @@ const (
 	bookStockPrefix  = "books:stocks:"  // books:stocks:{bookID}
 
 	bookDetailTTL = 60 * time.Minute
-	bookStockTTL  = 30 * time.Minute
+	bookStockTTL  = 5 * time.Minute
 	bookNewestTTL = 60 * time.Minute
 )
 

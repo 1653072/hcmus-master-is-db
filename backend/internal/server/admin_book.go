@@ -91,7 +91,9 @@ func (s *Service) AdminCreateBook(c *gin.Context) {
 	bookReference := &domain.BookRef{MongoID: mongoID, IsActive: true}
 	if err := s.pg.CreateBookRef(ctx, bookReference); err != nil {
 		s.logger.Error("create book reference in PostgreSQL", zap.Error(err))
-		_ = s.bookRepo.DeleteBook(ctx, mongoID)
+		if delErr := s.bookRepo.DeleteBook(ctx, mongoID); delErr != nil {
+			s.logger.Warn("failed to rollback MongoDB book creation", zap.Error(delErr))
+		}
 		respondInternalError(c, "could not create book reference")
 		return
 	}
@@ -200,20 +202,24 @@ func (s *Service) AdminUpdateBook(c *gin.Context) {
 	}
 
 	// Invalidate Redis book-detail cache.
-	_ = s.bookCache.SetDetail(ctx, bookID, nil)
+	if err := s.bookCache.SetDetail(ctx, bookID, nil); err != nil {
+		s.logger.Warn("failed to invalidate book cache", zap.Error(err))
+	}
 
 	// Re-sync Neo4j Book node and SIMILARITY_TO edges.
 	authorNames := make([]string, 0, len(existingBook.Authors))
 	for _, author := range existingBook.Authors {
 		authorNames = append(authorNames, author.AuthorName)
 	}
-	_ = s.recRepo.UpsertBookNode(ctx, domain.BookNode{
+	if err := s.recRepo.UpsertBookNode(ctx, domain.BookNode{
 		MongoID:    bookID,
 		Title:      existingBook.Name,
 		Authors:    authorNames,
 		Categories: []string{existingBook.Category.CategoryID},
 		IsActive:   true,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to re-sync Neo4j book node", zap.Error(err))
+	}
 
 	respondOK(c, gin.H{"message": "book updated"})
 }
@@ -246,8 +252,12 @@ func (s *Service) AdminDeleteBook(c *gin.Context) {
 		return
 	}
 
-	_ = s.recRepo.DeleteBookNode(ctx, bookID)
-	_ = s.bookCache.SetDetail(ctx, bookID, nil)
+	if err := s.recRepo.DeleteBookNode(ctx, bookID); err != nil {
+		s.logger.Warn("failed to deactivate Neo4j book node", zap.Error(err))
+	}
+	if err := s.bookCache.SetDetail(ctx, bookID, nil); err != nil {
+		s.logger.Warn("failed to invalidate book cache", zap.Error(err))
+	}
 
 	respondOK(c, gin.H{"message": "book deactivated"})
 }
@@ -301,7 +311,9 @@ func (s *Service) AdminUpdateStock(c *gin.Context) {
 
 	// Refresh the Redis stock cache with the new quantity.
 	if s.features.RedisBookCache {
-		_ = s.bookCache.SetStock(ctx, bookID, newStockQuantity)
+		if err := s.bookCache.SetStock(ctx, bookID, newStockQuantity); err != nil {
+			s.logger.Warn("failed to update Redis stock cache", zap.Error(err))
+		}
 	}
 	respondOK(c, gin.H{"stock_quantity": newStockQuantity})
 }

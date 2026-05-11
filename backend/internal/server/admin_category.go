@@ -39,7 +39,9 @@ func (s *Service) GetCategories(c *gin.Context) {
 	}
 
 	if s.features.RedisCategoryCache {
-		_ = s.categoryCache.SetCategoryList(ctx, page, pageSize, cats, total)
+		if err := s.categoryCache.SetCategoryList(ctx, page, pageSize, cats, total); err != nil {
+			s.logger.Warn("failed to cache category list", zap.Error(err))
+		}
 	}
 
 	respondPaginated(c, cats, total, page, pageSize)
@@ -77,7 +79,9 @@ func (s *Service) AdminListCategories(c *gin.Context) {
 	}
 
 	if s.features.RedisCategoryCache {
-		_ = s.categoryCache.SetCategoryList(ctx, page, pageSize, cats, total)
+		if err := s.categoryCache.SetCategoryList(ctx, page, pageSize, cats, total); err != nil {
+			s.logger.Warn("failed to cache category list", zap.Error(err))
+		}
 	}
 
 	respondPaginated(c, cats, total, page, pageSize)
@@ -126,7 +130,9 @@ func (s *Service) AdminCreateCategory(c *gin.Context) {
 
 	// Invalidate Redis category cache
 	if s.features.RedisCategoryCache {
-		_ = s.categoryCache.InvalidateCategoryList(ctx)
+		if err := s.categoryCache.InvalidateCategoryList(ctx); err != nil {
+			s.logger.Warn("failed to invalidate category cache", zap.Error(err))
+		}
 	}
 
 	respondCreated(c, cat)
@@ -184,7 +190,9 @@ func (s *Service) AdminUpdateCategory(c *gin.Context) {
 
 	// Invalidate Redis category cache
 	if s.features.RedisCategoryCache {
-		_ = s.categoryCache.InvalidateCategoryList(ctx)
+		if err := s.categoryCache.InvalidateCategoryList(ctx); err != nil {
+			s.logger.Warn("failed to invalidate category cache", zap.Error(err))
+		}
 	}
 
 	respondOK(c, existing)
@@ -218,7 +226,9 @@ func (s *Service) AdminDeleteCategory(c *gin.Context) {
 
 	// Invalidate Redis category cache
 	if s.features.RedisCategoryCache {
-		_ = s.categoryCache.InvalidateCategoryList(ctx)
+		if err := s.categoryCache.InvalidateCategoryList(ctx); err != nil {
+			s.logger.Warn("failed to invalidate category cache", zap.Error(err))
+		}
 	}
 
 	respondOK(c, gin.H{"message": "category deleted"})

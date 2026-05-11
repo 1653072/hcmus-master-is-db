@@ -147,22 +147,11 @@ func (s *Service) AdminGetSales(c *gin.Context) {
 		return
 	}
 
-	// Count completed/non-cancelled orders in date range via PostgreSQL
-	orders, _, err := s.pg.ListAllOrders(c.Request.Context(), "", 1, 10000)
+	totalOrders, totalRevenue, err := s.pg.GetSalesSummary(c.Request.Context(), from, to)
 	if err != nil {
-		s.logger.Error("admin get sales", zap.Error(err))
+		s.logger.Error("admin get sales summary", zap.Error(err))
 		respondInternalError(c, "could not compute sales data")
 		return
-	}
-
-	var totalRevenue float64
-	var totalOrders int64
-	for _, o := range orders {
-		if o.Status == domain.OrderStatusCancelled {
-			continue
-		}
-		totalRevenue += o.TotalAmount
-		totalOrders++
 	}
 
 	respondOK(c, domain.SalesSummary{

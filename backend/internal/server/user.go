@@ -39,7 +39,10 @@ func (s *Service) Register(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	existing, _ := s.pg.GetUserByEmail(ctx, req.Email)
+	existing, err := s.pg.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		s.logger.Warn("failed to check existing email during registration", zap.String("email", req.Email), zap.Error(err))
+	}
 	if existing != nil {
 		respondError(c, http.StatusConflict, "email already registered")
 		return

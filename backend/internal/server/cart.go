@@ -40,7 +40,9 @@ func (s *Service) AddToCart(c *gin.Context) {
 		} else {
 			if inventory, err := s.pg.GetInventory(ctx, addRequest.BookID); err == nil && inventory != nil {
 				stockQuantity = inventory.StockQuantity
-				_ = s.bookCache.SetStock(ctx, addRequest.BookID, stockQuantity)
+				if err := s.bookCache.SetStock(ctx, addRequest.BookID, stockQuantity); err != nil {
+					s.logger.Warn("failed to cache stock", zap.String("book_id", addRequest.BookID), zap.Error(err))
+				}
 			}
 		}
 	} else {
@@ -151,7 +153,9 @@ func (s *Service) UpdateCartItem(c *gin.Context) {
 	userAliasStr := mustUserAliasID(c).String()
 
 	if s.features.RedisCartCache {
-		_ = s.cartCache.InvalidateCart(ctx, userAliasStr)
+		if err := s.cartCache.InvalidateCart(ctx, userAliasStr); err != nil {
+			s.logger.Warn("failed to invalidate cart cache", zap.String("user", userAliasStr), zap.Error(err))
+		}
 	}
 
 	cart, err := s.pg.GetOrCreateCartByUserID(ctx, userInternalID)
@@ -196,7 +200,9 @@ func (s *Service) RemoveCartItem(c *gin.Context) {
 	userAliasStr := mustUserAliasID(c).String()
 
 	if s.features.RedisCartCache {
-		_ = s.cartCache.InvalidateCart(ctx, userAliasStr)
+		if err := s.cartCache.InvalidateCart(ctx, userAliasStr); err != nil {
+			s.logger.Warn("failed to invalidate cart cache", zap.String("user", userAliasStr), zap.Error(err))
+		}
 	}
 
 	cart, err := s.pg.GetOrCreateCartByUserID(ctx, userInternalID)
@@ -225,7 +231,9 @@ func (s *Service) RemoveCartItem(c *gin.Context) {
 // and returns the enriched items.
 func (s *Service) rebuildCartCache(ctx context.Context, userInternalID int64, userAliasStr string) []domain.CartItem {
 	items := s.loadCartFromPostgres(ctx, userInternalID)
-	_ = s.cartCache.SetCart(ctx, userAliasStr, items)
+	if err := s.cartCache.SetCart(ctx, userAliasStr, items); err != nil {
+		s.logger.Warn("failed to set cart cache", zap.String("user", userAliasStr), zap.Error(err))
+	}
 	return items
 }
 

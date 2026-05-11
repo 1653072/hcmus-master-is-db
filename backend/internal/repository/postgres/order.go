@@ -80,6 +80,23 @@ func (q *Queries) ListAllOrders(ctx context.Context, status domain.OrderStatus, 
 	return orders, total, err
 }
 
+// GetSalesSummary computes total revenue and order count for a date range (YYYY-MM-DD).
+// It only counts non-cancelled orders.
+func (q *Queries) GetSalesSummary(ctx context.Context, from, to string) (int64, float64, error) {
+	var result struct {
+		TotalOrders  int64
+		TotalRevenue float64
+	}
+
+	err := q.db.WithContext(ctx).Model(&domain.Order{}).
+		Select("COUNT(*) as total_orders, COALESCE(SUM(total_amount), 0) as total_revenue").
+		Where("status != ?", domain.OrderStatusCancelled).
+		Where("created_at >= ? AND created_at < (?::date + interval '1 day')", from, to).
+		Scan(&result).Error
+
+	return result.TotalOrders, result.TotalRevenue, err
+}
+
 // isValidOrderStatusTransition enforces the order state machine:
 //
 //	pending   → confirmed | packing | cancelled

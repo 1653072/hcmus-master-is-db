@@ -140,13 +140,17 @@ func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
 
 	// Invalidate order-history cache for the order owner (keyed by internal user ID).
 	if s.features.RedisOrderHistory {
-		_ = s.orderCache.InvalidateOrderHistory(ctx, strconv.FormatInt(order.UserID, 10))
+		if err := s.orderCache.InvalidateOrderHistory(ctx, strconv.FormatInt(order.UserID, 10)); err != nil {
+			s.logger.Warn("failed to invalidate order history cache", zap.Error(err))
+		}
 	}
 
 	// Invalidate stale stock cache entries when stock was restored after cancellation.
 	if statusUpdateRequest.Status == domain.OrderStatusCancelled && s.features.RedisBookCache {
 		for _, lineItem := range order.Items {
-			_ = s.bookCache.SetStock(ctx, lineItem.MongoBookID, 0)
+			if err := s.bookCache.SetStock(ctx, lineItem.MongoBookID, 0); err != nil {
+				s.logger.Warn("failed to invalidate stock cache", zap.String("book_id", lineItem.MongoBookID), zap.Error(err))
+			}
 		}
 	}
 
