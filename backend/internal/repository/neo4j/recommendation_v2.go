@@ -122,8 +122,42 @@ DETACH DELETE c`
 func NewRecommendationRepository(driver neo4j.DriverWithContext) *RecommendationRepository {
 	return &RecommendationRepository{driver: driver}
 }
+// update getseriesbooks
+func (r *RecommendationRepository) GetSeriesBooks(
+	ctx context.Context,
+	seriesName string,
+) ([]domain.SeriesBook, error) {
+	cypher := `
+MATCH (b:Book {is_active: true})-[rel:IN_SERIES]->(s:Series {name: $seriesName})
+RETURN b.mongo_id AS mongo_id,
+       b.title AS title,
+       rel.sequence_no AS volume_order
+ORDER BY rel.sequence_no ASC`
 
-func (r *RecommendationRepository) GetSimilarBooksV2(
+	records, err := runQuery(ctx, r.driver, cypher, map[string]any{
+		"seriesName": seriesName,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]domain.SeriesBook, 0, len(records))
+	for _, rec := range records {
+		bookID, _ := rec.Get("mongo_id")
+		title, _ := rec.Get("title")
+		volumeOrder, _ := rec.Get("volume_order")
+
+		result = append(result, domain.SeriesBook{
+			BookID:      neo4jStringValueV2(bookID),
+			Title:       neo4jStringValueV2(title),
+			VolumeOrder: int(neo4jFloatValueV2(volumeOrder)),
+		})
+	}
+
+	return result, nil
+}
+
+func (r *RecommendationRepository) GetSimilarBooks(
 	ctx context.Context,
 	mongoID string,
 	limit int,
