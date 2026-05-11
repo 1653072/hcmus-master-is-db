@@ -35,6 +35,49 @@ var (
 type RecommendationRepository struct {
 	driver neo4j.DriverWithContext
 }
+func (r *RecommendationRepository) UpsertBookNode(ctx context.Context, node domain.BookNode) error {
+	cypher := `
+MERGE (b:Book {mongo_id: $mongoID})
+SET b.title = $title,
+    b.is_active = $isActive
+
+WITH b
+UNWIND $categories AS categoryName
+  MERGE (c:Category {name: categoryName})
+  MERGE (b)-[:BELONGS_TO]->(c)
+
+WITH b
+UNWIND $authors AS authorName
+  MERGE (a:Author {name: authorName})
+  MERGE (b)-[:WRITTEN_BY]->(a)
+
+WITH b
+MERGE (p:Publisher {name: $publisher})
+MERGE (b)-[:PUBLISHED_BY]->(p)
+
+WITH b
+UNWIND $tags AS tagName
+  MERGE (t:Tag {name: tagName})
+  MERGE (b)-[:HAS_TAG]->(t)
+
+WITH b
+FOREACH (_ IN CASE WHEN $seriesName <> '' THEN [1] ELSE [] END |
+  MERGE (s:Series {name: $seriesName})
+  MERGE (b)-[:IN_SERIES {sequence_no: $sequenceNo}]->(s)
+)`
+
+	return writeQuery(ctx, r.driver, cypher, map[string]any{
+		"mongoID":    node.MongoID,
+		"title":      node.Title,
+		"isActive":   node.IsActive,
+		"categories": node.Categories,
+		"authors":    node.Authors,
+		"publisher":  node.Publisher,
+		"tags":       node.Tags,
+		"seriesName": node.SeriesName,
+		"sequenceNo": node.SequenceNo,
+	})
+}
 
 func NewRecommendationRepository(driver neo4j.DriverWithContext) *RecommendationRepository {
 	return &RecommendationRepository{driver: driver}
