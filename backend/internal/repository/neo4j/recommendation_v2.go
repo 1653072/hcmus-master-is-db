@@ -33,8 +33,9 @@ var (
 //   2. Similarity-based books
 
 type RecommendationRepository struct {
-	driver neo4j.DriverWithContext
+	driver neo4jdriver.DriverWithContext
 }
+
 func (r *RecommendationRepository) UpsertBookNode(ctx context.Context, node domain.BookNode) error {
 	cypher := `
 MERGE (b:Book {mongo_id: $mongoID})
@@ -119,7 +120,7 @@ DETACH DELETE c`
 }
 
 
-func NewRecommendationRepository(driver neo4j.DriverWithContext) *RecommendationRepository {
+func NewRecommendationRepository(driver neo4jdriver.DriverWithContext) *RecommendationRepository {
 	return &RecommendationRepository{driver: driver}
 }
 // update getseriesbooks
