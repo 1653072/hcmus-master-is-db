@@ -3,58 +3,31 @@ package server
 import (
 	"bookstore/backend/internal/domain"
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
-	"sync"
 
 	"github.com/gin-gonic/gin"
-	neo4jdriver "github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/zap"
 )
 
-const (
-	defaultSimilarBookLimit = 10
-	maxSimilarBookLimit     = 10
-	defaultSeriesBookLimit  = 3
-)
-
-var (
-	similarBookNSeriesQuery     string
-	similarBookNSeriesQueryErr  error
-	similarBookNSeriesQueryOnce sync.Once
-)
-
 // GetSimilarBooks handles GET /api/v1/books/:id/similar (NV-E1).
-// This server-level version reads db/neo4j/queries/similarbook_n_series.cypher
-// and executes the Neo4j query directly from the Service.
-//
-// IMPORTANT: Service must contain a Neo4j driver field:
-//
-//     neo4jDriver neo4jdriver.DriverWithContext
-//
-// and cmd/server.go must inject the connected Neo4j driver into Service.
+// Traverses the Neo4j graph using pre-computed SIMILARITY_TO edges or falls back to
+// a live weighted traversal: Category(×0.50), Author(×0.33), Publisher(×0.17).
 //
 // @Summary      Get similar books
-// @Description  Return book recommendations based on same series first, then weighted similarity via Neo4j
+// @Description  Return book recommendations based on shared attributes via Neo4j
 // @Tags         recommendations
 // @Produce      json
 // @Param        id     path      string  true   "Book MongoDB ID"
-// @Param        limit  query     int     false  "Number of recommendations (default 10, max 10)"
+// @Param        limit  query     int     false  "Number of recommendations (default 10)"
 // @Success      200    {array}   domain.SimilarBook
 // @Router       /books/{id}/similar [get]
-func (s *Service) GetSimilarBooks(c *gin.Context) {
+func (s *Service) GetSimilarBooks(c *gin.Context) {   
 	bookID := c.Param("id")
-	if bookID == "" {
-		respondBadRequest(c, "book id is required")
-		return
-	}
+	limit := queryInt(c, "limit", 10)
 
-	limit := normalizeSimilarBookLimit(queryInt(c, "limit", defaultSimilarBookLimit))
-	books, err := s.getSimilarBooksFromNeo4j(c.Request.Context(), bookID, limit)
+	books, err := s.recRepo.GetSimilarBooks(c.Request.Context(), bookID, limit)
 	if err != nil {
-		s.logger.Error("get similar books from neo4j", zap.Error(err))
+		s.logger.Error("get similar books", zap.Error(err))
 		respondInternalError(c, "could not fetch recommendations")
 		return
 	}
@@ -62,68 +35,15 @@ func (s *Service) GetSimilarBooks(c *gin.Context) {
 	respondOK(c, books)
 }
 
-func (s *Service) getSimilarBooksFromNeo4j(ctx context.Context, mongoID string, limit int) ([]domain.SimilarBook, error) {
-	query, err := loadSimilarBookNSeriesQuery()
-	if err != nil {
-		return nil, err
-	}
-
-	params := map[string]any{
-		"mongoID":     mongoID,
-		"limit":       limit,
-		"seriesLimit": minSimilarBookInt(defaultSeriesBookLimit, limit),
-	}
-
-	session := s.neo4jDriver.NewSession(ctx, neo4jdriver.SessionConfig{
-		AccessMode: neo4jdriver.AccessModeRead,
-	})
-	defer session.Close(ctx)
-
-	result, err := session.ExecuteRead(ctx, func(tx neo4jdriver.ManagedTransaction) (any, error) {
-		records, err := tx.Run(ctx, query, params)
-		if err != nil {
-			return nil, err
-		}
-
-		books := make([]domain.SimilarBook, 0, limit)
-		for records.Next(ctx) {
-			record := records.Record()
-
-			mongoIDValue, _ := record.Get("mongo_id")
-			titleValue, _ := record.Get("title")
-			scoreValue, _ := record.Get("score")
-
-			bookMongoID := neo4jStringValue(mongoIDValue)
-			if bookMongoID == "" {
-				continue
-			}
-
-			books = append(books, domain.SimilarBook{
-				BookID: bookMongoID,
-				Title:   neo4jStringValue(titleValue),
-				Score:   neo4jFloatValue(scoreValue),
-			})
-		}
-
-		if err := records.Err(); err != nil {
-			return nil, err
-		}
-		return books, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	books, ok := result.([]domain.SimilarBook)
-	if !ok {
-		return nil, fmt.Errorf("unexpected GetSimilarBooks result type %T", result)
-	}
-	return books, nil
-}
-
 // GetSeriesBooks handles GET /api/v1/books/:id/series (NV-E1).
-// This keeps the original behavior: it asks MongoDB for the source book's series,
-// then uses the existing recommendation repository for series traversal.
+//
+// @Summary      Get series books
+// @Description  Return all books in the same series, ordered by volume sequence
+// @Tags         recommendations
+// @Produce      json
+// @Param        id   path      string  true  "Book MongoDB ID"
+// @Success      200  {array}   domain.SeriesBook
+// @Router       /books/{id}/series [get]
 func (s *Service) GetSeriesBooks(c *gin.Context) {
 	bookID := c.Param("id")
 	ctx := c.Request.Context()
@@ -148,6 +68,18 @@ func (s *Service) GetSeriesBooks(c *gin.Context) {
 	respondOK(c, seriesBooks)
 }
 
+// GetBestSellers handles GET /api/v1/best-sellers (NV-E2).
+// Returns the top-10 bestselling books by units sold in the past 30 days.
+// Data is pre-computed daily at 00:00 UTC by BestSellerWorker and cached in Redis
+// under the key "books:best_sellers" as a JSON string with a 1-day TTL.
+//
+// @Summary      Get best sellers
+// @Description  Return top-selling books in the last 30 days (Redis cached)
+// @Tags         recommendations
+// @Produce      json
+// @Param        limit  query     int  false  "Number of books (default 10)"
+// @Success      200    {array}   domain.BestSellerBook
+// @Router       /best-sellers [get]
 func (s *Service) GetBestSellers(c *gin.Context) {
 	if !s.features.RedisBestSellers {
 		respondOK(c, []any{})
@@ -165,6 +97,25 @@ func (s *Service) GetBestSellers(c *gin.Context) {
 	respondOK(c, books)
 }
 
+// GetTopDailyViewed handles GET /api/v1/most-viewed/daily (NV-E3).
+//
+// Algorithm:
+//  1. Read current top-N view counters from the daily count sorted set
+//     (Redis key "books:most_viewed:daily:count").
+//  2. Read the enriched daily data cache
+//     (Redis key "books:most_viewed:daily:data").
+//  3. If the cached data exists AND its book ID ranking matches the live count set,
+//     return the cached data directly (fast path).
+//  4. Otherwise fetch book titles from MongoDB for the top-N book IDs, build an
+//     enriched response, refresh the data cache, and return the result.
+//
+// @Summary      Get daily most viewed
+// @Description  Return top books viewed today (Real-time Redis ZSET)
+// @Tags         recommendations
+// @Produce      json
+// @Param        limit  query     int  false  "Number of books (default 10)"
+// @Success      200    {array}   domain.MostViewedBook
+// @Router       /most-viewed/daily [get]
 func (s *Service) GetTopDailyViewed(c *gin.Context) {
 	if !s.features.RedisMostViewedDaily {
 		respondOK(c, []any{})
@@ -174,24 +125,32 @@ func (s *Service) GetTopDailyViewed(c *gin.Context) {
 	ctx := c.Request.Context()
 	topN := queryInt(c, "limit", 10)
 
+	// Step 1: Read live count sorted set.
 	liveCountEntries, err := s.mostViewedRepo.GetTopDailyViewedFromCountSet(ctx, topN)
 	if err != nil {
 		s.logger.Error("get top daily viewed from count set", zap.Error(err))
 		respondInternalError(c, "could not fetch daily most viewed")
 		return
 	}
+
 	if len(liveCountEntries) == 0 {
 		respondOK(c, []any{})
 		return
 	}
 
+	// Step 2: Read data cache.
 	cachedData, cacheHit, _ := s.mostViewedRepo.GetDailyTopViewedData(ctx)
+
+	// Step 3: Compare live ranking with cached ranking.
 	if cacheHit && dailyRankingMatchesCountSet(cachedData, liveCountEntries) {
 		respondOK(c, cachedData)
 		return
 	}
 
+	// Step 4: Rankings diverged (or cache is empty) — enrich with titles from MongoDB.
 	enrichedBooks := s.enrichMostViewedWithTitles(ctx, liveCountEntries)
+
+	// Refresh the data cache (best-effort; a failure here is non-fatal).
 	if refreshErr := s.mostViewedRepo.SetDailyTopViewedData(ctx, enrichedBooks); refreshErr != nil {
 		s.logger.Warn("refresh daily most viewed data cache", zap.Error(refreshErr))
 	}
@@ -199,6 +158,16 @@ func (s *Service) GetTopDailyViewed(c *gin.Context) {
 	respondOK(c, enrichedBooks)
 }
 
+// GetTopMostViewed30Days handles GET /api/v1/most-viewed/30days (NV-E3).
+// Returns the top-10 most-viewed books in the past 30 days, aggregated from MongoDB
+// view_event_logs and cached in Redis with a 1-day TTL (refreshed nightly by MostViewedWorker).
+//
+// @Summary      Get 30-day most viewed
+// @Description  Return top books viewed in the last 30 days (Aggregated from MongoDB)
+// @Tags         recommendations
+// @Produce      json
+// @Success      200  {array}  domain.MostViewedBook
+// @Router       /most-viewed/30days [get]
 func (s *Service) GetTopMostViewed30Days(c *gin.Context) {
 	if !s.features.RedisMostViewed30D {
 		respondOK(c, []any{})
@@ -214,6 +183,10 @@ func (s *Service) GetTopMostViewed30Days(c *gin.Context) {
 	respondOK(c, books)
 }
 
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+// dailyRankingMatchesCountSet returns true when the book IDs in the cached data
+// exactly match (same set, same order) the top-N entries from the live count sorted set.
 func dailyRankingMatchesCountSet(cached, liveEntries []domain.MostViewedBook) bool {
 	if len(cached) != len(liveEntries) {
 		return false
@@ -226,6 +199,8 @@ func dailyRankingMatchesCountSet(cached, liveEntries []domain.MostViewedBook) bo
 	return true
 }
 
+// enrichMostViewedWithTitles fetches book titles from MongoDB for the given entries
+// and returns a new slice of MostViewedBook with titles populated.
 func (s *Service) enrichMostViewedWithTitles(ctx context.Context, entries []domain.MostViewedBook) []domain.MostViewedBook {
 	bookIDs := make([]string, 0, len(entries))
 	for _, entry := range entries {
@@ -252,85 +227,9 @@ func (s *Service) enrichMostViewedWithTitles(ctx context.Context, entries []doma
 		})
 	}
 
+	// Sort by view count descending to maintain ranking order.
 	sort.Slice(enriched, func(i, j int) bool {
 		return enriched[i].ViewCount > enriched[j].ViewCount
 	})
 	return enriched
-}
-
-func loadSimilarBookNSeriesQuery() (string, error) {
-	similarBookNSeriesQueryOnce.Do(func() {
-		paths := []string{
-			filepath.Join("db", "neo4j", "queries", "similarbook_n_series.cypher"),
-			filepath.Join("backend", "db", "neo4j", "queries", "similarbook_n_series.cypher"),
-		}
-
-		var lastErr error
-		for _, path := range paths {
-			data, err := os.ReadFile(path)
-			if err == nil {
-				similarBookNSeriesQuery = string(data)
-				return
-			}
-			lastErr = err
-		}
-
-		similarBookNSeriesQueryErr = fmt.Errorf(
-			"could not read Neo4j query file similarbook_n_series.cypher from db/neo4j/queries or backend/db/neo4j/queries: %w",
-			lastErr,
-		)
-	})
-
-	if similarBookNSeriesQueryErr != nil {
-		return "", similarBookNSeriesQueryErr
-	}
-	return similarBookNSeriesQuery, nil
-}
-
-func normalizeSimilarBookLimit(limit int) int {
-	if limit <= 0 {
-		return defaultSimilarBookLimit
-	}
-	if limit > maxSimilarBookLimit {
-		return maxSimilarBookLimit
-	}
-	return limit
-}
-
-func neo4jStringValue(value any) string {
-	if value == nil {
-		return ""
-	}
-	switch v := value.(type) {
-	case string:
-		return v
-	case fmt.Stringer:
-		return v.String()
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-func neo4jFloatValue(value any) float64 {
-	switch v := value.(type) {
-	case float64:
-		return v
-	case float32:
-		return float64(v)
-	case int:
-		return float64(v)
-	case int64:
-		return float64(v)
-	case int32:
-		return float64(v)
-	default:
-		return 0
-	}
-}
-
-func minSimilarBookInt(a int, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
