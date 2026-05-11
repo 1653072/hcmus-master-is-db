@@ -31,6 +31,10 @@ var (
 // Priority:
 //   1. Same-series books
 //   2. Similarity-based books
+
+type RecommendationRepository struct {
+	driver neo4j.DriverWithContext
+}
 func (r *RecommendationRepository) GetSimilarBooksV2(
 	ctx context.Context,
 	mongoID string,
