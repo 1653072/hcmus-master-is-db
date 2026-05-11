@@ -73,8 +73,6 @@ definitions:
         items:
           $ref: '#/definitions/domain.BookImage'
         type: array
-      imported_at:
-        type: string
       name:
         type: string
       price:
@@ -423,6 +421,37 @@ definitions:
       volume_order:
         type: integer
     type: object
+  domain.Shipment:
+    properties:
+      alias_id:
+        type: string
+      carrier:
+        type: string
+      created_at:
+        type: string
+      delivered_at:
+        type: string
+      shipped_at:
+        type: string
+      status:
+        $ref: '#/definitions/domain.ShipmentStatus'
+      tracking_number:
+        type: string
+    type: object
+  domain.ShipmentStatus:
+    enum:
+    - pending
+    - shipped
+    - delivered
+    - failed
+    - returned
+    type: string
+    x-enum-varnames:
+    - ShipmentStatusPending
+    - ShipmentStatusShipped
+    - ShipmentStatusDelivered
+    - ShipmentStatusFailed
+    - ShipmentStatusReturned
   domain.SimilarBook:
     properties:
       book_id:
@@ -522,6 +551,30 @@ definitions:
         type: string
       phone:
         type: string
+    type: object
+  domain.UpdateShipmentDetailsRequest:
+    properties:
+      carrier:
+        type: string
+      tracking_no:
+        type: string
+    required:
+    - carrier
+    - tracking_no
+    type: object
+  domain.UpdateShipmentStatusRequest:
+    properties:
+      status:
+        allOf:
+        - $ref: '#/definitions/domain.ShipmentStatus'
+        enum:
+        - pending
+        - shipped
+        - delivered
+        - failed
+        - returned
+    required:
+    - status
     type: object
   domain.UpdateStockRequest:
     properties:
@@ -945,6 +998,27 @@ paths:
       summary: 'Admin: Get order audit trail'
       tags:
       - admin-orders
+  /admin/orders/{id}/shipment:
+    get:
+      description: Return shipment details for a specific order
+      parameters:
+      - description: Order Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Shipment'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Get shipment by order'
+      tags:
+      - admin-shipments
   /admin/orders/{id}/status:
     patch:
       consumes:
@@ -978,6 +1052,84 @@ paths:
       summary: 'Admin: Update order status'
       tags:
       - admin-orders
+  /admin/shipments/{id}:
+    get:
+      description: Return full shipment details by its alias ID
+      parameters:
+      - description: Shipment Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Shipment'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Get shipment'
+      tags:
+      - admin-shipments
+    put:
+      consumes:
+      - application/json
+      description: Update carrier and tracking number for a shipment
+      parameters:
+      - description: Shipment Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Details update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateShipmentDetailsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Update shipment details'
+      tags:
+      - admin-shipments
+  /admin/shipments/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Transition a shipment to a new state
+      parameters:
+      - description: Shipment Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateShipmentStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.successResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: Update shipment status'
+      tags:
+      - admin-shipments
   /admin/users:
     get:
       description: Return a paginated list of all registered users
@@ -1520,6 +1672,27 @@ paths:
       security:
       - BearerAuth: []
       summary: Get order detail
+      tags:
+      - orders
+  /orders/{id}/shipment:
+    get:
+      description: Return shipment details for one of the customer's orders
+      parameters:
+      - description: Order Alias ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Shipment'
+      security:
+      - BearerAuth: []
+      summary: 'Customer: Get shipment by order'
       tags:
       - orders
   /orders/buy-now:

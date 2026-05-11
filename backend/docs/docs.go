@@ -594,6 +594,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/orders/{id}/shipment": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return shipment details for a specific order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-shipments"
+                ],
+                "summary": "Admin: Get shipment by order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Shipment"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/orders/{id}/status": {
             "patch": {
                 "security": [
@@ -641,6 +675,130 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/shipments/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return full shipment details by its alias ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-shipments"
+                ],
+                "summary": "Admin: Get shipment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Shipment Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Shipment"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update carrier and tracking number for a shipment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-shipments"
+                ],
+                "summary": "Admin: Update shipment details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Shipment Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Details update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateShipmentDetailsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/shipments/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Transition a shipment to a new state",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-shipments"
+                ],
+                "summary": "Admin: Update shipment status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Shipment Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Status update payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateShipmentStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.successResponse"
                         }
                     }
                 }
@@ -1592,6 +1750,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/orders/{id}/shipment": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return shipment details for one of the customer's orders",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Customer: Get shipment by order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order Alias ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Shipment"
+                        }
+                    }
+                }
+            }
+        },
         "/users/addresses": {
             "get": {
                 "security": [
@@ -1991,9 +2183,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.BookImage"
                     }
-                },
-                "imported_at": {
-                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -2512,6 +2701,49 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.Shipment": {
+            "type": "object",
+            "properties": {
+                "alias_id": {
+                    "type": "string"
+                },
+                "carrier": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "delivered_at": {
+                    "type": "string"
+                },
+                "shipped_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.ShipmentStatus"
+                },
+                "tracking_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ShipmentStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "shipped",
+                "delivered",
+                "failed",
+                "returned"
+            ],
+            "x-enum-varnames": [
+                "ShipmentStatusPending",
+                "ShipmentStatusShipped",
+                "ShipmentStatusDelivered",
+                "ShipmentStatusFailed",
+                "ShipmentStatusReturned"
+            ]
+        },
         "domain.SimilarBook": {
             "type": "object",
             "properties": {
@@ -2661,6 +2893,43 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateShipmentDetailsRequest": {
+            "type": "object",
+            "required": [
+                "carrier",
+                "tracking_no"
+            ],
+            "properties": {
+                "carrier": {
+                    "type": "string"
+                },
+                "tracking_no": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.UpdateShipmentStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "pending",
+                        "shipped",
+                        "delivered",
+                        "failed",
+                        "returned"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.ShipmentStatus"
+                        }
+                    ]
                 }
             }
         },

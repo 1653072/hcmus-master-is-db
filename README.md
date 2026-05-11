@@ -342,7 +342,6 @@ and API ergonomics:
 | `series` | `Object` | `{ seriesId: String, seriesName: String, sequenceNo: Int }` |
 | `authors` | `Array` | `[{ authorId: String, slug: String, authorName: String }]` |
 | `tags` | `Array` | `[{ tagId: String, tagName: String }]` |
-| `importedAt` | `ISODate` | System import timestamp |
 | `createdAt` | `ISODate` | Document creation timestamp |
 
 ##### `categories` collection
@@ -451,7 +450,7 @@ and API ergonomics:
 | `books` | `{ "authors.slug": 1 }` | B-TREE | Author filtering |
 | `books` | `{ "category.categoryId": 1, publishYear: -1 }` | B-TREE | Category + Year filtering |
 | `books` | `{ "series.seriesId": 1, "series.sequenceNo": 1 }` | B-TREE | Series volume ordering |
-| `books` | `{ importedAt: -1 }` | B-TREE | Sorting by import date |
+| `books` | `{ createdAt: -1 }` | B-TREE | Sorting by creation date |
 | `books` | `{ name: "text", shortDescription: "text", ... }` | TEXT | Full-text search (weighted) |
 | `categories` | `{ slug: 1 }` | UNIQUE | Fast lookup by slug |
 | `categories` | `{ parentCategory: 1 }` | B-TREE | Parent-child navigation |
@@ -528,7 +527,6 @@ Stores flexible, polymorphic book documents, the category hierarchy, and user be
   "series": { "seriesId": "...", "seriesName": "...", "sequenceNo": 1 },
   "authors": [{ "authorId": "...", "slug": "...", "authorName": "..." }],
   "tags": [{ "tagId": "...", "tagName": "..." }],
-  "importedAt": "2025-01-01T00:00:00Z",
   "createdAt": "2025-01-01T00:00:00Z"
 }
 ```

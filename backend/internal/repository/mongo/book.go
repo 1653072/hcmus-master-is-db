@@ -56,7 +56,7 @@ func (r *BookRepository) SearchBooks(ctx context.Context, filter domain.BookFilt
 	}
 
 	opts := options.Find().
-		SetSort(bson.D{{Key: "importedAt", Value: -1}}).
+		SetSort(bson.D{{Key: "createdAt", Value: -1}}).
 		SetSkip(int64((page - 1) * pageSize)).
 		SetLimit(int64(pageSize))
 
@@ -97,10 +97,10 @@ func (r *BookRepository) GetBooksByIDs(ctx context.Context, ids []string) ([]*do
 	return books, nil
 }
 
-// GetNewestBooks returns the most recently imported books.
+// GetNewestBooks returns the most recently created books.
 func (r *BookRepository) GetNewestBooks(ctx context.Context, limit int) ([]*domain.Book, error) {
 	opts := options.Find().
-		SetSort(bson.D{{Key: "importedAt", Value: -1}}).
+		SetSort(bson.D{{Key: "createdAt", Value: -1}}).
 		SetLimit(int64(limit))
 
 	cur, err := r.col.Find(ctx, bson.D{}, opts)
@@ -118,9 +118,7 @@ func (r *BookRepository) GetNewestBooks(ctx context.Context, limit int) ([]*doma
 
 // CreateBook inserts a new book document and returns its generated MongoDB ID.
 func (r *BookRepository) CreateBook(ctx context.Context, book *domain.Book) (string, error) {
-	now := time.Now()
-	book.CreatedAt = now
-	book.ImportedAt = now
+	book.CreatedAt = time.Now()
 
 	res, err := r.col.InsertOne(ctx, book)
 	if err != nil {

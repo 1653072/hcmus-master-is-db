@@ -6,13 +6,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// ─── Similarity / BestSeller constants ────────────────────────────────────────
+// ─── BestSeller constants ────────────────────────────────────────
 
 const (
-	WeightCategory  = 0.50
-	WeightAuthor    = 0.33
-	WeightPublisher = 0.17
-
 	BestSellerWindowDays = 30
 	BestSellerTopN       = 10
 )
@@ -53,15 +49,15 @@ type User struct {
 // Dual-identifier pattern: ID (BIGSERIAL) is the internal FK used by the orders
 // table; AliasID (UUID) is the external identifier exposed via the API.
 type Address struct {
-	ID           int64     `gorm:"primaryKey;autoIncrement"                                        json:"-"`
-	AliasID      uuid.UUID `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
-	UserID       int64     `gorm:"not null;index"                                                  json:"-"`
-	ReceiverName string    `gorm:"not null"                                                        json:"receiver_name"`
-	Phone        string    `gorm:"not null"                                                        json:"phone"`
-	AddressLine  string    `gorm:"not null"                                                        json:"address_line"`
-	Ward         string    `                                                                       json:"ward,omitempty"`
-	District     string    `                                                                       json:"district,omitempty"`
-	City         string    `gorm:"not null"                                                        json:"city"`
+	ID           int64      `gorm:"primaryKey;autoIncrement"                                        json:"-"`
+	AliasID      uuid.UUID  `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
+	UserID       int64      `gorm:"not null;index"                                                  json:"-"`
+	ReceiverName string     `gorm:"not null"                                                        json:"receiver_name"`
+	Phone        string     `gorm:"not null"                                                        json:"phone"`
+	AddressLine  string     `gorm:"not null"                                                        json:"address_line"`
+	Ward         string     `                                                                       json:"ward,omitempty"`
+	District     string     `                                                                       json:"district,omitempty"`
+	City         string     `gorm:"not null"                                                        json:"city"`
 	IsDefault    bool       `gorm:"not null;default:false"                                          json:"is_default"`
 	CreatedAt    time.Time  `                                                                       json:"created_at"`
 	UpdatedAt    time.Time  `                                                                       json:"-"`
@@ -120,7 +116,6 @@ type Book struct {
 	Series            BookSeries   `bson:"series"               json:"series,omitempty"`
 	Authors           []BookAuthor `bson:"authors"              json:"authors"`
 	Tags              []BookTag    `bson:"tags"                 json:"tags"`
-	ImportedAt        time.Time    `bson:"importedAt"           json:"imported_at"`
 	CreatedAt         time.Time    `bson:"createdAt"            json:"created_at"`
 }
 
@@ -364,7 +359,7 @@ type MostViewedBook struct {
 // ─── Event Log (MongoDB) ─────────────────────────────────────────────────────
 
 const (
-	EventTypeViewed    = "viewed"
+	EventTypeViewed = "viewed"
 )
 
 // EventLog records a user behaviour event (view, purchase) stored in MongoDB

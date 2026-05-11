@@ -72,7 +72,6 @@ export interface Book {
   series?: BookSeries;
   authors: BookAuthor[];
   tags: BookTag[];
-  imported_at: string;
   created_at: string;
 }
 

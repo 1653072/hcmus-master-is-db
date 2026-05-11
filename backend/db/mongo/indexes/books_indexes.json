@@ -25,9 +25,9 @@
         "description": "Compound Index giúp truy vấn các tập trong cùng một bộ truyện (series) theo thứ tự tập."
       },
       {
-        "name": "imported_at_desc",
-        "keys": { "importedAt": -1 },
-        "description": "Index giảm dần trên thời gian nhập sách. Tối ưu cho việc lấy danh sách sách mới nhập."
+        "name": "created_at_desc",
+        "keys": { "createdAt": -1 },
+        "description": "Index giảm dần trên thời gian tạo sách. Tối ưu cho việc lấy danh sách sách mới nhất."
       },
       {
         "name": "text_search",

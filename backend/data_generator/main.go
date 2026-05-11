@@ -224,7 +224,6 @@ func seedBooks(ctx context.Context, client *mongo.Client, dbName string, pgDB *g
 			ProductStatus:     "active",
 			Pricing:           domain.BookPricing{Price: price},
 			Category:          domain.BookCategory{CategoryID: cat.ID},
-			ImportedAt:        time.Now(),
 			CreatedAt:         time.Now(),
 			Authors: []domain.BookAuthor{
 				{AuthorID: gofakeit.UUID(), AuthorName: gofakeit.Name(), Slug: gofakeit.UUID()},
