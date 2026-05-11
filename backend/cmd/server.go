@@ -114,7 +114,7 @@ func runServer(cfg *config.Config, logger *zap.Logger, triggerAllWorkersNow bool
 		sessionRepo, cartCache, checkoutSess,
 		bestSellerRepo, mostViewedRepo,
 		bookCache, orderCache, categoryCache,
-		cfg.JWT, cfg.Features, logger, neo4jDriver, // Hiếu bổ sung Neo4jDriver
+		cfg.JWT, cfg.Features, logger, //neo4jDriver, // Hiếu bổ sung Neo4jDriver
 	)
 	ginEngine := server.NewServer(svc, cfg, logger)
 
