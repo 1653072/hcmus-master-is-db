@@ -79,6 +79,46 @@ FOREACH (_ IN CASE WHEN $seriesName <> '' THEN [1] ELSE [] END |
 	})
 }
 
+// DeleteBookNode marks a Book node as inactive (soft-delete in the graph).
+func (r *RecommendationRepository) DeleteBookNode(ctx context.Context, mongoID string) error {
+	cypher := `
+MATCH (b:Book {mongo_id: $mongoID})
+SET b.is_active = false`
+
+	return writeQuery(ctx, r.driver, cypher, map[string]any{"mongoID": mongoID})
+}
+
+// UpsertCategoryNode creates or updates a Category node and its PARENT_OF relationship in Neo4j.
+// Keeps the graph in sync with MongoDB category mutations.
+func (r *RecommendationRepository) UpsertCategoryNode(ctx context.Context, cat *domain.Category) error {
+	cypher := `
+MERGE (c:Category {categoryId: $categoryID})
+SET c.name = $name,
+    c.slug  = $slug
+WITH c
+FOREACH (_ IN CASE WHEN $parentID <> '' THEN [1] ELSE [] END |
+  MERGE (p:Category {categoryId: $parentID})
+  MERGE (p)-[:PARENT_OF]->(c)
+)`
+
+	return writeQuery(ctx, r.driver, cypher, map[string]any{
+		"categoryID": cat.ID,
+		"name":       cat.CategoryName,
+		"slug":       cat.Slug,
+		"parentID":   cat.ParentCategory,
+	})
+}
+
+// DeleteCategoryNode detaches and removes a Category node from the graph.
+func (r *RecommendationRepository) DeleteCategoryNode(ctx context.Context, catID string) error {
+	cypher := `
+MATCH (c:Category {categoryId: $categoryID})
+DETACH DELETE c`
+
+	return writeQuery(ctx, r.driver, cypher, map[string]any{"categoryID": catID})
+}
+
+
 func NewRecommendationRepository(driver neo4j.DriverWithContext) *RecommendationRepository {
 	return &RecommendationRepository{driver: driver}
 }
