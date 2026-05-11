@@ -124,17 +124,6 @@ export interface OrderStatusHistory {
   changed_at: string;
 }
 
-export interface Payment {
-  id?: number;
-  alias_id: UUID;
-  method: string;
-  status: string;
-  amount: number;
-  provider_ref?: string;
-  paid_at?: string | null;
-  created_at: string;
-}
-
 export interface Shipment {
   id?: number;
   alias_id: UUID;

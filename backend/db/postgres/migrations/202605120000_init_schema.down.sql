@@ -1,5 +1,4 @@
 DROP TABLE IF EXISTS shipments;
-DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS carts;
 DROP TABLE IF EXISTS order_status_histories;

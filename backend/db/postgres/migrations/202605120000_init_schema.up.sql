@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS addresses (
     is_default     BOOLEAN     NOT NULL DEFAULT false,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at     TIMESTAMPTZ DEFAULT NULL,
 
     CONSTRAINT addresses_pkey        PRIMARY KEY (id),
     CONSTRAINT addresses_alias_unique UNIQUE      (alias_id)
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS addresses (
 CREATE INDEX IF NOT EXISTS idx_addresses_alias    ON addresses(alias_id);
 CREATE INDEX IF NOT EXISTS idx_addresses_user_id  ON addresses(user_id);
 CREATE INDEX IF NOT EXISTS idx_addresses_default  ON addresses(user_id, is_default);
+CREATE INDEX IF NOT EXISTS idx_addresses_deleted_at ON addresses (deleted_at);
 
 -- ── Books Reference ──────────────────────────────────────────────────────────
 -- Bridge table: maps MongoDB book ObjectIDs into PostgreSQL so that
@@ -163,26 +165,6 @@ CREATE TABLE IF NOT EXISTS cart_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id);
-
--- ── Payments ─────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS payments (
-    id           BIGSERIAL      NOT NULL,
-    alias_id     UUID           NOT NULL DEFAULT gen_random_uuid(),
-    order_id     BIGINT         NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    method       VARCHAR(50)    NOT NULL,
-    status       VARCHAR(30)    NOT NULL DEFAULT 'pending',
-    amount       NUMERIC(14, 2) NOT NULL CHECK (amount >= 0),
-    provider_ref TEXT,
-    paid_at      TIMESTAMPTZ,
-    created_at   TIMESTAMPTZ    NOT NULL DEFAULT now(),
-
-    CONSTRAINT payments_pkey        PRIMARY KEY (id),
-    CONSTRAINT payments_alias_unique UNIQUE      (alias_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_payments_alias    ON payments(alias_id);
-CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status   ON payments(status);
 
 -- ── Shipments ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS shipments (

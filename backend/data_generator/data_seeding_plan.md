@@ -14,7 +14,6 @@ This plan describes the strategy for initializing large-scale sample data (100,0
 - `orders`: 5,000+
 - `order_items`: 10,000+
 - `order_status_histories`: 10,000+
-- `payments`: 5,000+
 - `shipments`: 5,000+
 
 ### MongoDB (Catalog & Logs)
@@ -57,7 +56,6 @@ Initialization must follow the Dependency Tree order to ensure Foreign Key and R
 - For each order:
     - Create 1-5 `order_items`.
     - Create 1-3 `order_status_histories` records (simulating the process from `pending` to `completed`).
-    - Create 1 `payments` record.
     - Create 1 `shipments` record.
 
 ### Step 6: Initialize Logs (View Event Logs)

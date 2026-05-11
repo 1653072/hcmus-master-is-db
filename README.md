@@ -153,7 +153,6 @@ The system solves four core technical challenges:
       │ order_items         │                                     │                                                    └──────────▲──────────┘
       │ order_status        │                                     │                                                               │
       │  _histories         │                                     │                internal/worker/                               │
-      │ payments            │                                     │                                                               │
       │ shipments           │                                     └─────── best_seller_worker.go  (daily 00:00 UTC) ──────────────┘
       └──────────▲──────────┘                                              → Query PostgreSQL order_items (past 30 days)
                  │                                                        → Write top-10 JSON to Redis "books:best_sellers"
@@ -238,7 +237,6 @@ and API ergonomics:
 | `orders` | `id BIGSERIAL` | `alias_id UUID` | `user_id BIGINT FK→users.id`, `status` ENUM, `total_amount NUMERIC`, `address_id BIGINT FK→addresses.id nullable`, `note`, `created_at` | Order headers |
 | `order_items` | `id BIGSERIAL` | — | `order_id BIGINT FK→orders.id`, `mongo_book_id TEXT`, `name TEXT` (snapshot), `quantity INT`, `unit_price NUMERIC` (snapshot) | Immutable price snapshots; remains readable even if the MongoDB document changes |
 | `order_status_histories` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `old_status VARCHAR nullable`, `new_status VARCHAR`, `changed_by_admin_alias_id UUID nullable` (denormalised), `note`, `changed_at` | Full audit trail of every status transition |
-| `payments` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `method`, `status`, `amount NUMERIC`, `provider_ref`, `paid_at`, `created_at` | Payment records linked to orders |
 | `shipments` | `id BIGSERIAL` | `alias_id UUID` | `order_id BIGINT FK→orders.id`, `status` ENUM, `carrier`, `tracking_no`, `shipped_at`, `delivered_at`, `created_at` | Shipment tracking records |
 
 #### PostgreSQL Data Models
@@ -306,15 +304,6 @@ and API ergonomics:
 | | `book_id` | `TEXT` | `PK`, `FK → books_ref.mongo_id`, `ON DELETE CASCADE` | Linked book |
 | | `quantity` | `INTEGER` | `NOT NULL`, `CHECK > 0` | Desired quantity |
 | | `updated_at` | `TIMESTAMPTZ` | `NOT NULL` | Last change |
-| `payments` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
-| | `alias_id` | `UUID` | `UNIQUE`, `NOT NULL` | External public ID |
-| | `order_id` | `BIGINT` | `FK → orders.id`, `ON DELETE CASCADE` | Linked order |
-| | `method` | `VARCHAR(50)` | `NOT NULL` | e.g., `COD` |
-| | `status` | `VARCHAR(30)` | `NOT NULL`, Default: `pending` | Payment state |
-| | `amount` | `NUMERIC(14,2)` | `NOT NULL`, `CHECK >= 0` | Transaction amount |
-| | `provider_ref` | `TEXT` | | External reference |
-| | `paid_at` | `TIMESTAMPTZ` | | Completion time |
-| | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Record creation |
 | `shipments` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
 | | `alias_id` | `UUID` | `UNIQUE`, `NOT NULL` | External public ID |
 | | `order_id` | `BIGINT` | `FK → orders.id`, `ON DELETE CASCADE` | Linked order |
@@ -435,9 +424,6 @@ and API ergonomics:
 | `order_status_histories` | `changed_at DESC` | B-TREE | Chronological audit |
 | `carts` | `user_id` | UNIQUE | User cart lookup |
 | `cart_items` | `cart_id` | B-TREE | Cart content lookup |
-| `payments` | `alias_id` | UNIQUE | External lookup |
-| `payments` | `order_id` | B-TREE | Order payment lookup |
-| `payments` | `status` | B-TREE | Payment status filtering |
 | `shipments` | `alias_id` | UNIQUE | External lookup |
 | `shipments` | `order_id` | B-TREE | Order shipment lookup |
 | `shipments` | `tracking_no` | B-TREE | Tracking lookup |
@@ -1062,7 +1048,7 @@ Migrations are managed by **golang-migrate** and live in `db/postgres/migrations
 
 | Migration File | Description |
 |---|---|
-| `202605031400_init_schema` | Initial consolidated schema (Users, BooksRef, Orders, Addresses, Inventory, Carts, Payments, Shipments, History) |
+| `202605120000_init_schema` | Initial consolidated schema (Users, BooksRef, Orders, Addresses, Inventory, Carts, Shipments, History) |
 
 ### 8.2. Makefile Commands
 
@@ -1357,7 +1343,7 @@ All request/response types are defined in `lib/types/index.ts` (351 lines), incl
 
 | Category | Interfaces |
 |---|---|
-| Domain Models | `User`, `Book`, `BookDetail`, `Category`, `CartItem`, `Order`, `OrderItem`, `OrderStatusHistory`, `Payment`, `Shipment` |
+| Domain Models | `User`, `Book`, `BookDetail`, `Category`, `CartItem`, `Order`, `OrderItem`, `OrderStatusHistory`, `Shipment` |
 | Book Sub-types | `BookImage`, `BookSeries`, `BookAuthor`, `BookTag`, `BookPricing`, `BookCategoryRef` |
 | Recommendations | `SimilarBook`, `SeriesBook`, `BestSellerBook`, `MostViewedBook` |
 | Request DTOs | `RegisterRequest`, `LoginRequest`, `UpdateProfileRequest`, `CreateBookRequest`, `UpdateBookRequest`, `AddToCartRequest`, `CheckoutRequest`, `BuyNowRequest`, `UpdateOrderStatusRequest`, `DeactivateUserRequest` |

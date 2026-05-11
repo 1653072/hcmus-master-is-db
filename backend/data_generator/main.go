@@ -155,7 +155,7 @@ func main() {
 
 	// 8. Seed Orders & Related (Postgres)
 	seedOrders(pgDB, users, books, addresses, exports)
-	fmt.Println("Seeded orders, items, history, payments, and shipments")
+	fmt.Println("Seeded orders, items, history, and shipments")
 
 	// 9. Seed View Event Logs (Mongo)
 	seedViewLogs(ctx, mongoClient, cfg.Mongo.DB, users, books, exports)
@@ -550,31 +550,6 @@ func seedOrders(pgDB *gorm.DB, users []domain.User, books []string, addresses []
 				status, order.CreatedAt.Add(time.Hour).Format("2006-01-02 15:04:05"), order.AliasID))
 		}
 
-		// Payment & Shipment
-		var paidAt *time.Time
-		if status != domain.OrderStatusPending && status != domain.OrderStatusCancelled {
-			t := order.CreatedAt.Add(time.Duration(rand.Intn(60)+10) * time.Minute)
-			paidAt = &t
-		}
-
-		payment := domain.Payment{
-			AliasID:   uuid.New(),
-			OrderID:   order.ID,
-			Method:    "COD",
-			Status:    "completed",
-			Amount:    total,
-			PaidAt:    paidAt,
-			CreatedAt: order.CreatedAt,
-		}
-		pgDB.Create(&payment)
-
-		paidAtStr := "NULL"
-		if paidAt != nil {
-			paidAtStr = fmt.Sprintf("'%s'", paidAt.Format("2006-01-02 15:04:05"))
-		}
-		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO payments (alias_id, order_id, method, status, amount, paid_at, created_at) SELECT gen_random_uuid(), id, 'COD', 'completed', %f, %s, '%s' FROM orders WHERE alias_id = '%s';\n",
-			total, paidAtStr, order.CreatedAt.Format("2006-01-02 15:04:05"), order.AliasID))
-
 		var shippedAt, deliveredAt *time.Time
 		shipStatus := domain.ShipmentStatusPending
 
@@ -656,7 +631,7 @@ func loadExistingData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 
 	// Clean PostgreSQL seeded tables (order matters due to FK constraints)
 	for _, table := range []string{
-		"order_status_history", "order_items", "orders",
+		"order_status_histories", "order_items", "orders",
 		"cart_items", "carts",
 		"shipments",
 		"inventory", "books_ref",
@@ -834,13 +809,6 @@ func verifySeededData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 	pgDB.Table("order_status_histories").Count(&oshCount)
 	fmt.Printf("[PostgreSQL] Order Status Histories: %d/%d\n", oshCount, TargetOrderHistories)
 	if oshCount < int64(TargetOrderHistories) {
-		allPassed = false
-	}
-
-	var payCount int64
-	pgDB.Table("payments").Count(&payCount)
-	fmt.Printf("[PostgreSQL] Payments: %d/%d\n", payCount, TargetOrders)
-	if payCount < int64(TargetOrders) {
 		allPassed = false
 	}
 

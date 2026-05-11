@@ -204,7 +204,7 @@ const (
 // Order is the header record of a placed order.
 //
 // Dual-identifier pattern: ID (BIGSERIAL) is the internal FK used by order_items,
-// order_status_histories, payments, and shipments tables; AliasID (UUID) is the
+// order_status_histories, and shipments tables; AliasID (UUID) is the
 // external identifier exposed in all API responses and accepted in URL parameters.
 type Order struct {
 	ID          int64       `gorm:"primaryKey;autoIncrement"                                        json:"-"`
@@ -248,21 +248,6 @@ type OrderStatusHistory struct {
 
 // TableName overrides the default GORM table name.
 func (OrderStatusHistory) TableName() string { return "order_status_histories" }
-
-// Payment stores payment details for an order.
-//
-// Dual-identifier pattern: ID (BIGSERIAL) internal; AliasID (UUID) external.
-type Payment struct {
-	ID          int64      `gorm:"primaryKey;autoIncrement"                                        json:"-"`
-	AliasID     uuid.UUID  `gorm:"type:uuid;uniqueIndex;default:gen_random_uuid();column:alias_id" json:"alias_id"`
-	OrderID     int64      `gorm:"not null;index"                                                  json:"-"`
-	Method      string     `gorm:"not null"                                                        json:"method"`
-	Status      string     `gorm:"not null;default:'pending'"                                      json:"status"`
-	Amount      float64    `gorm:"not null"                                                        json:"amount"`
-	ProviderRef string     `                                                                       json:"provider_ref,omitempty"`
-	PaidAt      *time.Time `                                                                       json:"paid_at,omitempty"`
-	CreatedAt   time.Time  `                                                                       json:"created_at"`
-}
 
 // ShipmentStatus represents the current state of a delivery.
 type ShipmentStatus string

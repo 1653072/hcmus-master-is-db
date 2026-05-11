@@ -60,7 +60,7 @@ export default function Page() {
 
           <aside className="rounded-cards-lg border border-stone-surface bg-parchment p-5 h-fit" style={{ boxShadow: 'var(--shadow-sm)' }}>
             <div className="h-1.5 w-14 rounded-full bg-ember/20" aria-hidden="true" />
-            <h2 className="mt-3 font-display text-[clamp(1.75rem,3vw,2.1rem)] leading-[1.05] tracking-[-0.02em] text-charcoal">Payment summary</h2>
+            <h2 className="mt-3 font-display text-[clamp(1.75rem,3vw,2.1rem)] leading-[1.05] tracking-[-0.02em] text-charcoal">Order summary</h2>
             
             <div className="mt-6 space-y-4 border-b border-stone-surface pb-4">
               {checkoutItems.map((item) => (
