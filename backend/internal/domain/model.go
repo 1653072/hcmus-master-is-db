@@ -271,8 +271,6 @@ const (
 	ShipmentStatusPending   ShipmentStatus = "pending"
 	ShipmentStatusShipped   ShipmentStatus = "shipped"
 	ShipmentStatusDelivered ShipmentStatus = "delivered"
-	ShipmentStatusFailed    ShipmentStatus = "failed"
-	ShipmentStatusReturned  ShipmentStatus = "returned"
 )
 
 // Shipment stores shipment details for an order.

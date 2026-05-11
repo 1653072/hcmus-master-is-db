@@ -199,7 +199,7 @@ type SalesSummary struct {
 // ─── Shipment DTOs ────────────────────────────────────────────────────────────
 
 type UpdateShipmentStatusRequest struct {
-	Status ShipmentStatus `json:"status" binding:"required,oneof=pending shipped delivered failed returned"`
+	Status ShipmentStatus `json:"status" binding:"required,oneof=pending shipped delivered"`
 }
 
 type UpdateShipmentDetailsRequest struct {

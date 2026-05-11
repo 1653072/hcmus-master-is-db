@@ -2732,16 +2732,12 @@ const docTemplate = `{
             "enum": [
                 "pending",
                 "shipped",
-                "delivered",
-                "failed",
-                "returned"
+                "delivered"
             ],
             "x-enum-varnames": [
                 "ShipmentStatusPending",
                 "ShipmentStatusShipped",
-                "ShipmentStatusDelivered",
-                "ShipmentStatusFailed",
-                "ShipmentStatusReturned"
+                "ShipmentStatusDelivered"
             ]
         },
         "domain.SimilarBook": {
@@ -2921,9 +2917,7 @@ const docTemplate = `{
                     "enum": [
                         "pending",
                         "shipped",
-                        "delivered",
-                        "failed",
-                        "returned"
+                        "delivered"
                     ],
                     "allOf": [
                         {

@@ -2,7 +2,7 @@ export type UUID = string;
 
 export type UserRole = 'user' | 'admin';
 export type OrderStatus = 'pending' | 'confirmed' | 'packing' | 'shipping' | 'completed' | 'cancelled';
-export type ShipmentStatus = 'pending' | 'shipped' | 'delivered' | 'failed' | 'returned';
+export type ShipmentStatus = 'pending' | 'shipped' | 'delivered';
 
 export interface User {
   id?: number;

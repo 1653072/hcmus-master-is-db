@@ -318,7 +318,7 @@ and API ergonomics:
 | `shipments` | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal ID |
 | | `alias_id` | `UUID` | `UNIQUE`, `NOT NULL` | External public ID |
 | | `order_id` | `BIGINT` | `FK → orders.id`, `ON DELETE CASCADE` | Linked order |
-| | `status` | `VARCHAR(30)` | `NOT NULL`, Default: `pending` | Enum: `pending`, `shipped`, `delivered`, `failed`, `returned` |
+| | `status` | `VARCHAR(30)` | `NOT NULL`, Default: `pending` | Enum: `pending`, `shipped`, `delivered` |
 | | `carrier` | `TEXT` | | Shipping provider |
 | | `tracking_no` | `TEXT` | | Tracking number |
 | | `shipped_at` | `TIMESTAMPTZ` | | Dispatched time |
@@ -497,15 +497,11 @@ Rules:
 **Shipment status lifecycle (state machine — enforced in PostgreSQL repository):**
 ```
 pending ──► shipped ──► delivered (terminal)
-   │           │
-   └───────────┴──────────► failed (terminal)
-               │
-               └──────────► returned (terminal)
 ```
 Rules:
-  • "delivered", "failed", and "returned" are terminal states.
-  • "pending" can transition to "shipped" or "failed".
-  • "shipped" can transition to "delivered", "failed", or "returned".
+  • "delivered" is a terminal state.
+  • "pending" can transition to "shipped".
+  • "shipped" can transition to "delivered".
 
 ---
 
