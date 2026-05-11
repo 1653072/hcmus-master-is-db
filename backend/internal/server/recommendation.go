@@ -21,11 +21,11 @@ import (
 // @Param        limit  query     int     false  "Number of recommendations (default 10)"
 // @Success      200    {array}   domain.SimilarBook
 // @Router       /books/{id}/similar [get]
-func (s *Service) GetSimilarBooks(c *gin.Context) {
+func (s *Service) GetSimilarBookV2(c *gin.Context) {    //Update thành GetSimilarBookV2
 	bookID := c.Param("id")
 	limit := queryInt(c, "limit", 10)
 
-	books, err := s.recRepo.GetSimilarBooks(c.Request.Context(), bookID, limit)
+	books, err := s.recRepo.GetSimilarBooksV2(c.Request.Context(), bookID, limit)   //Update thành GetSimilarBookV2
 	if err != nil {
 		s.logger.Error("get similar books", zap.Error(err))
 		respondInternalError(c, "could not fetch recommendations")
