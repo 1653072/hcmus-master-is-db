@@ -25,7 +25,7 @@ func (s *Service) GetSimilarBooksV2(c *gin.Context) {    //Update thành GetSimi
 	bookID := c.Param("id")
 	limit := queryInt(c, "limit", 10)
 
-	books, err := s.recRepo.GetSimilarBooksV2(c.Request.Context(), bookID, limit)   //Update thành GetSimilarBooksV2
+	books, err := s.recRepo.GetSimilarBooks(c.Request.Context(), bookID, limit)   //Update thành GetSimilarBooksV2
 	if err != nil {
 		s.logger.Error("get similar books", zap.Error(err))
 		respondInternalError(c, "could not fetch recommendations")
