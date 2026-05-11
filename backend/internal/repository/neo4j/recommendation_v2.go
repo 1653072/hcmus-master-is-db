@@ -3,16 +3,16 @@ package neo4j
 import (
 	"bookstore/backend/internal/domain"
 	"context"
-	_ "embed"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
-
 	neo4jdriver "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+
 )
 
 const (
-	// FIX 7: tách default và max thành 2 giá trị có nghĩa
-	defaultSimilarBookLimitV2 = 5
+	defaultSimilarBookLimitV2 = 10
 	maxSimilarBookLimitV2     = 10
 	defaultSeriesBookLimitV2  = 3
 )
@@ -23,39 +23,24 @@ var (
 	similarBookNSeriesQueryOnce sync.Once
 )
 
-// FIX 1: dùng embed.FS để bundle file vào binary, tránh sync.Once bị poisoned
-//
-//go:embed similarbook_n_series.cypher
-
-var similarBookNSeriesQueryBytes []byte
-
 // GetSimilarBooksV2 returns recommendations from Neo4j.
 //
 // Query source:
-//
-//	db/neo4j/queries/similarbook_n_series.cypher
+//   db/neo4j/queries/similarbook_n_series.cypher
 //
 // Priority:
-//  1. Same-series books
-//  2. Similarity-based books
+//   1. Same-series books
+//   2. Similarity-based books
+
 type RecommendationRepository struct {
 	driver neo4jdriver.DriverWithContext
 }
 
-func NewRecommendationRepository(driver neo4jdriver.DriverWithContext) *RecommendationRepository {
-	return &RecommendationRepository{driver: driver}
-}
-
-// FIX 3: xóa stale relationships trước khi MERGE lại
 func (r *RecommendationRepository) UpsertBookNode(ctx context.Context, node domain.BookNode) error {
 	cypher := `
 MERGE (b:Book {mongo_id: $mongoID})
 SET b.title = $title,
     b.is_active = $isActive
-
-WITH b
-OPTIONAL MATCH (b)-[rel:BELONGS_TO|WRITTEN_BY|PUBLISHED_BY|HAS_TAG]->()
-DELETE rel
 
 WITH b
 UNWIND $categories AS categoryName
@@ -125,24 +110,8 @@ FOREACH (_ IN CASE WHEN $parentID <> '' THEN [1] ELSE [] END |
 	})
 }
 
-// FIX 5: guard trước khi DETACH DELETE — trả lỗi nếu còn active books liên kết
+// DeleteCategoryNode detaches and removes a Category node from the graph.
 func (r *RecommendationRepository) DeleteCategoryNode(ctx context.Context, catID string) error {
-	checkCypher := `
-MATCH (b:Book)-[:BELONGS_TO]->(c:Category {categoryId: $categoryID})
-WHERE b.is_active = true
-RETURN count(b) AS bookCount`
-
-	records, err := runQuery(ctx, r.driver, checkCypher, map[string]any{"categoryID": catID})
-	if err != nil {
-		return err
-	}
-	if len(records) > 0 {
-		countVal, _ := records[0].Get("bookCount")
-		if count, ok := countVal.(int64); ok && count > 0 {
-			return fmt.Errorf("cannot delete category %s: %d active books still linked", catID, count)
-		}
-	}
-
 	cypher := `
 MATCH (c:Category {categoryId: $categoryID})
 DETACH DELETE c`
@@ -150,6 +119,11 @@ DETACH DELETE c`
 	return writeQuery(ctx, r.driver, cypher, map[string]any{"categoryID": catID})
 }
 
+
+func NewRecommendationRepository(driver neo4jdriver.DriverWithContext) *RecommendationRepository {
+	return &RecommendationRepository{driver: driver}
+}
+// update getseriesbooks
 func (r *RecommendationRepository) GetSeriesBooks(
 	ctx context.Context,
 	seriesName string,
@@ -175,10 +149,9 @@ ORDER BY rel.sequence_no ASC`
 		volumeOrder, _ := rec.Get("volume_order")
 
 		result = append(result, domain.SeriesBook{
-			BookID: neo4jStringValueV2(bookID),
-			Title:  neo4jStringValueV2(title),
-			// FIX 2: dùng neo4jIntValueV2 thay vì ép qua float64
-			VolumeOrder: neo4jIntValueV2(volumeOrder),
+			BookID:      neo4jStringValueV2(bookID),
+			Title:       neo4jStringValueV2(title),
+			VolumeOrder: int(neo4jFloatValueV2(volumeOrder)),
 		})
 	}
 
@@ -202,11 +175,10 @@ func (r *RecommendationRepository) GetSimilarBooks(
 		return nil, err
 	}
 
-	// FIX 4: seriesLimit tối đa 50% của limit để không lấn hết quota
 	params := map[string]any{
 		"mongoID":     mongoID,
 		"limit":       limit,
-		"seriesLimit": calcSeriesLimit(limit),
+		"seriesLimit": minSimilarBookIntV2(defaultSeriesBookLimitV2, limit),
 	}
 
 	session := r.driver.NewSession(ctx, neo4jdriver.SessionConfig{
@@ -267,14 +239,40 @@ func (r *RecommendationRepository) GetSimilarBooks(
 	return books, nil
 }
 
-// FIX 1: load từ embedded bytes — không bao giờ bị poisoned do file missing lúc runtime
 func loadSimilarBookNSeriesQuery() (string, error) {
 	similarBookNSeriesQueryOnce.Do(func() {
-		if len(similarBookNSeriesQueryBytes) == 0 {
-			similarBookNSeriesQueryErr = fmt.Errorf("embedded similarbook_n_series.cypher is empty")
-			return
+
+		paths := []string{
+			filepath.Join(
+				"db",
+				"neo4j",
+				"queries",
+				"similarbook_n_series.cypher",
+			),
+			filepath.Join(
+				"backend",
+				"db",
+				"neo4j",
+				"queries",
+				"similarbook_n_series.cypher",
+			),
 		}
-		similarBookNSeriesQuery = string(similarBookNSeriesQueryBytes)
+
+		var lastErr error
+
+		for _, path := range paths {
+			data, err := os.ReadFile(path)
+			if err == nil {
+				similarBookNSeriesQuery = string(data)
+				return
+			}
+			lastErr = err
+		}
+
+		similarBookNSeriesQueryErr = fmt.Errorf(
+			"could not read similarbook_n_series.cypher: %w",
+			lastErr,
+		)
 	})
 
 	if similarBookNSeriesQueryErr != nil {
@@ -288,33 +286,26 @@ func normalizeSimilarBookLimitV2(limit int) int {
 	if limit <= 0 {
 		return defaultSimilarBookLimitV2
 	}
+
 	if limit > maxSimilarBookLimitV2 {
 		return maxSimilarBookLimitV2
 	}
-	return limit
-}
 
-// FIX 4: giới hạn seriesLimit tối đa 50% của limit
-func calcSeriesLimit(limit int) int {
-	half := limit / 2
-	if half == 0 {
-		half = 1
-	}
-	if half < defaultSeriesBookLimitV2 {
-		return half
-	}
-	return defaultSeriesBookLimitV2
+	return limit
 }
 
 func neo4jStringValueV2(value any) string {
 	if value == nil {
 		return ""
 	}
+
 	switch v := value.(type) {
 	case string:
 		return v
+
 	case fmt.Stringer:
 		return v.String()
+
 	default:
 		return fmt.Sprintf("%v", v)
 	}
@@ -324,30 +315,19 @@ func neo4jFloatValueV2(value any) float64 {
 	switch v := value.(type) {
 	case float64:
 		return v
+
 	case float32:
 		return float64(v)
-	case int:
-		return float64(v)
-	case int32:
-		return float64(v)
-	case int64:
-		return float64(v)
-	default:
-		return 0
-	}
-}
 
-// FIX 2: hàm riêng cho integer thay vì ép qua float64
-func neo4jIntValueV2(value any) int {
-	switch v := value.(type) {
-	case int64:
-		return int(v)
-	case int32:
-		return int(v)
 	case int:
-		return v
-	case float64:
-		return int(v)
+		return float64(v)
+
+	case int32:
+		return float64(v)
+
+	case int64:
+		return float64(v)
+
 	default:
 		return 0
 	}
@@ -357,5 +337,6 @@ func minSimilarBookIntV2(a int, b int) int {
 	if a < b {
 		return a
 	}
+
 	return b
 }
