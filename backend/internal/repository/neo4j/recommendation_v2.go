@@ -1,4 +1,4 @@
-package server
+package neo4j
 
 import (
 	"bookstore/backend/internal/domain"
