@@ -30,6 +30,7 @@ type Service struct {
 
 // NewService creates a Service with all dependencies injected.
 func NewService(
+	neo4jDriver neo4jdriver.DriverWithContext, // Híu bổ sung service
 	pg domain.PostgresTransactor,
 	bookRepo domain.BookRepository,
 	categoryRepo domain.CategoryRepository,
