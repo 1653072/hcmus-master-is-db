@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	defaultSimilarBookLimit = 10
-	maxSimilarBookLimit     = 10
-	defaultSeriesBookLimit  = 3
+	defaultSimilarBookLimitV2 = 10
+	maxSimilarBookLimitV2     = 10
+	defaultSeriesBookLimitV2  = 3
 )
 
 var (
@@ -24,13 +24,24 @@ var (
 )
 
 // GetSimilarBooksV2 returns recommendations from Neo4j.
-// Priority: same series first, then weighted similarity.
-func (r *Repository) GetSimilarBooksV2(ctx context.Context, mongoID string, limit int) ([]domain.SimilarBook, error) {
+//
+// Query source:
+//   db/neo4j/queries/similarbook_n_series.cypher
+//
+// Priority:
+//   1. Same-series books
+//   2. Similarity-based books
+func (r *RecommendationRepository) GetSimilarBooksV2(
+	ctx context.Context,
+	mongoID string,
+	limit int,
+) ([]domain.SimilarBook, error) {
+
 	if mongoID == "" {
 		return nil, fmt.Errorf("mongoID is required")
 	}
 
-	limit = normalizeSimilarBookLimit(limit)
+	limit = normalizeSimilarBookLimitV2(limit)
 
 	query, err := loadSimilarBookNSeriesQuery()
 	if err != nil {
@@ -40,7 +51,7 @@ func (r *Repository) GetSimilarBooksV2(ctx context.Context, mongoID string, limi
 	params := map[string]any{
 		"mongoID":     mongoID,
 		"limit":       limit,
-		"seriesLimit": minSimilarBookInt(defaultSeriesBookLimit, limit),
+		"seriesLimit": minSimilarBookIntV2(defaultSeriesBookLimitV2, limit),
 	}
 
 	session := r.driver.NewSession(ctx, neo4jdriver.SessionConfig{
@@ -48,46 +59,54 @@ func (r *Repository) GetSimilarBooksV2(ctx context.Context, mongoID string, limi
 	})
 	defer session.Close(ctx)
 
-	result, err := session.ExecuteRead(ctx, func(tx neo4jdriver.ManagedTransaction) (any, error) {
-		records, err := tx.Run(ctx, query, params)
-		if err != nil {
-			return nil, err
-		}
+	result, err := session.ExecuteRead(
+		ctx,
+		func(tx neo4jdriver.ManagedTransaction) (any, error) {
 
-		books := make([]domain.SimilarBook, 0, limit)
-
-		for records.Next(ctx) {
-			record := records.Record()
-
-			mongoIDValue, _ := record.Get("mongo_id")
-			titleValue, _ := record.Get("title")
-			scoreValue, _ := record.Get("score")
-
-			bookMongoID := neo4jStringValue(mongoIDValue)
-			if bookMongoID == "" {
-				continue
+			records, err := tx.Run(ctx, query, params)
+			if err != nil {
+				return nil, err
 			}
 
-			books = append(books, domain.SimilarBook{
-				MongoID: bookMongoID,
-				Title:   neo4jStringValue(titleValue),
-				Score:   neo4jFloatValue(scoreValue),
-			})
-		}
+			books := make([]domain.SimilarBook, 0, limit)
 
-		if err := records.Err(); err != nil {
-			return nil, err
-		}
+			for records.Next(ctx) {
+				record := records.Record()
 
-		return books, nil
-	})
+				mongoIDValue, _ := record.Get("mongo_id")
+				titleValue, _ := record.Get("title")
+				scoreValue, _ := record.Get("score")
+
+				bookMongoID := neo4jStringValueV2(mongoIDValue)
+				if bookMongoID == "" {
+					continue
+				}
+
+				books = append(books, domain.SimilarBook{
+					BookID: bookMongoID,
+					Title:  neo4jStringValueV2(titleValue),
+					Score:  neo4jFloatValueV2(scoreValue),
+				})
+			}
+
+			if err := records.Err(); err != nil {
+				return nil, err
+			}
+
+			return books, nil
+		},
+	)
+
 	if err != nil {
 		return nil, err
 	}
 
 	books, ok := result.([]domain.SimilarBook)
 	if !ok {
-		return nil, fmt.Errorf("unexpected GetSimilarBooksV2 result type %T", result)
+		return nil, fmt.Errorf(
+			"unexpected GetSimilarBooksV2 result type %T",
+			result,
+		)
 	}
 
 	return books, nil
@@ -95,12 +114,25 @@ func (r *Repository) GetSimilarBooksV2(ctx context.Context, mongoID string, limi
 
 func loadSimilarBookNSeriesQuery() (string, error) {
 	similarBookNSeriesQueryOnce.Do(func() {
+
 		paths := []string{
-			filepath.Join("db", "neo4j", "queries", "similarbook_n_series.cypher"),
-			filepath.Join("backend", "db", "neo4j", "queries", "similarbook_n_series.cypher"),
+			filepath.Join(
+				"db",
+				"neo4j",
+				"queries",
+				"similarbook_n_series.cypher",
+			),
+			filepath.Join(
+				"backend",
+				"db",
+				"neo4j",
+				"queries",
+				"similarbook_n_series.cypher",
+			),
 		}
 
 		var lastErr error
+
 		for _, path := range paths {
 			data, err := os.ReadFile(path)
 			if err == nil {
@@ -111,7 +143,7 @@ func loadSimilarBookNSeriesQuery() (string, error) {
 		}
 
 		similarBookNSeriesQueryErr = fmt.Errorf(
-			"could not read Neo4j query file similarbook_n_series.cypher: %w",
+			"could not read similarbook_n_series.cypher: %w",
 			lastErr,
 		)
 	})
@@ -123,17 +155,19 @@ func loadSimilarBookNSeriesQuery() (string, error) {
 	return similarBookNSeriesQuery, nil
 }
 
-func normalizeSimilarBookLimit(limit int) int {
+func normalizeSimilarBookLimitV2(limit int) int {
 	if limit <= 0 {
-		return defaultSimilarBookLimit
+		return defaultSimilarBookLimitV2
 	}
-	if limit > maxSimilarBookLimit {
-		return maxSimilarBookLimit
+
+	if limit > maxSimilarBookLimitV2 {
+		return maxSimilarBookLimitV2
 	}
+
 	return limit
 }
 
-func neo4jStringValue(value any) string {
+func neo4jStringValueV2(value any) string {
 	if value == nil {
 		return ""
 	}
@@ -141,33 +175,41 @@ func neo4jStringValue(value any) string {
 	switch v := value.(type) {
 	case string:
 		return v
+
 	case fmt.Stringer:
 		return v.String()
+
 	default:
 		return fmt.Sprintf("%v", v)
 	}
 }
 
-func neo4jFloatValue(value any) float64 {
+func neo4jFloatValueV2(value any) float64 {
 	switch v := value.(type) {
 	case float64:
 		return v
+
 	case float32:
 		return float64(v)
+
 	case int:
 		return float64(v)
-	case int64:
-		return float64(v)
+
 	case int32:
 		return float64(v)
+
+	case int64:
+		return float64(v)
+
 	default:
 		return 0
 	}
 }
 
-func minSimilarBookInt(a int, b int) int {
+func minSimilarBookIntV2(a int, b int) int {
 	if a < b {
 		return a
 	}
+
 	return b
 }
