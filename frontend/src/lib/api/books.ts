@@ -10,7 +10,15 @@ import type {
 
 export const booksApi = {
   search: async (params?: ApiListParams) => {
-    const { data } = await apiClient.get<{ data: any[]; total: number; page: number; page_size: number }>('/books', { params });
+    const requestParams = params
+      ? {
+          ...params,
+          search: params.search ?? params.query ?? params.q,
+          query: undefined,
+          q: undefined,
+        }
+      : undefined;
+    const { data } = await apiClient.get<{ data: any[]; total: number; page: number; page_size: number }>('/books', { params: requestParams });
     return data;
   },
   getNewBooks: async () => {
@@ -27,6 +35,10 @@ export const booksApi = {
   },
   getSeries: async (id: string) => {
     const { data } = await apiClient.get<{ data: any }>(`/books/${id}/series`);
+    return data.data;
+  },
+  recordView: async (id: string) => {
+    const { data } = await apiClient.post<{ data: any }>(`/books/${id}/view`);
     return data.data;
   },
   adminList: async (params?: ApiListParams) => {

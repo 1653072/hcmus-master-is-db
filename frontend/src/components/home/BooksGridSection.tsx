@@ -3,6 +3,7 @@ import { ArrowRight, Star } from 'lucide-react';
 
 import { BookCard, type FeaturedBook } from '@/components/books/book-card';
 import { SectionHeader } from '@/components/books/section-header';
+import { CommerceSection, ProductGrid } from '@/components/ui/commerce';
 
 interface BooksGridSectionProps {
   title: string;
@@ -17,47 +18,47 @@ export function BooksGridSection({
   title,
   subtitle,
   books,
-  columnsClassName = 'grid-cols-2 gap-5 md:grid-cols-4',
+  columnsClassName,
   backgroundClassName,
   seeAllHref = '/books',
 }: BooksGridSectionProps) {
   return (
-    <section className={`mx-auto max-w-page px-6 py-16 lg:px-10 xl:px-24 ${backgroundClassName ?? ''}`}>
+    <CommerceSection className={`py-14 ${backgroundClassName ?? ''}`}>
       <SectionHeader
         title={title}
         subtitle={subtitle}
         action={
-          <Link className="inline-flex items-center gap-2 text-[14px] font-medium tracking-[-0.18px] text-ember transition hover:text-ember/80" href={seeAllHref}>
-            See all
+          <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-coral-red" href={seeAllHref}>
+            Xem tất cả
             <ArrowRight className="h-4 w-4" />
           </Link>
         }
       />
-      <div className={`grid ${columnsClassName}`}>
+      <ProductGrid className={columnsClassName}>
         {books.map((book) => {
           const bookHref = book.id ? `/books/${book.id}` : '/books';
           return (
             <article
               key={`${book.title}-${book.author}`}
-              className="rounded-cards bg-white p-6 transition duration-200 ease-out hover:shadow-card-hover"
+              className="rounded-cards bg-white p-4 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-hover"
               style={{ boxShadow: 'var(--shadow-subtle)' }}
             >
               <BookCard book={book} compact href={bookHref} />
               <div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-ash">
-                <span className="inline-flex items-center gap-1.5 text-sunburst">
+                <span className="inline-flex items-center gap-1.5 text-deep-amber">
                   <Star className="h-4 w-4 fill-current" /> {book.rating}
                 </span>
                 <Link
-                  href="/cart"
-                  className="rounded-pill border border-stone-surface bg-white px-4 py-2 text-[13px] font-medium text-charcoal transition hover:border-graphite/30 hover:bg-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/40"
+                  href={bookHref}
+                  className="rounded-buttons border border-stone-surface bg-white px-3 py-2 text-[13px] font-medium text-charcoal transition hover:border-ember/40 hover:bg-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35"
                 >
-                  Add to cart
+                  Xem và mua
                 </Link>
               </div>
             </article>
           );
         })}
-      </div>
-    </section>
+      </ProductGrid>
+    </CommerceSection>
   );
 }

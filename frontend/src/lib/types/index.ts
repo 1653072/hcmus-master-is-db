@@ -66,6 +66,8 @@ export interface Book {
   short_description: string;
   detail_description: string;
   product_status: string;
+  publisher?: string;
+  publish_year?: number;
   pricing: BookPricing;
   category: BookCategoryRef;
   images: BookImage[];
@@ -94,6 +96,7 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  image_url?: string;
 }
 
 export interface OrderItem {
@@ -244,6 +247,15 @@ export interface UpdateProfileRequest {
   phone?: string;
 }
 
+export interface UpdateShipmentStatusRequest {
+  status: ShipmentStatus;
+}
+
+export interface UpdateShipmentDetailsRequest {
+  carrier: string;
+  tracking_no: string;
+}
+
 export interface CreateAddressRequest {
   receiver_name: string;
   phone: string;
@@ -259,6 +271,8 @@ export interface CreateBookRequest {
   short_description?: string;
   detail_description?: string;
   product_status?: string;
+  publisher?: string;
+  publish_year?: number;
   pricing: BookPricing;
   category: BookCategoryRef;
   images: BookImage[];
@@ -273,6 +287,8 @@ export interface UpdateBookRequest {
   short_description?: string;
   detail_description?: string;
   product_status?: string;
+  publisher?: string;
+  publish_year?: number;
   pricing?: BookPricing;
   category?: BookCategoryRef;
   images?: BookImage[];
@@ -309,7 +325,7 @@ export interface UpdateCartItemRequest {
 export interface CheckoutRequest {
   address_id?: UUID;
   note?: string;
-  session_id: string;
+  session_id?: string;
 }
 
 export interface BuyNowRequest {
@@ -334,4 +350,12 @@ export interface ApiListParams {
   page?: number;
   page_size?: number;
   query?: string;
+  q?: string;
+  search?: string;
+  author?: string;
+  category?: string;
+  publisher?: string;
+  year?: number;
+  min_price?: number;
+  max_price?: number;
 }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Brain, ChevronRight, Compass, Gem, Rocket } from 'lucide-react';
+import { ArrowRight, BookOpen, ChevronRight } from 'lucide-react';
+import { CommerceSection } from '@/components/ui/commerce';
 
 interface CategoryPillsProps {
   categories: string[];
@@ -9,42 +10,38 @@ function toSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-const categoryIcons = [BookOpen, Compass, Rocket, Brain, Gem];
-const iconColors = ['text-ember', 'text-sky-accent', 'text-meadow', 'text-violet-pop', 'text-sunburst'];
-const iconBackgrounds = ['bg-ember/10', 'bg-sky-accent/10', 'bg-meadow/10', 'bg-violet-pop/10', 'bg-sunburst/10'];
-
 export function CategoryPills({ categories }: CategoryPillsProps) {
   return (
-    <section className="mx-auto max-w-page px-6 py-16 lg:px-10 xl:px-24">
-      {/* Section heading */}
+    <CommerceSection>
       <div className="mb-8 flex items-end justify-between gap-4">
-        <h2 className="font-inter text-[44px] font-semibold leading-[1.09] tracking-[-1.14px] text-midnight">Categories</h2>
-        <Link className="inline-flex items-center gap-2 text-[14px] font-medium tracking-[-0.18px] text-ember transition hover:text-ember/80" href="/categories">
-          See all
+        <div>
+          <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-ember">Danh mục</p>
+          <h2 className="mt-2 text-[32px] font-semibold leading-tight text-charcoal md:text-[40px]">Chọn nhanh theo gu đọc</h2>
+        </div>
+        <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-coral-red" href="/categories">
+          Xem tất cả
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
-      {/* Pills — pill-shaped with stone border */}
-      <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="commerce-rail flex gap-3 overflow-x-auto pb-2">
         {categories.map((item, index) => {
-          const Icon = categoryIcons[index % categoryIcons.length];
           return (
             <Link
               key={item}
               href={`/categories/${toSlug(item)}`}
-              className="inline-flex min-h-12 shrink-0 items-center gap-3 rounded-pill bg-white px-5 py-3 text-[14px] font-medium tracking-[-0.18px] text-graphite transition hover:bg-parchment hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/40"
+              className="inline-flex min-h-14 shrink-0 items-center gap-3 rounded-cards bg-white px-4 py-3 text-[14px] font-medium text-graphite transition hover:-translate-y-0.5 hover:bg-parchment hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35"
               style={{ boxShadow: 'var(--shadow-subtle)' }}
             >
-              <span className={`flex h-9 w-9 items-center justify-center rounded-icons ${iconBackgrounds[index % iconBackgrounds.length]} ${iconColors[index % iconColors.length]}`}>
-                <Icon className="h-4 w-4" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-icons bg-ember/10 text-ember">
+                <BookOpen className="h-4 w-4" />
               </span>
-              <span>{item}</span>
+              <span>{item || `Tủ sách ${index + 1}`}</span>
               <ChevronRight className="h-4 w-4 text-fog" />
             </Link>
           );
         })}
       </div>
-    </section>
+    </CommerceSection>
   );
 }
