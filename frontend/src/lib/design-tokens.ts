@@ -14,7 +14,7 @@ export const designTokens = {
     graphite: 'var(--color-graphite)',
     charcoalPrimary: 'var(--color-charcoal-primary)',
     midnight: 'var(--color-midnight)',
-    obsidian: 'var(--color-obsidian)',
+    obsidian: 'var(--color-midnight)',
     ash: 'var(--color-ash)',
     fog: 'var(--color-fog)',
     smoke: 'var(--color-smoke)',
@@ -63,8 +63,8 @@ export const designTokens = {
     elementGap: 'var(--spacing-12)',
   },
   typography: {
-    display: "var(--font-family)",
-    body: "var(--font-inter)",
+    display: "var(--font-sans)",
+    body: "var(--font-sans)",
   },
   shadows: {
     subtle: 'var(--shadow-subtle)',

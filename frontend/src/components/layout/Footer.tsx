@@ -1,57 +1,82 @@
 import Link from 'next/link';
 
 export function Footer() {
+  const year = new Date().getFullYear();
+
   return (
-    <footer className="bg-canvas pt-16 pb-6">
+    <footer id="site-footer" className="relative z-30 bg-midnight pt-14 pb-6 text-white">
       <div className="mx-auto max-w-page px-6 lg:px-10 xl:px-24">
-        <div className="border-b border-stone-surface pb-12">
-          <div className="grid gap-10 lg:grid-cols-[1.15fr_0.6fr_0.6fr_0.9fr]">
+        <div className="border-b border-white/10 pb-10">
+          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.05fr_0.72fr_0.72fr_0.72fr_0.85fr]">
             <div>
-              <Link href="/" className="font-display text-2xl font-medium tracking-[-0.44px] text-charcoal transition-opacity hover:opacity-80">
+              <Link href="/" className="font-display text-2xl font-semibold text-white transition-opacity hover:opacity-80">
                 Paper Haven
               </Link>
-              <p className="mt-3 max-w-sm text-[15px] leading-[1.47] tracking-[-0.2px] text-graphite">
-                A publications company that specializes to make famous books, and deliver it to customers with reasonable price.
+              <p className="mt-3 max-w-sm text-[15px] leading-6 text-white/70">
+                Nhà sách trực tuyến với sách chính hãng, ưu đãi minh bạch và trải nghiệm mua nhanh cho độc giả Việt Nam.
               </p>
             </div>
 
             <div>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-charcoal">Menu</p>
-              <ul className="mt-4 space-y-3 text-[15px] tracking-[-0.2px] text-graphite">
+              <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-white">Khám phá</p>
+              <ul className="mt-4 space-y-3 text-[15px] text-white/70">
                 {[
-                  ['Books', '/books'],
-                  ['Categories', '/categories'],
-                  ['Best Sellers', '/best-sellers'],
+                  ['Tất cả sách', '/books'],
+                  ['Tìm kiếm', '/search'],
+                  ['Danh mục', '/categories'],
+                  ['Tác giả', '/authors'],
                 ].map(([label, href]) => (
                   <li key={label}>
-                    <Link href={href} className="transition-colors hover:text-ember">{label}</Link>
+                    <Link href={href} className="transition-colors hover:text-sunburst">{label}</Link>
                   </li>
                 ))}
               </ul>
             </div>
 
             <div>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-charcoal">Security</p>
-              <ul className="mt-4 space-y-3 text-[15px] tracking-[-0.2px] text-graphite">
-                {['Privacy policy', 'Terms & conditions', 'Delivery information'].map((item) => (
-                  <li key={item} className="cursor-default transition-colors hover:text-charcoal">{item}</li>
+              <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-white">Xếp hạng</p>
+              <ul className="mt-4 space-y-3 text-[15px] text-white/70">
+                {[
+                  ['Sách bán chạy', '/best-sellers'],
+                  ['Xem nhiều hôm nay', '/most-viewed/daily'],
+                  ['Top 30 ngày', '/most-viewed/30days'],
+                ].map(([label, href]) => (
+                  <li key={label}>
+                    <Link href={href} className="transition-colors hover:text-sunburst">{label}</Link>
+                  </li>
                 ))}
               </ul>
             </div>
 
             <div>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-charcoal">Get in touch</p>
-              <ul className="mt-4 space-y-3 text-[15px] tracking-[-0.2px] text-graphite">
-                <li>Address: Celina, Delaware 10299</li>
-                <li>Email: paper.haven@gmail.com</li>
-                <li>Phone: (671) 555-0110</li>
+              <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-white">Tài khoản</p>
+              <ul className="mt-4 space-y-3 text-[15px] text-white/70">
+                {[
+                  ['Hồ sơ', '/profile'],
+                  ['Đơn hàng', '/orders'],
+                  ['Giỏ hàng', '/cart'],
+                  ['Đăng nhập', '/login'],
+                ].map(([label, href]) => (
+                  <li key={label}>
+                    <Link href={href} className="transition-colors hover:text-sunburst">{label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-white">Cam kết</p>
+              <ul className="mt-4 space-y-3 text-[15px] text-white/70">
+                <li>Freeship từ 149K</li>
+                <li>Đổi trả trong 30 ngày</li>
+                <li>Đóng gói cẩn thận</li>
               </ul>
             </div>
           </div>
         </div>
 
-        <p className="pt-6 text-center text-[12px] tracking-[-0.14px] text-fog">
-          Copyright © 2025 Paper Haven. All rights reserved.
+        <p className="pt-6 text-center text-[12px] text-white/45">
+          Copyright © {year} Paper Haven. All rights reserved.
         </p>
       </div>
     </footer>
