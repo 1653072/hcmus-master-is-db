@@ -14,10 +14,10 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Footer } from '@/components/layout/Footer';
 
 const registerSchema = z.object({
-  full_name: z.string().min(2, 'Full name must be at least 2 characters'),
+  full_name: z.string().min(2, 'Họ tên cần ít nhất 2 ký tự'),
   phone: z.string().optional(),
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Vui lòng nhập email hợp lệ'),
+  password: z.string().min(6, 'Mật khẩu cần ít nhất 6 ký tự'),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -45,7 +45,7 @@ export default function Page() {
       if (res.access_token && res.user) {
         window.localStorage.setItem('access_token', res.access_token);
         setAuth(res.access_token, res.user);
-        toast.success('Account created and logged in successfully!');
+        toast.success('Tao tai khoan va dang nhap thanh cong.');
         
         if (res.user.role === 'admin') {
           router.push('/admin/books');
@@ -56,7 +56,7 @@ export default function Page() {
     } catch (error: any) {
       setError('root', {
         type: 'server',
-        message: error?.response?.data?.error || 'Failed to register. Please try again.',
+        message: error?.response?.data?.error || 'Không thể đăng ký. Vui lòng thử lại.',
       });
     } finally {
       setIsLoading(false);
@@ -70,9 +70,9 @@ export default function Page() {
         <section className="mx-auto flex min-h-screen max-w-page items-center justify-center px-6 py-12 lg:px-10 xl:px-24">
           <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-2xl rounded-[var(--radius-buttons)] bg-white p-8" style={{ boxShadow: 'var(--shadow-sm)' }}>
             <div className="h-1.5 w-14 rounded-full bg-ember" aria-hidden="true" />
-            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-ash">Create account</p>
-            <h1 className="mt-3 font-display text-[clamp(2.4rem,5vw,3.5rem)] leading-[0.95] tracking-[-0.03em] text-charcoal">Register</h1>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-graphite">Create an account to save favourites, place orders faster, and keep track of your reading history.</p>
+            <p className="mt-4 text-xs font-medium uppercase tracking-[0.24em] text-ash">Tạo tài khoản</p>
+            <h1 className="mt-3 font-display text-[clamp(2.4rem,5vw,3.5rem)] leading-none text-charcoal">Đăng ký</h1>
+            <p className="mt-4 max-w-xl text-sm leading-7 text-graphite">Luu sach yeu thich, dat hang nhanh va theo doi lich su mua sach cua ban.</p>
             
             {errors.root && (
               <div className="mt-6 rounded-2xl border border-coral-red/20 bg-coral-red/5 p-4">
@@ -84,7 +84,7 @@ export default function Page() {
                 <input 
                   {...register('full_name')}
                   className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.full_name ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
-                  placeholder="Full name" 
+                  placeholder="Họ tên"
                 />
                 {errors.full_name && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.full_name.message}</p>}
               </div>
@@ -93,7 +93,7 @@ export default function Page() {
                 <input 
                   {...register('phone')}
                   className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.phone ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
-                  placeholder="Phone" 
+                  placeholder="Điện thoại"
                 />
                 {errors.phone && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.phone.message}</p>}
               </div>
@@ -111,7 +111,7 @@ export default function Page() {
                 <input 
                   {...register('password')}
                   className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.password ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
-                  placeholder="Password" 
+                  placeholder="Mật khẩu"
                   type="password" 
                 />
                 {errors.password && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.password.message}</p>}
@@ -123,10 +123,10 @@ export default function Page() {
               disabled={isLoading}
               className="mt-6 w-full"
             >
-              {isLoading ? 'Creating account...' : 'Create account'}
+              {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
             </Button>
             
-            <p className="mt-4 text-sm text-graphite">Already have an account? <Link className="font-medium text-ember hover:text-ember/80" href="/login">Sign in</Link></p>
+            <p className="mt-4 text-sm text-graphite">Đã có tài khoản? <Link className="font-medium text-ember hover:text-coral-red" href="/login">Đăng nhập</Link></p>
           </form>
         </section>
       </main>

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import { ordersApi } from '@/lib/api/orders';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import type { Shipment } from '@/lib/types';
 
 const STATUS_FLOW = ['pending', 'confirmed', 'packing', 'shipping', 'completed', 'cancelled'] as const;
 
@@ -17,6 +18,7 @@ export default function Page() {
 
   const [order, setOrder] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [shipment, setShipment] = useState<Shipment | null>(null);
   const [loading, setLoading] = useState(true);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
@@ -25,12 +27,14 @@ export default function Page() {
   const fetchOrder = useCallback(async () => {
     try {
       setLoading(true);
-      const [orderData, historyData] = await Promise.all([
+      const [orderData, historyData, shipmentData] = await Promise.all([
         ordersApi.adminGet(orderId),
         ordersApi.adminHistory(orderId).catch(() => []),
+        ordersApi.adminShipmentByOrder(orderId).catch(() => null),
       ]);
       setOrder(orderData);
       setHistory(Array.isArray(historyData) ? historyData : []);
+      setShipment(shipmentData);
       setNewStatus(orderData?.status || '');
     } catch {
       toast.error('Failed to load order');
@@ -148,6 +152,19 @@ export default function Page() {
               {updating ? 'Updating...' : 'Update Status'}
             </button>
           </div>
+
+          {shipment && (
+            <div className="rounded-2xl border border-stone-200 bg-white/85 p-5 shadow-[0_6px_20px_rgba(68,53,33,0.05)]">
+              <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">Shipment</h2>
+              <div className="space-y-2 text-sm text-zinc-700">
+                <div className="flex justify-between gap-4"><span>Status</span><span className="font-semibold capitalize text-zinc-900">{shipment.status}</span></div>
+                {shipment.carrier ? <div className="flex justify-between gap-4"><span>Carrier</span><span>{shipment.carrier}</span></div> : null}
+                {shipment.tracking_number ? <div className="flex justify-between gap-4"><span>Tracking</span><span>{shipment.tracking_number}</span></div> : null}
+                {shipment.shipped_at ? <div className="flex justify-between gap-4"><span>Shipped</span><span>{new Date(shipment.shipped_at).toLocaleString()}</span></div> : null}
+                {shipment.delivered_at ? <div className="flex justify-between gap-4"><span>Delivered</span><span>{new Date(shipment.delivered_at).toLocaleString()}</span></div> : null}
+              </div>
+            </div>
+          )}
 
           {/* History */}
           {history.length > 0 && (

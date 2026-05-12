@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { LoginRequest, LoginResponse, RegisterRequest, UserInfo } from '@/lib/types';
+import type { LoginRequest, LoginResponse, RegisterRequest, UpdateProfileRequest, UserInfo } from '@/lib/types';
 
 export const authApi = {
   register: async (payload: RegisterRequest) => {
@@ -12,6 +12,14 @@ export const authApi = {
   },
   logout: async () => {
     const { data } = await apiClient.post<{ data: any }>('/auth/logout');
+    return data.data;
+  },
+  me: async () => {
+    const { data } = await apiClient.get<{ data: UserInfo }>('/users/me');
+    return data.data;
+  },
+  updateProfile: async (payload: UpdateProfileRequest) => {
+    const { data } = await apiClient.put<{ data: UserInfo }>('/users/me', payload);
     return data.data;
   },
 };

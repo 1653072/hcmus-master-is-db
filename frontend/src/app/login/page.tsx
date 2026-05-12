@@ -14,8 +14,8 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Footer } from '@/components/layout/Footer';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Please enter your email'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().min(1, 'Vui lòng nhập email'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -41,7 +41,7 @@ export default function Page() {
       if (res.access_token && res.user) {
         window.localStorage.setItem('access_token', res.access_token);
         setAuth(res.access_token, res.user);
-        toast.success('Logged in successfully!');
+        toast.success('Đăng nhập thành công.');
         
         if (res.user.role === 'admin') {
           router.push('/admin/books');
@@ -52,7 +52,7 @@ export default function Page() {
     } catch (error: any) {
       setError('root', {
         type: 'server',
-        message: error?.response?.data?.error || 'Failed to login. Please try again.',
+        message: error?.response?.data?.error || 'Không thể đăng nhập. Vui lòng thử lại.',
       });
     } finally {
       setIsLoading(false);
@@ -66,9 +66,9 @@ export default function Page() {
         <section className="mx-auto flex min-h-screen max-w-page items-center justify-center px-6 py-12 lg:px-10 xl:px-24">
           <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-xl rounded-[var(--radius-buttons)] bg-white p-8" style={{ boxShadow: 'var(--shadow-sm)' }}>
             <div className="h-1.5 w-14 rounded-full bg-ember" aria-hidden="true" />
-            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-ash">Welcome back</p>
-            <h1 className="mt-3 font-display text-[clamp(2.4rem,5vw,3.5rem)] leading-[0.95] tracking-[-0.03em] text-charcoal">Login</h1>
-            <p className="mt-4 max-w-md text-sm leading-7 text-graphite">Sign in to continue your reading journey, manage your cart, and track orders.</p>
+            <p className="mt-4 text-xs font-medium uppercase tracking-[0.24em] text-ash">Chào mừng trở lại</p>
+            <h1 className="mt-3 font-display text-[clamp(2.4rem,5vw,3.5rem)] leading-none text-charcoal">Đăng nhập</h1>
+            <p className="mt-4 max-w-md text-sm leading-7 text-graphite">Đăng nhập để quản lý giỏ hàng, theo dõi đơn sách và mua nhanh hơn.</p>
             
             {errors.root && (
               <div className="mt-6 rounded-2xl border border-coral-red/20 bg-coral-red/5 p-4">
@@ -80,7 +80,7 @@ export default function Page() {
                 <input 
                   {...register('email')}
                   className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.email ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
-                  placeholder="Email" 
+                  placeholder="Email"
                 />
                 {errors.email && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.email.message}</p>}
               </div>
@@ -89,7 +89,7 @@ export default function Page() {
                 <input 
                   {...register('password')}
                   className={`w-full rounded-full border bg-parchment px-4 py-3 text-sm outline-none transition placeholder:text-smoke focus:bg-white focus:ring-2 ${errors.password ? 'border-coral-red/30 focus:border-coral-red focus:ring-coral-red/20' : 'border-stone-surface focus:border-ember focus:ring-ember/20'}`} 
-                  placeholder="Password" 
+                  placeholder="Mật khẩu"
                   type="password" 
                 />
                 {errors.password && <p className="mt-1 ml-4 text-xs text-coral-red">{errors.password.message}</p>}
@@ -101,10 +101,10 @@ export default function Page() {
               disabled={isLoading}
               className="mt-6 w-full"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </Button>
             
-            <p className="mt-4 text-sm text-graphite">No account yet? <Link className="font-medium text-ember hover:text-ember/80" href="/register">Register</Link></p>
+            <p className="mt-4 text-sm text-graphite">Chưa có tài khoản? <Link className="font-medium text-ember hover:text-coral-red" href="/register">Đăng ký</Link></p>
           </form>
         </section>
       </main>
