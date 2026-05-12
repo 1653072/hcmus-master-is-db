@@ -216,12 +216,16 @@ func seedBooks(ctx context.Context, client *mongo.Client, dbName string, pgDB *g
 		stock := rand.Intn(500) + 10
 
 		bookName := gofakeit.BookTitle()
+		publisher := gofakeit.Company()
+		publishYear := gofakeit.Number(1990, time.Now().Year())
 		book := domain.Book{
 			ID:                mongoID,
 			Name:              bookName,
 			ShortDescription:  gofakeit.Sentence(10),
 			DetailDescription: gofakeit.Paragraph(2, 5, 10, "\n"),
 			ProductStatus:     "active",
+			Publisher:         publisher,
+			PublishYear:       publishYear,
 			Pricing:           domain.BookPricing{Price: price},
 			Category:          domain.BookCategory{CategoryID: cat.ID},
 			CreatedAt:         time.Now(),
@@ -259,7 +263,7 @@ func seedBooks(ctx context.Context, client *mongo.Client, dbName string, pgDB *g
 			IsActive:   true,
 			Categories: []string{cat.CategoryName},
 			Authors:    authorNames,
-			Publisher:  gofakeit.Company(),
+			Publisher:  publisher,
 			Tags:       tagNames,
 		})
 

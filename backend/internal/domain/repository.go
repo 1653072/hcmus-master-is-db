@@ -126,6 +126,7 @@ type PostgresTransactor interface {
 type BookFilter struct {
 	Search    string
 	Author    string
+	Category  string
 	Publisher string
 	Year      int
 	MinPrice  float64
@@ -199,10 +200,13 @@ type BestSellerRepository interface {
 type BookCacheRepository interface {
 	SetDetail(ctx context.Context, bookID string, book *BookDetail) error
 	GetDetail(ctx context.Context, bookID string) (*BookDetail, bool, error)
+	InvalidateDetail(ctx context.Context, bookID string) error
 	SetNewest(ctx context.Context, books []*Book) error
 	GetNewest(ctx context.Context) ([]*Book, bool, error)
+	InvalidateNewest(ctx context.Context) error
 	SetStock(ctx context.Context, bookID string, qty int) error
 	GetStock(ctx context.Context, bookID string) (int, bool, error)
+	InvalidateStock(ctx context.Context, bookID string) error
 }
 
 // OrderCacheRepository caches paginated order history lists in Redis (NV-D2, TTL 30 min).

@@ -21,7 +21,7 @@ import (
 // @Param        limit  query     int     false  "Number of recommendations (default 10)"
 // @Success      200    {array}   domain.SimilarBook
 // @Router       /books/{id}/similar [get]
-func (s *Service) GetSimilarBooks(c *gin.Context) {   
+func (s *Service) GetSimilarBooks(c *gin.Context) {
 	bookID := c.Param("id")
 	limit := queryInt(c, "limit", 10)
 

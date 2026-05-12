@@ -112,6 +112,7 @@ func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
 	}
 
 	// Wrap the status update and optional stock restoration in a single transaction.
+	restoredStockByBookID := make(map[string]int, len(order.Items))
 	transactionError := s.pg.Transaction(ctx, func(transaction domain.PostgresTransactor) error {
 		// UpdateOrderStatus uses the internal int64 PK for the WHERE clause.
 		if err := transaction.UpdateOrderStatus(ctx, order.ID, statusUpdateRequest.Status, &adminAliasID, statusUpdateRequest.Note); err != nil {
@@ -121,8 +122,12 @@ func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
 		// When an order is cancelled, restore the inventory for each line item.
 		if statusUpdateRequest.Status == domain.OrderStatusCancelled {
 			for _, lineItem := range order.Items {
-				if _, lockErr := transaction.GetInventoryForUpdate(ctx, lineItem.MongoBookID); lockErr != nil {
+				inventory, lockErr := transaction.GetInventoryForUpdate(ctx, lineItem.MongoBookID)
+				if lockErr != nil {
 					return lockErr
+				}
+				if inventory != nil {
+					restoredStockByBookID[lineItem.MongoBookID] = inventory.StockQuantity + lineItem.Quantity
 				}
 				if restoreErr := transaction.UpdateStock(ctx, lineItem.MongoBookID, lineItem.Quantity); restoreErr != nil {
 					return restoreErr
@@ -148,8 +153,14 @@ func (s *Service) AdminUpdateOrderStatus(c *gin.Context) {
 	// Invalidate stale stock cache entries when stock was restored after cancellation.
 	if statusUpdateRequest.Status == domain.OrderStatusCancelled && s.features.RedisBookCache {
 		for _, lineItem := range order.Items {
-			if err := s.bookCache.SetStock(ctx, lineItem.MongoBookID, 0); err != nil {
-				s.logger.Warn("failed to invalidate stock cache", zap.String("book_id", lineItem.MongoBookID), zap.Error(err))
+			if restoredStock, ok := restoredStockByBookID[lineItem.MongoBookID]; ok {
+				if err := s.bookCache.SetStock(ctx, lineItem.MongoBookID, restoredStock); err != nil {
+					s.logger.Warn("failed to update Redis stock cache", zap.String("book_id", lineItem.MongoBookID), zap.Error(err))
+				}
+			} else {
+				if err := s.bookCache.InvalidateStock(ctx, lineItem.MongoBookID); err != nil {
+					s.logger.Warn("failed to invalidate stock cache", zap.String("book_id", lineItem.MongoBookID), zap.Error(err))
+				}
 			}
 		}
 	}

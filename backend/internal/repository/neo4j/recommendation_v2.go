@@ -331,6 +331,7 @@ func loadSimilarBookNSeriesQuery() (string, error) {
 	paths := []string{
 		filepath.Join("db", "neo4j", "queries", "similarbook_n_series.cypher"),
 		filepath.Join("backend", "db", "neo4j", "queries", "similarbook_n_series.cypher"),
+		filepath.Join("internal", "repository", "neo4j", "similarbook_n_series.cypher"),
 	}
 
 	var lastErr error

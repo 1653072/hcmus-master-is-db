@@ -110,6 +110,8 @@ type Book struct {
 	ShortDescription  string       `bson:"shortDescription"     json:"short_description"`
 	DetailDescription string       `bson:"detailDescription"    json:"detail_description"`
 	ProductStatus     string       `bson:"productStatus"        json:"product_status"`
+	Publisher         string       `bson:"publisher,omitempty"  json:"publisher,omitempty"`
+	PublishYear       int          `bson:"publishYear,omitempty" json:"publish_year,omitempty"`
 	Pricing           BookPricing  `bson:"pricing"              json:"pricing"`
 	Category          BookCategory `bson:"category"             json:"category"`
 	Images            []BookImage  `bson:"images"               json:"images"`

@@ -35,8 +35,9 @@ func (s *Service) SearchBooks(c *gin.Context) {
 	year, _ := strconv.Atoi(c.Query("year"))
 
 	filter := domain.BookFilter{
-		Search:    c.Query("search"),
+		Search:    firstQuery(c, "search", "query", "q"),
 		Author:    c.Query("author"),
+		Category:  c.Query("category"),
 		Publisher: c.Query("publisher"),
 		Year:      year,
 		MinPrice:  minPrice,
@@ -223,4 +224,13 @@ func queryInt(c *gin.Context, key string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func firstQuery(c *gin.Context, keys ...string) string {
+	for _, key := range keys {
+		if value := c.Query(key); value != "" {
+			return value
+		}
+	}
+	return ""
 }

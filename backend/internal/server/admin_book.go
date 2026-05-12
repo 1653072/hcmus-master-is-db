@@ -72,6 +72,8 @@ func (s *Service) AdminCreateBook(c *gin.Context) {
 		ShortDescription:  createRequest.ShortDescription,
 		DetailDescription: createRequest.DetailDescription,
 		ProductStatus:     createRequest.ProductStatus,
+		Publisher:         createRequest.Publisher,
+		PublishYear:       createRequest.PublishYear,
 		Pricing:           createRequest.Pricing,
 		Category:          createRequest.Category,
 		Images:            createRequest.Images,
@@ -118,6 +120,7 @@ func (s *Service) AdminCreateBook(c *gin.Context) {
 		Title:      createRequest.Name,
 		Authors:    authorNames,
 		Categories: []string{createRequest.Category.CategoryID},
+		Publisher:  createRequest.Publisher,
 		Tags:       tagNames,
 		SeriesName: createRequest.Series.SeriesName,
 		SequenceNo: createRequest.Series.SequenceNo,
@@ -125,6 +128,11 @@ func (s *Service) AdminCreateBook(c *gin.Context) {
 	}
 	if err := s.recRepo.UpsertBookNode(ctx, bookNode); err != nil {
 		s.logger.Warn("upsert Neo4j book node (non-fatal)", zap.Error(err))
+	}
+
+	if s.features.RedisBookCache {
+		_ = s.bookCache.InvalidateNewest(ctx)
+		_ = s.bookCache.SetStock(ctx, mongoID, createRequest.StockQuantity)
 	}
 
 	book.ID = mongoID
@@ -176,6 +184,12 @@ func (s *Service) AdminUpdateBook(c *gin.Context) {
 	if updateRequest.ProductStatus != "" {
 		existingBook.ProductStatus = updateRequest.ProductStatus
 	}
+	if updateRequest.Publisher != "" {
+		existingBook.Publisher = updateRequest.Publisher
+	}
+	if updateRequest.PublishYear > 0 {
+		existingBook.PublishYear = updateRequest.PublishYear
+	}
 	if updateRequest.Pricing != nil {
 		existingBook.Pricing = *updateRequest.Pricing
 	}
@@ -201,9 +215,13 @@ func (s *Service) AdminUpdateBook(c *gin.Context) {
 		return
 	}
 
-	// Invalidate Redis book-detail cache.
-	if err := s.bookCache.SetDetail(ctx, bookID, nil); err != nil {
-		s.logger.Warn("failed to invalidate book cache", zap.Error(err))
+	if s.features.RedisBookCache {
+		if err := s.bookCache.InvalidateDetail(ctx, bookID); err != nil {
+			s.logger.Warn("failed to invalidate book detail cache", zap.Error(err))
+		}
+		if err := s.bookCache.InvalidateNewest(ctx); err != nil {
+			s.logger.Warn("failed to invalidate newest books cache", zap.Error(err))
+		}
 	}
 
 	// Re-sync Neo4j Book node and SIMILARITY_TO edges.
@@ -255,8 +273,16 @@ func (s *Service) AdminDeleteBook(c *gin.Context) {
 	if err := s.recRepo.DeleteBookNode(ctx, bookID); err != nil {
 		s.logger.Warn("failed to deactivate Neo4j book node", zap.Error(err))
 	}
-	if err := s.bookCache.SetDetail(ctx, bookID, nil); err != nil {
-		s.logger.Warn("failed to invalidate book cache", zap.Error(err))
+	if s.features.RedisBookCache {
+		if err := s.bookCache.InvalidateDetail(ctx, bookID); err != nil {
+			s.logger.Warn("failed to invalidate book detail cache", zap.Error(err))
+		}
+		if err := s.bookCache.InvalidateStock(ctx, bookID); err != nil {
+			s.logger.Warn("failed to invalidate stock cache", zap.Error(err))
+		}
+		if err := s.bookCache.InvalidateNewest(ctx); err != nil {
+			s.logger.Warn("failed to invalidate newest books cache", zap.Error(err))
+		}
 	}
 
 	respondOK(c, gin.H{"message": "book deactivated"})
@@ -311,6 +337,9 @@ func (s *Service) AdminUpdateStock(c *gin.Context) {
 
 	// Refresh the Redis stock cache with the new quantity.
 	if s.features.RedisBookCache {
+		if err := s.bookCache.InvalidateDetail(ctx, bookID); err != nil {
+			s.logger.Warn("failed to invalidate book detail cache", zap.Error(err))
+		}
 		if err := s.bookCache.SetStock(ctx, bookID, newStockQuantity); err != nil {
 			s.logger.Warn("failed to update Redis stock cache", zap.Error(err))
 		}
