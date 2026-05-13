@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600" role="img" aria-label="Pride and Prejudice">
+  <rect width="400" height="600" fill="#ECEBE7"/>
+  <rect x="32" y="34" width="336" height="532" rx="24" fill="#FFFDF6" stroke="#DAD8D1" stroke-width="2"/>
+  <path d="M32 122 C105 205 171 111 368 84 L368 34 L32 34 Z" fill="#5D6170" opacity="0.18"/>
+  <rect x="54" y="58" width="292" height="68" rx="14" fill="#5D6170" opacity="0.10"/>
+  <text x="64" y="86" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" fill="#5D6170">PAPER HAVEN</text>
+  <text x="64" y="108" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="600" fill="#6E7078">BOOKSTORE EDITION</text>
+  <circle cx="306" cy="91" r="25" fill="#5D6170"/>
+  <text x="306" y="101" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" fill="#FFFDF6">P</text>
+  <line x1="64" y1="164" x2="336" y2="164" stroke="#DAD8D1" stroke-width="2"/>
+  <g font-family="Inter, Arial, sans-serif"><text x="64" y="210" font-size="31" font-weight="700" fill="#22242B">PRIDE AND</text><text x="64" y="248" font-size="31" font-weight="700" fill="#22242B">PREJUDICE</text></g>
+  <text x="64" y="498" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600" fill="#6E7078">Paper Haven</text>
+  <rect x="64" y="522" width="118" height="6" rx="3" fill="#5D6170"/>
+  <rect x="64" y="538" width="178" height="6" rx="3" fill="#DAD8D1" opacity="0.55"/>
+  <path d="M314 548 L346 548 L346 516" fill="none" stroke="#5D6170" stroke-width="7" stroke-linecap="round"/>
+</svg>

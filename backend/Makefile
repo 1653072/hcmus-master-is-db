@@ -15,7 +15,8 @@ MIGRATIONS_DIR=db/postgres/migrations
 
 .PHONY: all build run dev clean tidy \
         migrate-up migrate-down migrate-create sqlc-generate swagger-gen \
-        db-start db-stop db-delete db-init-pg db-admin-pg db-init-mongo db-init-neo4j db-init-redis
+        db-start db-stop db-delete db-init-pg db-admin-pg db-init-mongo db-init-neo4j db-init-redis \
+        db-book-covers db-book-covers-force
 
 all: build
 
@@ -125,6 +126,14 @@ db-seed:
 db-seed-verification:
 	@echo "Running data generator (verification)..."
 	cd data_generator && go run main.go -verify
+
+db-book-covers:
+	@echo "Generating local SVG covers for books without usable images..."
+	go run ./scripts/book_covers
+
+db-book-covers-force:
+	@echo "Regenerating local SVG covers for all books..."
+	go run ./scripts/book_covers -force
 
 ## ── Cleanup ──────────────────────────────────────────────────────────────────
 
