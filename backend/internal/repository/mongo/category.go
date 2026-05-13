@@ -14,6 +14,58 @@ import (
 
 const collCategories = "categories"
 
+type categoryDocument struct {
+	ID             any       `bson:"_id,omitempty"`
+	CategoryName   string    `bson:"category_name"`
+	Slug           string    `bson:"slug"`
+	ParentCategory string    `bson:"parent_category,omitempty"`
+	CreatedAt      time.Time `bson:"created_at"`
+	UpdatedAt      time.Time `bson:"updated_at"`
+}
+
+type categoryUpdateDocument struct {
+	CategoryName   string    `bson:"category_name"`
+	Slug           string    `bson:"slug"`
+	ParentCategory string    `bson:"parent_category,omitempty"`
+	CreatedAt      time.Time `bson:"created_at"`
+	UpdatedAt      time.Time `bson:"updated_at"`
+}
+
+func categoryDocumentFromDomain(cat *domain.Category) categoryDocument {
+	if cat.ID == "" {
+		cat.ID = primitive.NewObjectID().Hex()
+	}
+	return categoryDocument{
+		ID:             cat.ID,
+		CategoryName:   cat.CategoryName,
+		Slug:           cat.Slug,
+		ParentCategory: cat.ParentCategory,
+		CreatedAt:      cat.CreatedAt,
+		UpdatedAt:      cat.UpdatedAt,
+	}
+}
+
+func categoryUpdateDocumentFromDomain(cat *domain.Category) categoryUpdateDocument {
+	return categoryUpdateDocument{
+		CategoryName:   cat.CategoryName,
+		Slug:           cat.Slug,
+		ParentCategory: cat.ParentCategory,
+		CreatedAt:      cat.CreatedAt,
+		UpdatedAt:      cat.UpdatedAt,
+	}
+}
+
+func (doc categoryDocument) toDomain() *domain.Category {
+	return &domain.Category{
+		ID:             mongoIDString(doc.ID),
+		CategoryName:   doc.CategoryName,
+		Slug:           doc.Slug,
+		ParentCategory: doc.ParentCategory,
+		CreatedAt:      doc.CreatedAt,
+		UpdatedAt:      doc.UpdatedAt,
+	}
+}
+
 // CategoryRepository implements domain.CategoryRepository against MongoDB.
 type CategoryRepository struct {
 	col *mongo.Collection
@@ -30,24 +82,36 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, cat *domain.Cat
 	cat.CreatedAt = now
 	cat.UpdatedAt = now
 
-	res, err := r.col.InsertOne(ctx, cat)
+	doc := categoryDocumentFromDomain(cat)
+	res, err := r.col.InsertOne(ctx, doc)
 	if err != nil {
 		return "", fmt.Errorf("insert category: %w", err)
 	}
-	oid, ok := res.InsertedID.(primitive.ObjectID)
-	if !ok {
-		return "", fmt.Errorf("unexpected inserted id type")
-	}
-	return oid.Hex(), nil
+	return mongoIDString(res.InsertedID), nil
 }
 
 func (r *CategoryRepository) GetCategoryByID(ctx context.Context, id string) (*domain.Category, error) {
-	var cat domain.Category
-	err := r.col.FindOne(ctx, bson.M{"_id": id}).Decode(&cat)
+	var doc categoryDocument
+	err := r.col.FindOne(ctx, mongoIDFilter(id)).Decode(&doc)
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
-	return &cat, err
+	if err != nil {
+		return nil, err
+	}
+	return doc.toDomain(), nil
+}
+
+func (r *CategoryRepository) GetCategoryBySlug(ctx context.Context, slug string) (*domain.Category, error) {
+	var doc categoryDocument
+	err := r.col.FindOne(ctx, bson.M{"slug": slug}).Decode(&doc)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return doc.toDomain(), nil
 }
 
 // ListCategories returns a paginated list of categories.
@@ -75,20 +139,24 @@ func (r *CategoryRepository) ListCategories(ctx context.Context, page, pageSize 
 	}
 	defer cur.Close(ctx)
 
-	var cats []*domain.Category
-	if err := cur.All(ctx, &cats); err != nil {
+	var docs []categoryDocument
+	if err := cur.All(ctx, &docs); err != nil {
 		return nil, 0, fmt.Errorf("decode categories: %w", err)
+	}
+	cats := make([]*domain.Category, 0, len(docs))
+	for _, doc := range docs {
+		cats = append(cats, doc.toDomain())
 	}
 	return cats, total, nil
 }
 
 func (r *CategoryRepository) UpdateCategory(ctx context.Context, id string, cat *domain.Category) error {
 	cat.UpdatedAt = time.Now()
-	_, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": cat})
+	_, err := r.col.UpdateOne(ctx, mongoIDFilter(id), bson.M{"$set": categoryUpdateDocumentFromDomain(cat)})
 	return err
 }
 
 func (r *CategoryRepository) DeleteCategory(ctx context.Context, id string) error {
-	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
+	_, err := r.col.DeleteOne(ctx, mongoIDFilter(id))
 	return err
 }

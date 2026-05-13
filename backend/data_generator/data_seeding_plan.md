@@ -18,7 +18,7 @@ This plan describes the strategy for initializing large-scale sample data (100,0
 
 ### MongoDB (Catalog & Logs)
 - `books`: 2,000+
-- `categories`: 500+
+- `categories`: 500 unique slugs
 - `view_event_logs`: 10,000+
 
 ### Neo4j (Graph)
@@ -30,9 +30,11 @@ This plan describes the strategy for initializing large-scale sample data (100,0
 Initialization must follow the Dependency Tree order to ensure Foreign Key and Reference Integrity:
 
 ### Step 1: Initialize Categories
-- Create 500+ categories in MongoDB.
+- Create exactly 500 categories in MongoDB.
+- Each category must have a unique deterministic slug generated before writing to MongoDB, using lowercase words joined by hyphens, for example `adventure-interesting`.
+- Category names are generated from stable genre/qualifier combinations so duplicate display names and duplicate slugs are not produced.
 - Sync to Neo4j as `Category` nodes.
-- Establish random `PARENT_OF` relationships to create a tree structure.
+- Do not create random `PARENT_OF` relationships during seed generation; the seed taxonomy is flat so recommendation category overlap is not fragmented.
 
 ### Step 2: Initialize Books
 - Create 2,000+ books in MongoDB.
@@ -69,6 +71,8 @@ Initialization must follow the Dependency Tree order to ensure Foreign Key and R
 
 ## 4. How to Run
 ```bash
-cd backend/data_generator
-go run main.go
+cd backend
+rm -rf data_generator/data
+make db-delete
+make db-start && make db-init-pg && make db-admin-pg && make db-init-neo4j && make db-init-mongo && make db-init-redis && make db-seed && make db-seed-verification && make run
 ```

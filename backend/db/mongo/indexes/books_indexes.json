@@ -20,6 +20,11 @@
         "description": "Compound Index (Index kết hợp). Sắp xếp theo categoryId tăng dần (1) và publishYear giảm dần (-1). Giúp tối ưu các query lọc theo category và sắp xếp theo năm mới nhất."
       },
       {
+        "name": "publisher_publish_year",
+        "keys": { "publisher": 1, "publishYear": -1 },
+        "description": "Compound index tối ưu filter theo nhà xuất bản và năm xuất bản."
+      },
+      {
         "name": "series_sequence",
         "keys": { "series.seriesId": 1, "series.sequenceNo": 1 },
         "description": "Compound Index giúp truy vấn các tập trong cùng một bộ truyện (series) theo thứ tự tập."
@@ -36,12 +41,18 @@
           "shortDescription": "text",
           "detailDescription": "text",
           "authors.authorName": "text",
+          "publisher": "text",
+          "category.categoryName": "text",
+          "series.seriesName": "text",
           "tags.tagName": "text"
         },
         "options": {
           "weights": {
             "name": 10,
             "authors.authorName": 5,
+            "publisher": 4,
+            "category.categoryName": 3,
+            "series.seriesName": 3,
             "shortDescription": 2,
             "tags.tagName": 1
           },

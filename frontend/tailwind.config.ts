@@ -5,6 +5,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        white: 'var(--surface-card)',
+        black: 'var(--surface-dark-shell)',
         canvas: 'var(--surface-canvas)',
         'stone-surface': 'var(--surface-stone-tint)',
         parchment: 'var(--surface-recessed-panel)',
@@ -29,8 +31,9 @@ const config: Config = {
         'valid-green': 'var(--color-valid-green)',
       },
       fontFamily: {
-        display: ['var(--font-family)'],
-        inter: ['var(--font-inter)'],
+        display: ['var(--font-sans)'],
+        inter: ['var(--font-sans)'],
+        sans: ['var(--font-sans)'],
       },
       borderRadius: {
         tags: 'var(--radius-tags)',
@@ -47,6 +50,7 @@ const config: Config = {
         'subtle-3': 'var(--shadow-subtle-3)',
         'card-lg': 'var(--shadow-lg)',
         'card-hover': 'var(--shadow-sm)',
+        float: 'var(--shadow-float)',
       },
       maxWidth: {
         page: 'var(--page-max-width)',

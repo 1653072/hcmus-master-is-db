@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	bookDetailPrefix = "books:details:" // books:details:{bookID}
-	bookNewestKey    = "books:newest"   // books:newest
-	bookStockPrefix  = "books:stocks:"  // books:stocks:{bookID}
+	bookDetailPrefix = "books:v2:details:" // books:v2:details:{bookID}
+	bookNewestKey    = "books:v2:newest"   // books:v2:newest
+	bookStockPrefix  = "books:stocks:"     // books:stocks:{bookID}
 
 	bookDetailTTL = 60 * time.Minute
 	bookStockTTL  = 5 * time.Minute
@@ -61,6 +61,11 @@ func (r *BookCacheRepository) GetDetail(ctx context.Context, bookID string) (*do
 	return &book, true, nil
 }
 
+// InvalidateDetail removes a cached book detail entry.
+func (r *BookCacheRepository) InvalidateDetail(ctx context.Context, bookID string) error {
+	return r.rdb.Del(ctx, bookDetailPrefix+bookID).Err()
+}
+
 // SetNewest caches the newest books list.
 func (r *BookCacheRepository) SetNewest(ctx context.Context, books []*domain.Book) error {
 	data, err := json.Marshal(books)
@@ -90,6 +95,11 @@ func (r *BookCacheRepository) GetNewest(ctx context.Context) ([]*domain.Book, bo
 	return books, true, nil
 }
 
+// InvalidateNewest removes the cached newest books list.
+func (r *BookCacheRepository) InvalidateNewest(ctx context.Context) error {
+	return r.rdb.Del(ctx, bookNewestKey).Err()
+}
+
 // SetStock caches the stock quantity for a book as a plain integer string.
 func (r *BookCacheRepository) SetStock(ctx context.Context, bookID string, qty int) error {
 	return r.rdb.Set(ctx, bookStockPrefix+bookID, strconv.Itoa(qty), bookStockTTL).Err()
@@ -109,4 +119,9 @@ func (r *BookCacheRepository) GetStock(ctx context.Context, bookID string) (int,
 		return 0, false, fmt.Errorf("parse stock cache: %w", err)
 	}
 	return qty, true, nil
+}
+
+// InvalidateStock removes a cached stock quantity entry.
+func (r *BookCacheRepository) InvalidateStock(ctx context.Context, bookID string) error {
+	return r.rdb.Del(ctx, bookStockPrefix+bookID).Err()
 }

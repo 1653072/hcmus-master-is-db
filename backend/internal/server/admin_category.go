@@ -1,8 +1,12 @@
 package server
 
 import (
-	"bookstore/backend/internal/domain"
+	"context"
+	"net/http"
+	"strings"
 	"time"
+
+	"bookstore/backend/internal/domain"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -87,6 +91,14 @@ func (s *Service) AdminListCategories(c *gin.Context) {
 	respondPaginated(c, cats, total, page, pageSize)
 }
 
+func (s *Service) categorySlugExists(ctx context.Context, slug, currentCategoryID string) (bool, error) {
+	existing, err := s.categoryRepo.GetCategoryBySlug(ctx, slug)
+	if err != nil || existing == nil {
+		return false, err
+	}
+	return currentCategoryID == "" || existing.ID != currentCategoryID, nil
+}
+
 // AdminCreateCategory handles POST /admin/categories.
 // After MongoDB insert: syncs to Neo4j and invalidates Redis category cache.
 //
@@ -107,10 +119,29 @@ func (s *Service) AdminCreateCategory(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	categoryName := strings.TrimSpace(req.CategoryName)
+	if categoryName == "" {
+		respondBadRequest(c, "category_name is required")
+		return
+	}
+	slug := domain.CanonicalSlug(req.Slug)
+	if slug == "" {
+		respondBadRequest(c, "slug is required")
+		return
+	}
+	if exists, err := s.categorySlugExists(ctx, slug, ""); err != nil {
+		s.logger.Error("check category slug", zap.Error(err))
+		respondInternalError(c, "could not validate category")
+		return
+	} else if exists {
+		respondError(c, http.StatusConflict, "category slug already exists")
+		return
+	}
+
 	cat := &domain.Category{
-		CategoryName:   req.CategoryName,
-		Slug:           req.Slug,
-		ParentCategory: req.ParentCategory,
+		CategoryName:   categoryName,
+		Slug:           slug,
+		ParentCategory: strings.TrimSpace(req.ParentCategory),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -166,14 +197,27 @@ func (s *Service) AdminUpdateCategory(c *gin.Context) {
 		return
 	}
 
-	if req.CategoryName != "" {
-		existing.CategoryName = req.CategoryName
+	if strings.TrimSpace(req.CategoryName) != "" {
+		existing.CategoryName = strings.TrimSpace(req.CategoryName)
 	}
-	if req.Slug != "" {
-		existing.Slug = req.Slug
+	if strings.TrimSpace(req.Slug) != "" {
+		slug := domain.CanonicalSlug(req.Slug)
+		if slug == "" {
+			respondBadRequest(c, "slug is required")
+			return
+		}
+		if exists, err := s.categorySlugExists(ctx, slug, catID); err != nil {
+			s.logger.Error("check category slug", zap.Error(err))
+			respondInternalError(c, "could not validate category")
+			return
+		} else if exists {
+			respondError(c, http.StatusConflict, "category slug already exists")
+			return
+		}
+		existing.Slug = slug
 	}
-	if req.ParentCategory != "" {
-		existing.ParentCategory = req.ParentCategory
+	if strings.TrimSpace(req.ParentCategory) != "" {
+		existing.ParentCategory = strings.TrimSpace(req.ParentCategory)
 	}
 	existing.UpdatedAt = time.Now()
 

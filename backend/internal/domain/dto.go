@@ -32,8 +32,8 @@ type UserInfo struct {
 // ─── Profile DTOs ─────────────────────────────────────────────────────────────
 
 type UpdateProfileRequest struct {
-	FullName    string `json:"full_name"    binding:"omitempty,min=2,max=100"`
-	Phone       string `json:"phone"        binding:"omitempty"`
+	FullName string `json:"full_name"    binding:"omitempty,min=2,max=100"`
+	Phone    string `json:"phone"        binding:"omitempty"`
 }
 
 // ─── Address DTOs ─────────────────────────────────────────────────────────────
@@ -72,6 +72,8 @@ type CreateBookRequest struct {
 	ShortDescription  string       `json:"short_description"`
 	DetailDescription string       `json:"detail_description"`
 	ProductStatus     string       `json:"product_status"`
+	Publisher         string       `json:"publisher"`
+	PublishYear       int          `json:"publish_year"`
 	Pricing           BookPricing  `json:"pricing"            binding:"required"`
 	Category          BookCategory `json:"category"`
 	Images            []BookImage  `json:"images"`
@@ -86,6 +88,8 @@ type UpdateBookRequest struct {
 	ShortDescription  string        `json:"short_description"`
 	DetailDescription string        `json:"detail_description"`
 	ProductStatus     string        `json:"product_status"`
+	Publisher         string        `json:"publisher"`
+	PublishYear       int           `json:"publish_year"`
 	Pricing           *BookPricing  `json:"pricing"`
 	Category          *BookCategory `json:"category"`
 	Images            []BookImage   `json:"images"`

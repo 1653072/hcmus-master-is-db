@@ -30,6 +30,8 @@ go.work.sum
 # Editor/IDE
 .idea/
 .vscode/
+.agents/
+outputs/
 
 # Backend files
 backend/vendor/

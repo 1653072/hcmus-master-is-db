@@ -4,6 +4,7 @@ import (
 	"bookstore/backend/config"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -57,7 +58,6 @@ func EnsureMongoIndexes(ctx context.Context, client *mongo.Client, dbName string
 	for _, cfg := range configs {
 		coll := db.Collection(cfg.Collection)
 
-		var indexModels []mongo.IndexModel
 		for _, idx := range cfg.Indexes {
 			var keysBson bson.D
 			if err := bson.UnmarshalExtJSON(idx.Keys, true, &keysBson); err != nil {
@@ -80,19 +80,32 @@ func EnsureMongoIndexes(ctx context.Context, client *mongo.Client, dbName string
 				}
 			}
 
-			indexModels = append(indexModels, mongo.IndexModel{
+			model := mongo.IndexModel{
 				Keys:    keysBson,
 				Options: opts,
-			})
-		}
-
-		if len(indexModels) > 0 {
-			_, err := coll.Indexes().CreateMany(ctx, indexModels)
-			if err != nil {
-				return fmt.Errorf("create indexes for %s: %w", cfg.Collection, err)
+			}
+			if _, err := coll.Indexes().CreateOne(ctx, model); err != nil {
+				if isIndexConflict(err) {
+					if _, dropErr := coll.Indexes().DropOne(ctx, idx.Name); dropErr != nil {
+						return fmt.Errorf("drop conflicting index %s for %s: %w", idx.Name, cfg.Collection, dropErr)
+					}
+					if _, createErr := coll.Indexes().CreateOne(ctx, model); createErr != nil {
+						return fmt.Errorf("recreate index %s for %s: %w", idx.Name, cfg.Collection, createErr)
+					}
+					continue
+				}
+				return fmt.Errorf("create index %s for %s: %w", idx.Name, cfg.Collection, err)
 			}
 		}
 	}
 
 	return nil
+}
+
+func isIndexConflict(err error) bool {
+	var cmdErr mongo.CommandError
+	if !errors.As(err, &cmdErr) {
+		return false
+	}
+	return cmdErr.HasErrorCode(85) || cmdErr.HasErrorCode(86)
 }

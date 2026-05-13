@@ -10,6 +10,10 @@ type ApiBookLike = {
   categories?: any[];
   price?: string | number;
   pricing?: { price: number; list_price?: number };
+  list_price?: string | number;
+  discount_percent?: string | number;
+  stock_quantity?: string | number;
+  review_count?: string | number;
   rating?: string | number;
   coverImage?: string;
   image?: string;
@@ -25,20 +29,20 @@ function getText(value: unknown, fallback: string) {
 
 function getAuthor(author: ApiBookLike['author'], authors: ApiBookLike['authors']) {
   if (Array.isArray(authors) && authors.length > 0) {
-    return authors.map(a => a?.author_name || a?.name || '').filter(Boolean).join(', ') || 'Unknown author';
+    return authors.map(a => a?.author_name || a?.name || '').filter(Boolean).join(', ') || 'Chưa rõ tác giả';
   }
   if (typeof author === 'string' && author.trim()) return author;
   if (author && typeof author === 'object' && typeof author.name === 'string') return author.name;
-  return 'Unknown author';
+  return 'Chưa rõ tác giả';
 }
 
 function getCategory(category: ApiBookLike['category'], categories: ApiBookLike['categories']) {
   if (Array.isArray(categories) && categories.length > 0) {
-    return categories.map(c => c?.category_name || c?.name || '').filter(Boolean)[0] || 'General';
+    return categories.map(c => c?.category_name || c?.name || '').filter(Boolean)[0] || 'Sách';
   }
   if (typeof category === 'string' && category.trim()) return category;
   if (category && typeof category === 'object' && typeof category.name === 'string') return category.name;
-  return 'General';
+  return 'Sách';
 }
 
 function getImage(index: number, book: ApiBookLike) {
@@ -46,23 +50,43 @@ function getImage(index: number, book: ApiBookLike) {
   const image = book.coverImage ?? book.image ?? book.thumbnail;
   if (image) return image;
   const palette = [
-    'linear-gradient(135deg, #091824 0%, #101f2e 100%)',
-    'linear-gradient(135deg, #191814 0%, #2a2720 100%)',
-    'linear-gradient(135deg, #0a0a0a 0%, #2d2d2d 100%)',
-    'linear-gradient(135deg, #0d0d0d 0%, #1f1c17 100%)',
-    'linear-gradient(135deg, #21333d 0%, #090f14 100%)',
-    'linear-gradient(135deg, #32281f 0%, #7a5a43 100%)',
+    'linear-gradient(135deg, oklch(95.4% 0.021 80) 0%, oklch(57.5% 0.145 38) 100%)',
+    'linear-gradient(135deg, oklch(96.2% 0.014 82) 0%, oklch(58.2% 0.043 74) 100%)',
+    'linear-gradient(135deg, oklch(95.8% 0.02 84) 0%, oklch(73.6% 0.116 83) 100%)',
+    'linear-gradient(135deg, oklch(95.1% 0.019 78) 0%, oklch(62% 0.065 142) 100%)',
+    'linear-gradient(135deg, oklch(95% 0.02 58) 0%, oklch(64.2% 0.116 20) 100%)',
+    'linear-gradient(135deg, oklch(94.2% 0.019 74) 0%, oklch(43.2% 0.036 60) 100%)',
   ];
   return palette[index % palette.length];
 }
 
+function formatVnd(value: unknown) {
+  const amount = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(amount) || amount <= 0) return 'Liên hệ';
+  const normalizedAmount = amount < 1000 ? amount * 1000 : amount;
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(normalizedAmount);
+}
+
+function getNumber(value: unknown) {
+  const amount = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(amount) ? amount : undefined;
+}
+
 export function toFeaturedBook(book: ApiBookLike, index = 0): FeaturedBook {
-  const title = getText(book.title ?? book.name, 'Untitled');
+  const title = getText(book.title ?? book.name, 'Chưa có tên');
   const author = getAuthor(book.author, book.authors);
   const category = getCategory(book.category, book.categories);
   const bookPrice = book.pricing?.price ?? book.price;
-  const price = typeof bookPrice === 'number' ? `$${bookPrice.toFixed(2)}` : getText(bookPrice, '$32');
-  const rating = typeof book.rating === 'number' ? String(book.rating) : getText(book.rating, '4.9');
+  const listPriceValue = book.pricing?.list_price ?? book.list_price;
+  const priceValue = getNumber(bookPrice);
+  const listPriceNumber = getNumber(listPriceValue);
+  const price = formatVnd(bookPrice);
+  const listPrice = listPriceNumber && priceValue && listPriceNumber > priceValue ? formatVnd(listPriceNumber) : undefined;
+  const computedDiscount = listPriceNumber && priceValue && listPriceNumber > priceValue
+    ? Math.round(((listPriceNumber - priceValue) / listPriceNumber) * 100)
+    : undefined;
+  const explicitDiscount = getNumber(book.discount_percent);
+  const rating = book.rating === undefined || book.rating === null ? undefined : getText(book.rating, '');
   const image = getImage(index, book);
 
   return {
@@ -71,7 +95,11 @@ export function toFeaturedBook(book: ApiBookLike, index = 0): FeaturedBook {
     author,
     category,
     price,
-    rating,
+    listPrice,
+    discountPercent: explicitDiscount ?? computedDiscount,
+    stockQuantity: getNumber(book.stock_quantity),
+    reviewCount: getNumber(book.review_count),
+    rating: rating || undefined,
     image,
     rawTitle: title,
   };

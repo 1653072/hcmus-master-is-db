@@ -2,63 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Family Design System — CSS Custom Properties ──────────────────── */
+/* Clean white marketplace bookstore design system */
 
 :root {
   color-scheme: light;
 
-  /* Colors */
-  --color-warm-canvas: #fbfaf9;
-  --color-stone-surface: #f2f0ed;
-  --color-parchment-card: #f8f7f4;
-  --color-graphite: #474645;
-  --color-charcoal-primary: #343433;
-  --color-midnight: #121212;
-  --color-obsidian: #000000;
-  --color-ash: #848281;
-  --color-fog: #c6c6c6;
-  --color-smoke: #a7a7a7;
-  --color-pepper: #282624;
-  --color-ember-orange: #ff3e00;
-  --color-meadow-green: #00ca48;
-  --color-sky-blue: #0090ff;
-  --color-sunburst-yellow: #ffbb26;
-  --color-deep-amber: #d48f00;
-  --color-ocean-blue: #0086fc;
-  --color-ice-blue: #64c6ff;
-  --color-spearmint: #00c978;
-  --color-flamingo: #ff58ae;
-  --color-violet-pop: #9f4fff;
-  --color-coral-red: #ff2b3a;
-  --color-valid-green: #00c454;
+  --color-warm-canvas: oklch(100% 0 0);
+  --color-stone-surface: oklch(91.8% 0 0);
+  --color-parchment-card: oklch(97.4% 0 0);
+  --color-graphite: oklch(39.5% 0 0);
+  --color-charcoal-primary: oklch(23.8% 0 0);
+  --color-midnight: oklch(20.8% 0 0);
+  --color-ash: oklch(57% 0 0);
+  --color-fog: oklch(81.5% 0 0);
+  --color-smoke: oklch(69% 0 0);
+  --color-pepper: oklch(29% 0 0);
+  --color-ember-orange: oklch(55.6% 0.112 39);
+  --color-meadow-green: oklch(53.6% 0.074 151);
+  --color-sky-blue: oklch(57.2% 0.04 224);
+  --color-sunburst-yellow: oklch(76.8% 0.074 82);
+  --color-deep-amber: oklch(50.8% 0.07 76);
+  --color-ocean-blue: oklch(43.8% 0.044 230);
+  --color-ice-blue: oklch(94.6% 0.014 226);
+  --color-spearmint: oklch(94.4% 0.018 154);
+  --color-flamingo: oklch(62.6% 0.076 20);
+  --color-violet-pop: oklch(54.8% 0.038 306);
+  --color-coral-red: oklch(50.6% 0.112 31);
+  --color-valid-green: oklch(49.4% 0.08 151);
 
-  /* Surfaces */
-  --surface-canvas: #fbfaf9;
-  --surface-card: #ffffff;
-  --surface-recessed: #f8f7f4;
-  --surface-stone-tint: #f2f0ed;
-  --surface-dark-shell: #000000;
-  --color-cta-light-bg: #f6f4ef;
+  --surface-canvas: oklch(100% 0 0);
+  --surface-card: oklch(100% 0 0);
+  --surface-recessed: oklch(97.4% 0 0);
+  --surface-recessed-panel: oklch(97.4% 0 0);
+  --surface-stone-tint: oklch(95.2% 0 0);
+  --surface-dark-shell: oklch(20.8% 0 0);
+  --color-cta-light-bg: oklch(96.8% 0 0);
 
-  /* Shadows */
-  --shadow-subtle: color(display-p3 0.949 0.941 0.929) 0px 0px 0px 1px inset;
-  --shadow-subtle-3: rgba(0, 0, 0, 0.04) 0px 0px 0px 1px;
-  --shadow-lg: rgba(0, 0, 0, 0.15) 0px 0px 24px 0px;
-  --shadow-sm: rgba(0, 0, 0, 0.04) 0px 1px 6px 0px, rgba(0, 0, 0, 0.05) 0px 0px 24px 0px;
+  --shadow-subtle: oklch(23.8% 0 0 / 0.08) 0px 0px 0px 1px inset;
+  --shadow-subtle-3: oklch(23.8% 0 0 / 0.07) 0px 0px 0px 1px;
+  --shadow-lg: oklch(23.8% 0 0 / 0.11) 0px 22px 54px -28px;
+  --shadow-sm: oklch(23.8% 0 0 / 0.07) 0px 12px 28px -22px, oklch(23.8% 0 0 / 0.07) 0px 0px 0px 1px;
+  --shadow-float: oklch(23.8% 0 0 / 0.12) 0px 24px 54px -30px, oklch(23.8% 0 0 / 0.07) 0px 0px 0px 1px;
 
-  /* Layout */
-  --page-max-width: 1200px;
-  --card-padding: 32px;
+  --page-max-width: 1240px;
+  --section-y: 44px;
+  --section-y-lg: 56px;
+  --product-grid-gap: 18px;
+  --panel-padding: 24px;
+  --card-padding: 18px;
 
-  /* Border Radius */
   --radius-tags: 6px;
-  --radius-cards: 10px;
+  --radius-cards: 8px;
   --radius-inputs: 10px;
-  --radius-icons: 40px;
-  --radius-buttons: 32px;
-  --radius-cards-large: 24px;
+  --radius-icons: 10px;
+  --radius-buttons: 10px;
+  --radius-cards-large: 12px;
   --radius-buttons-pill: 32px;
-  --radius-illustrations: 72px;
+  --radius-illustrations: 18px;
 }
 
 /* ── Base resets ───────────────────────────────────────────────────── */
@@ -70,22 +70,20 @@ body {
 }
 
 body {
-  min-height: 100vh;
-  background: var(--color-warm-canvas);
+  min-height: 100dvh;
+  background: var(--surface-canvas);
   color: var(--color-graphite);
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 15px;
   line-height: 1.47;
-  letter-spacing: -0.2px;
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Typography — Display font (Family substitute: Fraunces) ─────── */
-
 .font-display {
-  font-family: 'Fraunces', 'Playfair Display', Georgia, serif;
-  font-weight: 500;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
 }
 
 /* ── Typography Scale ─────────────────────────────────────────────── */
@@ -93,37 +91,37 @@ body {
 .text-display {
   font-size: 68px;
   line-height: 1.09;
-  letter-spacing: -2.11px;
+  letter-spacing: 0;
 }
 
 .text-heading-lg {
   font-size: 44px;
   line-height: 1.09;
-  letter-spacing: -1.14px;
+  letter-spacing: 0;
 }
 
 .text-heading {
   font-size: 23px;
   line-height: 1.2;
-  letter-spacing: -0.44px;
+  letter-spacing: 0;
 }
 
 .text-heading-sm {
   font-size: 19px;
   line-height: 1.38;
-  letter-spacing: -0.25px;
+  letter-spacing: 0;
 }
 
 .text-body {
   font-size: 15px;
   line-height: 1.47;
-  letter-spacing: -0.2px;
+  letter-spacing: 0;
 }
 
 .text-caption {
   font-size: 12px;
   line-height: 1.58;
-  letter-spacing: -0.14px;
+  letter-spacing: 0;
 }
 
 /* ── Card surfaces ────────────────────────────────────────────────── */
@@ -136,11 +134,12 @@ body {
 }
 
 .card-surface-hover {
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card-surface-hover:hover {
   box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .card-recessed {
@@ -152,26 +151,31 @@ body {
 
 .pill-dark {
   background: var(--color-midnight);
-  color: #ffffff;
+  color: var(--surface-card);
   border-radius: var(--radius-buttons-pill);
   padding: 0 14px;
   font-weight: 500;
   font-size: 14px;
-  transition: background 0.2s ease;
+  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .pill-dark:hover {
   background: var(--color-charcoal-primary);
 }
 
+.pill-dark:active,
+.pill-light:active {
+  transform: translateY(1px) scale(0.99);
+}
+
 .pill-light {
-  background: #f6f4ef;
+  background: oklch(96.8% 0.012 82);
   color: var(--color-midnight);
   border-radius: var(--radius-buttons-pill);
   padding: 0 14px;
   font-weight: 500;
   font-size: 14px;
-  transition: background 0.2s ease;
+  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .pill-light:hover {
@@ -183,6 +187,72 @@ body {
 .motion-spring {
   transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
   transition-duration: 1s;
+}
+
+.commerce-rail {
+  scrollbar-width: none;
+}
+
+.commerce-rail::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes header-content-loop {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.header-content-loop {
+  mask-image: linear-gradient(90deg, transparent, black 24px, black calc(100% - 24px), transparent);
+  overflow: hidden;
+}
+
+.header-content-loop-track {
+  animation: header-content-loop 22s linear infinite;
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.header-content-loop:hover .header-content-loop-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-content-loop {
+    mask-image: none;
+  }
+
+  .header-content-loop-track {
+    animation: none;
+  }
+}
+
+@keyframes shimmer-x {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  animation: shimmer-x 1.4s infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.68), transparent);
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: translateX(-100%);
 }
 
 /* ── Scrollbar styling ────────────────────────────────────────────── */

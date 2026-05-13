@@ -7,9 +7,9 @@ export function SectionTitle({ title, subtitle }: SectionTitleProps) {
   return (
     <div className="flex items-end justify-between gap-6">
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#8b8176]">Curated selection</p>
-        <h2 className="font-serif text-3xl leading-tight text-[#1e1a16] md:text-[2.15rem]">{title}</h2>
-        {subtitle ? <p className="mt-3 max-w-2xl text-sm leading-7 text-[#5f564d]">{subtitle}</p> : null}
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-ash">Tuyển chọn</p>
+        <h2 className="font-display text-3xl font-semibold leading-tight text-charcoal md:text-[2.15rem]">{title}</h2>
+        {subtitle ? <p className="mt-3 max-w-2xl text-sm leading-7 text-graphite">{subtitle}</p> : null}
       </div>
     </div>
   );

@@ -90,6 +90,7 @@ func (s *Service) Checkout(c *gin.Context) {
 
 	// ── PostgreSQL transaction ────────────────────────────────────────────
 	var createdOrder *domain.Order
+	remainingStockByBookID := make(map[string]int, len(cartItems))
 
 	transactionError := s.pg.Transaction(ctx, func(transaction domain.PostgresTransactor) error {
 		var totalAmount float64
@@ -104,6 +105,7 @@ func (s *Service) Checkout(c *gin.Context) {
 				return fmt.Errorf("insufficient stock for book %s (available: %d, requested: %d)",
 					cartItem.BookID, inventory.StockQuantity, cartItem.Quantity)
 			}
+			remainingStockByBookID[cartItem.BookID] = inventory.StockQuantity - cartItem.Quantity
 
 			orderLineItems = append(orderLineItems, domain.OrderItem{
 				MongoBookID: cartItem.BookID,
@@ -167,8 +169,14 @@ func (s *Service) Checkout(c *gin.Context) {
 
 	if s.features.RedisBookCache {
 		for _, cartItem := range cartItems {
-			if err := s.bookCache.SetStock(ctx, cartItem.BookID, 0); err != nil {
-				s.logger.Warn("failed to invalidate stock cache", zap.String("book_id", cartItem.BookID), zap.Error(err))
+			if remainingStock, ok := remainingStockByBookID[cartItem.BookID]; ok {
+				if err := s.bookCache.SetStock(ctx, cartItem.BookID, remainingStock); err != nil {
+					s.logger.Warn("failed to update Redis stock cache", zap.String("book_id", cartItem.BookID), zap.Error(err))
+				}
+			} else {
+				if err := s.bookCache.InvalidateStock(ctx, cartItem.BookID); err != nil {
+					s.logger.Warn("failed to invalidate stock cache", zap.String("book_id", cartItem.BookID), zap.Error(err))
+				}
 			}
 		}
 	}

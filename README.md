@@ -1143,7 +1143,7 @@ frontend/
 │   ├── app/                           # Next.js App Router — file-based routing
 │   │   ├── layout.tsx                 # Root layout (HTML shell, <Toaster />, global CSS)
 │   │   ├── globals.css                # Tailwind directives + global styles
-│   │   ├── page.tsx                   # Homepage — Hero, Trending, BooksGrid, Rankings, Services
+│   │   ├── page.tsx                   # Homepage — hero, category pills, book grids, rankings, ads
 │   │   │
 │   │   ├── login/page.tsx             # NV-A2: Login form (react-hook-form + zod)
 │   │   ├── (auth)/register/page.tsx   # NV-A1: Register form
@@ -1155,13 +1155,11 @@ frontend/
 │   │   ├── categories/
 │   │   │   ├── page.tsx               # NV-F4: Category listing
 │   │   │   └── [slug]/page.tsx        # Books filtered by category slug
-│   │   ├── search/page.tsx            # NV-B1: Search results page
 │   │   ├── best-sellers/page.tsx      # NV-E2: Top-10 best sellers
 │   │   ├── most-viewed/
 │   │   │   ├── daily/page.tsx         # NV-E3: Most viewed today
 │   │   │   └── 30days/page.tsx        # NV-E3: Most viewed past 30 days
 │   │   ├── authors/page.tsx           # Author listing page
-│   │   ├── blog/page.tsx              # Blog placeholder page
 │   │   │
 │   │   ├── cart/page.tsx              # NV-C1/C2: Cart view & edit
 │   │   ├── checkout/page.tsx          # NV-D1: Checkout flow (cart or buy-now session)
@@ -1187,14 +1185,15 @@ frontend/
 │   │   │   ├── Footer.tsx             # Site footer with navigation links
 │   │   │   └── RouteShell.tsx         # Page wrapper (Header + Footer + content)
 │   │   │
+│   │   ├── ads/
+│   │   │   └── PromoBanners.tsx       # Home and side promotional banners
+│   │   │
 │   │   ├── home/
 │   │   │   ├── HeroSection.tsx        # Homepage hero banner
-│   │   │   ├── TrendingSection.tsx    # Trending books carousel
 │   │   │   ├── BooksGridSection.tsx   # Book grid (newest / best sellers)
 │   │   │   ├── CategoryPills.tsx      # Category pill buttons
 │   │   │   ├── RankingSection.tsx     # Most-viewed + best-seller rankings
-│   │   │   ├── ServicesSection.tsx    # Service features showcase
-│   │   │   └── TestimonialsSection.tsx # Customer testimonials
+│   │   │   └── OrderJourneySection.tsx # Order and checkout journey section
 │   │   │
 │   │   ├── books/
 │   │   │   ├── book-card.tsx          # Reusable book card component
@@ -1203,7 +1202,6 @@ frontend/
 │   │   │   └── section-header.tsx     # Section header with "See all" link
 │   │   │
 │   │   ├── sections/
-│   │   │   ├── BookCard.tsx           # Alternative book card (sections context)
 │   │   │   ├── SectionTitle.tsx       # Styled section title
 │   │   │   └── section-title.tsx      # Section title variant
 │   │   │
@@ -1242,10 +1240,7 @@ frontend/
 │       ├── auth.store.ts             # Zustand: token + user state (persist to localStorage)
 │       └── cart.store.ts             # Zustand: cart items + total price (in-memory)
 │
-├── DESIGN.md                          # Design system documentation
-├── DESIGN_GUIDE.md                    # Visual style reference guide
-├── PLANNING.md                        # Feature planning notes
-└── PRODUCT.md                         # Product requirements
+└── DESIGN.md                          # Design system documentation
 ```
 
 ---
@@ -1258,19 +1253,17 @@ The application uses **Next.js App Router** with file-based routing. Pages are o
 
 | Route | File | NV | Description |
 |---|---|---|---|
-| `/` | `page.tsx` | — | Homepage with hero, trending books, book grid, rankings, services, testimonials |
+| `/` | `page.tsx` | — | Homepage with hero, category pills, book grids, rankings, order journey, and side ads |
 | `/login` | `login/page.tsx` | A2 | Login form with email + password validation |
 | `/register` | `(auth)/register/page.tsx` | A1 | Registration form with name, email, phone, password |
 | `/books` | `books/page.tsx` | B1 | Book catalog with search, filter by author/publisher/year/price |
 | `/books/:id` | `books/[id]/page.tsx` | B2 | Book detail: metadata, stock, similar books (Neo4j), series volumes |
 | `/categories` | `categories/page.tsx` | F4 | All categories listing |
 | `/categories/:slug` | `categories/[slug]/page.tsx` | B1 | Books filtered by category slug |
-| `/search` | `search/page.tsx` | B1 | Search results page |
 | `/best-sellers` | `best-sellers/page.tsx` | E2 | Top-10 bestselling books (30-day, from Redis) |
 | `/most-viewed/daily` | `most-viewed/daily/page.tsx` | E3 | Top-10 most viewed today (Redis ZSET) |
 | `/most-viewed/30days` | `most-viewed/30days/page.tsx` | E3 | Top-10 most viewed past 30 days (Redis cache) |
 | `/authors` | `authors/page.tsx` | — | Author listing page |
-| `/blog` | `blog/page.tsx` | — | Blog page |
 
 #### Customer Pages (JWT, `role: user`)
 
@@ -1353,23 +1346,25 @@ All request/response types are defined in `lib/types/index.ts` (351 lines), incl
 
 ### 10.6. Component Architecture
 
-Components are organised into five directories by responsibility:
+Components are organised into seven directories by responsibility:
 
 | Directory | Scope | Components |
 |---|---|---|
 | `components/layout/` | App-wide shell | `SiteHeader` (navigation + auth-aware menu), `Footer` (links + branding), `RouteShell` (Header + Footer wrapper), `Header` (legacy) |
-| `components/home/` | Homepage sections | `HeroSection`, `TrendingSection`, `BooksGridSection`, `CategoryPills`, `RankingSection`, `ServicesSection`, `TestimonialsSection` |
-| `components/books/` | Book catalog | `book-card` (card with cover, title, author, price), `BooksPage` (shared listing logic), `BooksToolbar` (search + filter bar), `section-header` (title + "See all" link) |
+| `components/ads/` | Promotional placements | `PromoBanners` (home-wide banner and side ad rails) |
+| `components/home/` | Homepage sections | `HeroSection`, `BooksGridSection`, `CategoryPills`, `RankingSection`, `OrderJourneySection` |
+| `components/books/` | Book catalog | `book-card` (card with cover, title, author, price), `BooksPage` (shared listing logic), `BooksToolbar` (catalog toolbar component), `ranked-book-tile`, `section-header` |
+| `components/sections/` | Shared section titles | `SectionTitle`, `section-title` |
 | `components/admin/` | Admin panel | `BookFormDrawer` (slide-over for book CRUD), `CategoryFormDrawer` (slide-over for category CRUD), `ConfirmDialog` (delete/status confirmation), `Pagination` (page controls), `StatusBadge` (colour-coded order status) |
-| `components/ui/` | Design system primitives | `button` (CVA variants: primary, secondary, outline, ghost + sizes), `container` (max-width wrapper) |
+| `components/ui/` | Design system primitives | `button` (CVA variants: primary, secondary, outline, ghost + sizes), `commerce` (customer-facing sections, panels, grids, states), `container` (max-width wrapper) |
 
 #### Design System
 
-The frontend uses a token-based design system documented in `DESIGN.md` and `DESIGN_GUIDE.md`:
+The frontend uses a token-based design system documented in `DESIGN.md`, with CSS variables in `src/app/globals.css` and Tailwind theme extensions in `tailwind.config.ts`:
 
-- **Colour palette**: Defined in `lib/design-tokens.ts` — warm canvas backgrounds, accent colours, semantic status colours.
+- **Colour palette**: Backed by CSS variables and Tailwind token names for warm canvas backgrounds, commerce accents, and semantic status colours.
 - **Typography**: System font stack configured via Tailwind CSS.
-- **Spacing & Layout**: Consistent max-width container (`components/ui/container.tsx`) across all pages.
+- **Spacing & Layout**: Shared page width, section spacing, commerce panels, and product grids through Tailwind utilities and `components/ui/commerce.tsx`.
 - **Button variants**: Built with `class-variance-authority` (CVA) for type-safe variant props (`variant`, `size`).
 - **Utility functions**: `cn()` from `lib/cn.ts` — merges `clsx` + `tailwind-merge` for conflict-free class composition.
 
