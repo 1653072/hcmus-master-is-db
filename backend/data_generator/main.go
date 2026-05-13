@@ -41,6 +41,58 @@ const (
 	TargetAddresses      = 10000
 )
 
+var categoryGenres = []string{
+	"Adventure",
+	"Comic",
+	"Crime",
+	"Erotic",
+	"Fantasy",
+	"Fiction",
+	"Historical",
+	"Horror",
+	"Magic",
+	"Mystery",
+	"Philosophical",
+	"Political",
+	"Romance",
+	"Saga",
+	"Satire",
+	"Science",
+	"Speculative",
+	"Thriller",
+	"Urban",
+}
+
+var categoryQualifiers = []string{
+	"Interesting",
+	"Essential",
+	"Classic",
+	"Modern",
+	"Hidden",
+	"Popular",
+	"Curious",
+	"Bright",
+	"Deep",
+	"Fresh",
+	"Epic",
+	"Compact",
+	"Selected",
+	"Premium",
+	"Young",
+	"Global",
+	"Local",
+	"New",
+	"Vintage",
+	"Featured",
+	"Creative",
+	"Accessible",
+	"Advanced",
+	"Beginner",
+	"Collector",
+	"Trending",
+	"Timeless",
+}
+
 type ExportFiles struct {
 	Postgres *os.File
 	Mongo    *os.File
@@ -56,6 +108,25 @@ func objectIDOrString(id string) any {
 		return oid
 	}
 	return id
+}
+
+func generatedCategoryNames(target int) []string {
+	names := make([]string, 0, target)
+	for cycle := 0; len(names) < target; cycle++ {
+		for _, qualifier := range categoryQualifiers {
+			for _, genre := range categoryGenres {
+				name := fmt.Sprintf("%s %s", genre, qualifier)
+				if cycle > 0 {
+					name = fmt.Sprintf("%s %s %d", genre, qualifier, cycle+1)
+				}
+				names = append(names, name)
+				if len(names) == target {
+					return names
+				}
+			}
+		}
+	}
+	return names
 }
 
 func writeMongoInsert(file *os.File, collection string, doc any) {
@@ -142,6 +213,34 @@ func eventLogSeedDocument(logEntry domain.EventLog) bson.M {
 		"eventType": logEntry.EventType,
 		"createdAt": logEntry.CreatedAt,
 	}
+}
+
+func countDuplicateValueGroups(ctx context.Context, coll *mongo.Collection, field string) (int64, error) {
+	pipeline := mongo.Pipeline{
+		bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$" + field},
+			{Key: "count", Value: bson.D{{Key: "$sum", Value: 1}}},
+		}}},
+		bson.D{{Key: "$match", Value: bson.D{{Key: "count", Value: bson.D{{Key: "$gt", Value: 1}}}}}},
+		bson.D{{Key: "$count", Value: "duplicate_groups"}},
+	}
+
+	cur, err := coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	var rows []struct {
+		DuplicateGroups int64 `bson:"duplicate_groups"`
+	}
+	if err := cur.All(ctx, &rows); err != nil {
+		return 0, err
+	}
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	return rows[0].DuplicateGroups, nil
 }
 
 func writeNeo4jBookGraph(file *os.File, node domain.BookNode) {
@@ -300,18 +399,13 @@ func seedCategories(ctx context.Context, client *mongo.Client, dbName string, ne
 	coll := client.Database(dbName).Collection("categories")
 	var categories []*domain.Category
 
-	for i := 0; i < int(TargetCategories*1.5); i++ {
+	for _, categoryName := range generatedCategoryNames(TargetCategories) {
 		cat := &domain.Category{
 			ID:           primitive.NewObjectID().Hex(),
-			CategoryName: gofakeit.BookGenre(),
-			Slug:         gofakeit.UUID(),
+			CategoryName: categoryName,
+			Slug:         domain.CanonicalSlug(categoryName),
 			CreatedAt:    time.Now(),
 			UpdatedAt:    time.Now(),
-		}
-
-		if len(categories) > 10 && rand.Float32() < 0.3 {
-			parent := categories[rand.Intn(len(categories))]
-			cat.ParentCategory = parent.ID
 		}
 
 		_, _ = coll.InsertOne(ctx, cat)
@@ -320,9 +414,6 @@ func seedCategories(ctx context.Context, client *mongo.Client, dbName string, ne
 		// Export using MongoDB field names so loaded seed files match the live documents.
 		writeMongoInsert(exports.Mongo, "categories", categorySeedDocument(cat))
 		exports.Neo4j.WriteString(fmt.Sprintf("MERGE (c:Category {categoryId: '%s'}) SET c.name = '%s', c.slug = '%s';\n", cat.ID, escapeSQL(cat.CategoryName), cat.Slug))
-		if cat.ParentCategory != "" {
-			exports.Neo4j.WriteString(fmt.Sprintf("MATCH (p:Category {categoryId: '%s'}), (c:Category {categoryId: '%s'}) MERGE (p)-[:PARENT_OF]->(c);\n", cat.ParentCategory, cat.ID))
-		}
 
 		categories = append(categories, cat)
 	}
@@ -953,6 +1044,24 @@ func verifySeededData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 	if catCount < int64(TargetCategories) {
 		allPassed = false
 	}
+	if duplicateSlugs, err := countDuplicateValueGroups(ctx, catColl, "slug"); err == nil {
+		fmt.Printf("[MongoDB] Duplicate category slug groups: %d\n", duplicateSlugs)
+		if duplicateSlugs > 0 {
+			allPassed = false
+		}
+	} else {
+		log.Printf("failed to verify duplicate category slugs: %v", err)
+		allPassed = false
+	}
+	if duplicateNames, err := countDuplicateValueGroups(ctx, catColl, "category_name"); err == nil {
+		fmt.Printf("[MongoDB] Duplicate category name groups: %d\n", duplicateNames)
+		if duplicateNames > 0 {
+			allPassed = false
+		}
+	} else {
+		log.Printf("failed to verify duplicate category names: %v", err)
+		allPassed = false
+	}
 
 	logColl := mongoClient.Database(dbName).Collection("view_event_logs")
 	logCount, _ := logColl.CountDocuments(ctx, bson.M{})
@@ -981,6 +1090,15 @@ func verifySeededData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 		neoCatCount := val.(int64)
 		fmt.Printf("[Neo4j] Category Nodes: %d/%d\n", neoCatCount, TargetCategories)
 		if neoCatCount < int64(TargetCategories) {
+			allPassed = false
+		}
+	}
+	result, _ = session.Run(ctx, "MATCH (c:Category) WITH c.slug AS slug, count(c) AS count WHERE count > 1 RETURN count(*) as count", nil)
+	if result.Next(ctx) {
+		val, _ := result.Record().Get("count")
+		duplicateNeoCategorySlugs := val.(int64)
+		fmt.Printf("[Neo4j] Duplicate Category slug groups: %d\n", duplicateNeoCategorySlugs)
+		if duplicateNeoCategorySlugs > 0 {
 			allPassed = false
 		}
 	}

@@ -102,6 +102,18 @@ func (r *CategoryRepository) GetCategoryByID(ctx context.Context, id string) (*d
 	return doc.toDomain(), nil
 }
 
+func (r *CategoryRepository) GetCategoryBySlug(ctx context.Context, slug string) (*domain.Category, error) {
+	var doc categoryDocument
+	err := r.col.FindOne(ctx, bson.M{"slug": slug}).Decode(&doc)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return doc.toDomain(), nil
+}
+
 // ListCategories returns a paginated list of categories.
 func (r *CategoryRepository) ListCategories(ctx context.Context, page, pageSize int) ([]*domain.Category, int64, error) {
 	if page < 1 {

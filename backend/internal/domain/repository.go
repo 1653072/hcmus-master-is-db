@@ -150,6 +150,7 @@ type BookRepository interface {
 type CategoryRepository interface {
 	CreateCategory(ctx context.Context, cat *Category) (string, error)
 	GetCategoryByID(ctx context.Context, id string) (*Category, error)
+	GetCategoryBySlug(ctx context.Context, slug string) (*Category, error)
 	ListCategories(ctx context.Context, page, pageSize int) ([]*Category, int64, error)
 	UpdateCategory(ctx context.Context, id string, cat *Category) error
 	DeleteCategory(ctx context.Context, id string) error
