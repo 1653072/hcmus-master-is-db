@@ -7,10 +7,7 @@ import { RouteShell } from '@/components/layout/RouteShell';
 import { CommerceSection, CommerceState } from '@/components/ui/commerce';
 import { ordersApi } from '@/lib/api/orders';
 import type { Order } from '@/lib/types';
-
-function formatPrice(value?: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value ?? 0);
-}
+import { formatCurrency } from '@/lib/utils';
 
 function formatDate(value?: string) {
   if (!value) return 'Chưa rõ ngày';
@@ -68,7 +65,7 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-sm font-medium text-charcoal">{formatPrice(order.total_amount)}</p>
+                    <p className="text-sm font-medium text-charcoal">{formatCurrency(order.total_amount, '0 ₫')}</p>
                     <p className="text-xs text-ash">Tổng</p>
                   </div>
                   <Link href={`/orders/${order.alias_id}`} className="inline-flex min-h-11 items-center rounded-full border border-stone-surface bg-white px-4 text-sm font-medium text-charcoal transition hover:border-graphite/30 hover:text-midnight">

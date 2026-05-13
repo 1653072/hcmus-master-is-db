@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Pagination } from '@/components/admin/Pagination';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { BookFormDrawer } from '@/components/admin/BookFormDrawer';
+import { formatCurrency } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 
@@ -156,7 +157,7 @@ export default function Page() {
                       </p>
                     </td>
                     <td className="px-5 py-3.5 font-medium text-zinc-700">
-                      {book.pricing?.price != null ? `$${book.pricing.price.toFixed(2)}` : '—'}
+                      {book.pricing?.price != null ? formatCurrency(book.pricing.price) : '—'}
                     </td>
                     <td className="px-5 py-3.5">
                       <button

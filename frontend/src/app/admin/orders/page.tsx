@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { ordersApi } from '@/lib/api/orders';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Pagination } from '@/components/admin/Pagination';
+import { formatCurrency } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 const STATUSES = ['all', 'pending', 'confirmed', 'packing', 'shipping', 'completed', 'cancelled'] as const;
@@ -105,7 +106,7 @@ export default function Page() {
                       {order.items?.length ?? 0} item{(order.items?.length ?? 0) !== 1 ? 's' : ''}
                     </td>
                     <td className="px-5 py-3.5 font-medium text-zinc-700">
-                      ${order.total_amount?.toFixed(2) ?? '0.00'}
+                      {formatCurrency(order.total_amount, '0 ₫')}
                     </td>
                     <td className="px-5 py-3.5 text-zinc-500">
                       {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}

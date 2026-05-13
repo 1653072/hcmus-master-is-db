@@ -17,19 +17,17 @@ import { ordersApi } from '@/lib/api/orders';
 import { recommendationsApi } from '@/lib/api/recommendations';
 import { toFeaturedBook } from '@/lib/books';
 import type { BookDetail, SimilarBook } from '@/lib/types';
+import { formatCurrency, normalizeCurrencyAmount } from '@/lib/utils';
 import { useCartStore } from '@/stores/cart.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
 
 function normalizePrice(value?: number) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
-  return value < 1000 ? value * 1000 : value;
+  return normalizeCurrencyAmount(value);
 }
 
 function formatPrice(value?: number) {
-  const normalized = normalizePrice(value);
-  if (typeof normalized !== 'number') return 'Liên hệ';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(normalized);
+  return formatCurrency(value);
 }
 
 function formatDate(value?: string) {

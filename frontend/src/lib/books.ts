@@ -1,4 +1,5 @@
 import type { FeaturedBook } from '@/components/books/book-card';
+import { formatCurrency } from '@/lib/utils';
 
 type ApiBookLike = {
   id?: string | number;
@@ -60,13 +61,6 @@ function getImage(index: number, book: ApiBookLike) {
   return palette[index % palette.length];
 }
 
-function formatVnd(value: unknown) {
-  const amount = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(amount) || amount <= 0) return 'Liên hệ';
-  const normalizedAmount = amount < 1000 ? amount * 1000 : amount;
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(normalizedAmount);
-}
-
 function getNumber(value: unknown) {
   const amount = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
   return Number.isFinite(amount) ? amount : undefined;
@@ -80,8 +74,8 @@ export function toFeaturedBook(book: ApiBookLike, index = 0): FeaturedBook {
   const listPriceValue = book.pricing?.list_price ?? book.list_price;
   const priceValue = getNumber(bookPrice);
   const listPriceNumber = getNumber(listPriceValue);
-  const price = formatVnd(bookPrice);
-  const listPrice = listPriceNumber && priceValue && listPriceNumber > priceValue ? formatVnd(listPriceNumber) : undefined;
+  const price = formatCurrency(bookPrice);
+  const listPrice = listPriceNumber && priceValue && listPriceNumber > priceValue ? formatCurrency(listPriceNumber) : undefined;
   const computedDiscount = listPriceNumber && priceValue && listPriceNumber > priceValue
     ? Math.round(((listPriceNumber - priceValue) / listPriceNumber) * 100)
     : undefined;

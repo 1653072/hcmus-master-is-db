@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DollarSign, Package, TrendingUp } from 'lucide-react';
+import { Banknote, Package, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { adminApi } from '@/lib/api/admin';
+import { formatCurrency } from '@/lib/utils';
 
 export default function Page() {
   const [sales, setSales] = useState<any>(null);
@@ -48,8 +49,8 @@ export default function Page() {
   const metrics = [
     {
       label: 'Total Revenue',
-      value: sales?.total_revenue != null ? `$${sales.total_revenue.toLocaleString()}` : '$0',
-      icon: DollarSign,
+      value: formatCurrency(sales?.total_revenue, '0 ₫'),
+      icon: Banknote,
       color: 'bg-meadow/10 text-meadow',
     },
     {

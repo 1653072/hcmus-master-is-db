@@ -14,7 +14,7 @@ import (
 // order_status_histories row (old_status = NULL, new_status = "pending") — all
 // within the same database transaction.
 func (q *Queries) CreateOrder(ctx context.Context, order *domain.Order, historyRepository domain.OrderStatusHistoryRepository) error {
-	if err := q.db.WithContext(ctx).Omit("Items.*").Create(order).Error; err != nil {
+	if err := q.db.WithContext(ctx).Omit("Items").Create(order).Error; err != nil {
 		return err
 	}
 	for index := range order.Items {
@@ -55,6 +55,7 @@ func (q *Queries) ListOrdersByUser(ctx context.Context, userInternalID int64, pa
 	offset := (page - 1) * pageSize
 	err := q.db.WithContext(ctx).
 		Where("user_id = ?", userInternalID).
+		Preload("Items").
 		Order("created_at DESC").
 		Limit(pageSize).
 		Offset(offset).
@@ -75,7 +76,7 @@ func (q *Queries) ListAllOrders(ctx context.Context, status domain.OrderStatus, 
 	query.Count(&total) //nolint:errcheck
 
 	offset := (page - 1) * pageSize
-	err := query.Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&orders).Error
+	err := query.Preload("Items").Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&orders).Error
 
 	return orders, total, err
 }

@@ -8,10 +8,7 @@ import { ArrowLeft } from 'lucide-react';
 import { RouteShell } from '@/components/layout/RouteShell';
 import { ordersApi } from '@/lib/api/orders';
 import type { Order, Shipment } from '@/lib/types';
-
-function formatPrice(value?: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value ?? 0);
-}
+import { formatCurrency } from '@/lib/utils';
 
 function formatDate(value?: string) {
   if (!value) return 'Chưa rõ ngày';
@@ -81,9 +78,9 @@ export default function Page() {
                   <div key={`${item.book_id}-${item.name}`} className="flex justify-between gap-4 rounded-cards border border-stone-surface bg-parchment px-4 py-3 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-charcoal">{item.name}</p>
-                      <p className="mt-1 text-xs text-ash">Số lượng {item.quantity} x {formatPrice(item.unit_price)}</p>
+                      <p className="mt-1 text-xs text-ash">Số lượng {item.quantity} x {formatCurrency(item.unit_price, '0 ₫')}</p>
                     </div>
-                    <p className="shrink-0 font-medium text-charcoal">{formatPrice(item.quantity * item.unit_price)}</p>
+                    <p className="shrink-0 font-medium text-charcoal">{formatCurrency(item.quantity * item.unit_price, '0 ₫')}</p>
                   </div>
                 ))}
               </div>
@@ -119,7 +116,7 @@ export default function Page() {
                 ) : null}
                 <div className="flex justify-between border-t border-stone-surface pt-3 font-medium text-charcoal">
                   <span>Tổng</span>
-                  <span>{formatPrice(order.total_amount)}</span>
+                  <span>{formatCurrency(order.total_amount, '0 ₫')}</span>
                 </div>
               </div>
             </aside>

@@ -8,11 +8,8 @@ import { RouteShell } from '@/components/layout/RouteShell';
 import { Button } from '@/components/ui/button';
 import { addressesApi } from '@/lib/api/addresses';
 import { ordersApi } from '@/lib/api/orders';
+import { formatCurrency } from '@/lib/utils';
 import { useCartStore } from '@/stores/cart.store';
-
-function formatPrice(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
-}
 
 export default function Page() {
   const router = useRouter();
@@ -205,15 +202,15 @@ export default function Page() {
                     <span className="text-charcoal truncate block">{item.name}</span>
                     <span className="mt-1 block text-xs text-ash">Số lượng {item.quantity}</span>
                   </div>
-                  <span className="text-graphite shrink-0 font-medium">{formatPrice(item.price * item.quantity)}</span>
+                  <span className="text-graphite shrink-0 font-medium">{formatCurrency(item.price * item.quantity, '0 ₫')}</span>
                 </div>
               ))}
             </div>
 
             <div className="mt-4 space-y-3 text-sm text-graphite">
-              <div className="flex justify-between"><span>Tạm tính</span><span>{formatPrice(subtotal)}</span></div>
-              <div className="flex justify-between"><span>Vận chuyển</span><span>{formatPrice(shippingFee)}</span></div>
-              <div className="flex justify-between border-t border-stone-surface pt-3 font-medium text-charcoal"><span>Tổng</span><span>{formatPrice(grandTotal)}</span></div>
+              <div className="flex justify-between"><span>Tạm tính</span><span>{formatCurrency(subtotal, '0 ₫')}</span></div>
+              <div className="flex justify-between"><span>Vận chuyển</span><span>{formatCurrency(shippingFee, '0 ₫')}</span></div>
+              <div className="flex justify-between border-t border-stone-surface pt-3 font-medium text-charcoal"><span>Tổng</span><span>{formatCurrency(grandTotal, '0 ₫')}</span></div>
             </div>
             <Button className="mt-6 w-full" onClick={handlePlaceOrder} disabled={placingOrder}>
               {placingOrder ? 'Đang đặt hàng...' : 'Đặt hàng'}
