@@ -124,7 +124,7 @@ func (s *Service) AdminGetBestSellers(c *gin.Context) {
 		respondInternalError(c, "could not fetch best sellers data")
 		return
 	}
-	respondOK(c, books)
+	respondOK(c, s.enrichBestSellerBooks(c.Request.Context(), books))
 }
 
 // AdminGetSales handles GET /api/v1/admin/analytics/sales?from=&to=.

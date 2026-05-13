@@ -303,10 +303,15 @@ type BookNode struct {
 
 // SimilarBook is a recommendation result with a computed similarity score.
 type SimilarBook struct {
-	BookID   string  `json:"book_id"`
-	Title    string  `json:"title"`
-	Score    float64 `json:"score"`
-	CoverURL string  `json:"cover_url,omitempty"`
+	BookID    string       `json:"book_id"`
+	Title     string       `json:"title"`
+	Score     float64      `json:"score"`
+	Price     float64      `json:"price,omitempty"`
+	Publisher string       `json:"publisher,omitempty"`
+	Category  BookCategory `json:"category,omitempty"`
+	Authors   []BookAuthor `json:"authors,omitempty"`
+	Images    []BookImage  `json:"images,omitempty"`
+	CoverURL  string       `json:"cover_url,omitempty"`
 }
 
 // SeriesBook is a recommendation result for series/volume suggestions.
@@ -322,9 +327,15 @@ type SeriesBook struct {
 // BestSellerBook is an entry in the Redis bestseller cache (NV-E2).
 // TotalSold reflects units sold in the past 30 days, as aggregated daily by BestSellerWorker.
 type BestSellerBook struct {
-	BookID    string  `json:"book_id"`
-	Title     string  `json:"title"`
-	TotalSold float64 `json:"total_sold"`
+	BookID    string       `json:"book_id"`
+	Title     string       `json:"title"`
+	TotalSold float64      `json:"total_sold"`
+	Price     float64      `json:"price,omitempty"`
+	Publisher string       `json:"publisher,omitempty"`
+	Category  BookCategory `json:"category,omitempty"`
+	Authors   []BookAuthor `json:"authors,omitempty"`
+	Images    []BookImage  `json:"images,omitempty"`
+	CoverURL  string       `json:"cover_url,omitempty"`
 }
 
 // ─── Most Viewed (Redis + MongoDB) ───────────────────────────────────────────
@@ -336,9 +347,15 @@ const (
 
 // MostViewedBook is an entry in the most-viewed rankings (NV-E3).
 type MostViewedBook struct {
-	BookID    string  `json:"book_id"`
-	Title     string  `json:"title"`
-	ViewCount float64 `json:"view_count"`
+	BookID    string       `json:"book_id"`
+	Title     string       `json:"title"`
+	ViewCount float64      `json:"view_count"`
+	Price     float64      `json:"price,omitempty"`
+	Publisher string       `json:"publisher,omitempty"`
+	Category  BookCategory `json:"category,omitempty"`
+	Authors   []BookAuthor `json:"authors,omitempty"`
+	Images    []BookImage  `json:"images,omitempty"`
+	CoverURL  string       `json:"cover_url,omitempty"`
 }
 
 // ─── Event Log (MongoDB) ─────────────────────────────────────────────────────

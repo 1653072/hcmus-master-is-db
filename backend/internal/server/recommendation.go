@@ -32,7 +32,7 @@ func (s *Service) GetSimilarBooks(c *gin.Context) {
 		return
 	}
 
-	respondOK(c, books)
+	respondOK(c, s.enrichSimilarBooks(c.Request.Context(), books))
 }
 
 // GetSeriesBooks handles GET /api/v1/books/:id/series (NV-E1).
@@ -94,7 +94,7 @@ func (s *Service) GetBestSellers(c *gin.Context) {
 		return
 	}
 
-	respondOK(c, books)
+	respondOK(c, s.enrichBestSellerBooks(c.Request.Context(), books))
 }
 
 // GetTopDailyViewed handles GET /api/v1/most-viewed/daily (NV-E3).
@@ -143,12 +143,12 @@ func (s *Service) GetTopDailyViewed(c *gin.Context) {
 
 	// Step 3: Compare live ranking with cached ranking.
 	if cacheHit && dailyRankingMatchesCountSet(cachedData, liveCountEntries) {
-		respondOK(c, cachedData)
+		respondOK(c, s.enrichMostViewedWithBookDetails(ctx, cachedData))
 		return
 	}
 
-	// Step 4: Rankings diverged (or cache is empty) — enrich with titles from MongoDB.
-	enrichedBooks := s.enrichMostViewedWithTitles(ctx, liveCountEntries)
+	// Step 4: Rankings diverged (or cache is empty) — enrich with book metadata from MongoDB.
+	enrichedBooks := s.enrichMostViewedWithBookDetails(ctx, liveCountEntries)
 
 	// Refresh the data cache (best-effort; a failure here is non-fatal).
 	if refreshErr := s.mostViewedRepo.SetDailyTopViewedData(ctx, enrichedBooks); refreshErr != nil {
@@ -180,7 +180,7 @@ func (s *Service) GetTopMostViewed30Days(c *gin.Context) {
 		respondOK(c, []any{})
 		return
 	}
-	respondOK(c, books)
+	respondOK(c, s.enrichMostViewedWithBookDetails(ctx, books))
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -199,9 +199,11 @@ func dailyRankingMatchesCountSet(cached, liveEntries []domain.MostViewedBook) bo
 	return true
 }
 
-// enrichMostViewedWithTitles fetches book titles from MongoDB for the given entries
-// and returns a new slice of MostViewedBook with titles populated.
-func (s *Service) enrichMostViewedWithTitles(ctx context.Context, entries []domain.MostViewedBook) []domain.MostViewedBook {
+func (s *Service) enrichBestSellerBooks(ctx context.Context, entries []domain.BestSellerBook) []domain.BestSellerBook {
+	if len(entries) == 0 {
+		return entries
+	}
+
 	bookIDs := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		bookIDs = append(bookIDs, entry.BookID)
@@ -209,22 +211,73 @@ func (s *Service) enrichMostViewedWithTitles(ctx context.Context, entries []doma
 
 	books, err := s.bookRepo.GetBooksByIDs(ctx, bookIDs)
 	if err != nil {
-		s.logger.Warn("fetch book titles for most viewed enrichment", zap.Error(err))
+		s.logger.Warn("fetch book details for best seller enrichment", zap.Error(err))
 		return entries
 	}
 
-	titleByID := make(map[string]string, len(books))
+	bookByID := make(map[string]*domain.Book, len(books))
 	for _, book := range books {
-		titleByID[book.ID] = book.Name
+		bookByID[book.ID] = book
+	}
+
+	enriched := make([]domain.BestSellerBook, 0, len(entries))
+	for _, entry := range entries {
+		book := bookByID[entry.BookID]
+		if book == nil {
+			enriched = append(enriched, entry)
+			continue
+		}
+
+		entry.Title = firstNonEmptyString(book.Name, entry.Title)
+		entry.Price = book.Pricing.Price
+		entry.Publisher = book.Publisher
+		entry.Category = book.Category
+		entry.Authors = book.Authors
+		entry.Images = book.Images
+		entry.CoverURL = primaryBookImageURL(book.Images)
+		enriched = append(enriched, entry)
+	}
+
+	return enriched
+}
+
+func (s *Service) enrichMostViewedWithBookDetails(ctx context.Context, entries []domain.MostViewedBook) []domain.MostViewedBook {
+	if len(entries) == 0 {
+		return entries
+	}
+
+	bookIDs := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		bookIDs = append(bookIDs, entry.BookID)
+	}
+
+	books, err := s.bookRepo.GetBooksByIDs(ctx, bookIDs)
+	if err != nil {
+		s.logger.Warn("fetch book details for most viewed enrichment", zap.Error(err))
+		return entries
+	}
+
+	bookByID := make(map[string]*domain.Book, len(books))
+	for _, book := range books {
+		bookByID[book.ID] = book
 	}
 
 	enriched := make([]domain.MostViewedBook, 0, len(entries))
 	for _, entry := range entries {
-		enriched = append(enriched, domain.MostViewedBook{
-			BookID:    entry.BookID,
-			Title:     titleByID[entry.BookID],
-			ViewCount: entry.ViewCount,
-		})
+		book := bookByID[entry.BookID]
+		if book == nil {
+			enriched = append(enriched, entry)
+			continue
+		}
+
+		entry.Title = firstNonEmptyString(book.Name, entry.Title)
+		entry.Price = book.Pricing.Price
+		entry.Publisher = book.Publisher
+		entry.Category = book.Category
+		entry.Authors = book.Authors
+		entry.Images = book.Images
+		entry.CoverURL = primaryBookImageURL(book.Images)
+		enriched = append(enriched, entry)
 	}
 
 	// Sort by view count descending to maintain ranking order.
@@ -232,4 +285,65 @@ func (s *Service) enrichMostViewedWithTitles(ctx context.Context, entries []doma
 		return enriched[i].ViewCount > enriched[j].ViewCount
 	})
 	return enriched
+}
+
+func (s *Service) enrichSimilarBooks(ctx context.Context, entries []domain.SimilarBook) []domain.SimilarBook {
+	if len(entries) == 0 {
+		return entries
+	}
+
+	bookIDs := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		bookIDs = append(bookIDs, entry.BookID)
+	}
+
+	books, err := s.bookRepo.GetBooksByIDs(ctx, bookIDs)
+	if err != nil {
+		s.logger.Warn("fetch book details for similar recommendations", zap.Error(err))
+		return entries
+	}
+
+	bookByID := make(map[string]*domain.Book, len(books))
+	for _, book := range books {
+		bookByID[book.ID] = book
+	}
+
+	enriched := make([]domain.SimilarBook, 0, len(entries))
+	for _, entry := range entries {
+		book := bookByID[entry.BookID]
+		if book == nil {
+			enriched = append(enriched, entry)
+			continue
+		}
+
+		entry.Title = firstNonEmptyString(book.Name, entry.Title)
+		entry.Price = book.Pricing.Price
+		entry.Publisher = book.Publisher
+		entry.Category = book.Category
+		entry.Authors = book.Authors
+		entry.Images = book.Images
+		entry.CoverURL = primaryBookImageURL(book.Images)
+		enriched = append(enriched, entry)
+	}
+
+	return enriched
+}
+
+func primaryBookImageURL(images []domain.BookImage) string {
+	for _, image := range images {
+		if image.IsPrimary && image.URL != "" {
+			return image.URL
+		}
+	}
+	if len(images) > 0 {
+		return images[0].URL
+	}
+	return ""
+}
+
+func firstNonEmptyString(primary, fallback string) string {
+	if primary != "" {
+		return primary
+	}
+	return fallback
 }
