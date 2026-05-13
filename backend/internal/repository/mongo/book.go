@@ -4,6 +4,8 @@ import (
 	"bookstore/backend/internal/domain"
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -45,6 +47,179 @@ type bookUpdateDocument struct {
 	Authors           []domain.BookAuthor `bson:"authors"`
 	Tags              []domain.BookTag    `bson:"tags"`
 	CreatedAt         time.Time           `bson:"createdAt"`
+}
+
+type flexibleBookCategory struct {
+	CategoryID       string `bson:"categoryId"`
+	CategoryIDLegacy string `bson:"category_id"`
+}
+
+type flexibleBookImage struct {
+	IsPrimary       bool   `bson:"isPrimary"`
+	IsPrimaryLegacy bool   `bson:"is_primary"`
+	Alt             string `bson:"alt"`
+	URL             string `bson:"url"`
+}
+
+type flexibleBookSeries struct {
+	SeriesID         string `bson:"seriesId"`
+	SeriesIDLegacy   string `bson:"series_id"`
+	SeriesName       string `bson:"seriesName"`
+	SeriesNameLegacy string `bson:"series_name"`
+	SequenceNo       int    `bson:"sequenceNo"`
+	SequenceNoLegacy int    `bson:"sequence_no"`
+}
+
+type flexibleBookAuthor struct {
+	AuthorID         string `bson:"authorId"`
+	AuthorIDLegacy   string `bson:"author_id"`
+	Slug             string `bson:"slug"`
+	AuthorName       string `bson:"authorName"`
+	AuthorNameLegacy string `bson:"author_name"`
+}
+
+type flexibleBookTag struct {
+	TagID         string `bson:"tagId"`
+	TagIDLegacy   string `bson:"tag_id"`
+	TagName       string `bson:"tagName"`
+	TagNameLegacy string `bson:"tag_name"`
+}
+
+func (doc *bookDocument) UnmarshalBSON(data []byte) error {
+	var raw struct {
+		ID                      any                  `bson:"_id,omitempty"`
+		Name                    string               `bson:"name"`
+		ShortDescription        string               `bson:"shortDescription"`
+		ShortDescriptionLegacy  string               `bson:"short_description"`
+		DetailDescription       string               `bson:"detailDescription"`
+		DetailDescriptionLegacy string               `bson:"detail_description"`
+		ProductStatus           string               `bson:"productStatus"`
+		ProductStatusLegacy     string               `bson:"product_status"`
+		Publisher               string               `bson:"publisher,omitempty"`
+		PublishYear             int                  `bson:"publishYear,omitempty"`
+		PublishYearLegacy       int                  `bson:"publish_year,omitempty"`
+		Pricing                 domain.BookPricing   `bson:"pricing"`
+		Category                flexibleBookCategory `bson:"category"`
+		Images                  []flexibleBookImage  `bson:"images"`
+		Series                  flexibleBookSeries   `bson:"series,omitempty"`
+		Authors                 []flexibleBookAuthor `bson:"authors"`
+		Tags                    []flexibleBookTag    `bson:"tags"`
+		CreatedAt               time.Time            `bson:"createdAt"`
+		CreatedAtLegacy         any                  `bson:"created_at"`
+	}
+	if err := bson.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	doc.ID = raw.ID
+	doc.Name = raw.Name
+	doc.ShortDescription = firstNonEmpty(raw.ShortDescription, raw.ShortDescriptionLegacy)
+	doc.DetailDescription = firstNonEmpty(raw.DetailDescription, raw.DetailDescriptionLegacy)
+	doc.ProductStatus = firstNonEmpty(raw.ProductStatus, raw.ProductStatusLegacy)
+	doc.Publisher = raw.Publisher
+	doc.PublishYear = firstNonZero(raw.PublishYear, raw.PublishYearLegacy)
+	doc.Pricing = raw.Pricing
+	doc.Category = raw.Category.toDomain()
+	doc.Images = flexibleImagesToDomain(raw.Images)
+	doc.Series = raw.Series.toDomain()
+	doc.Authors = flexibleAuthorsToDomain(raw.Authors)
+	doc.Tags = flexibleTagsToDomain(raw.Tags)
+	doc.CreatedAt = firstTime(raw.CreatedAt, raw.CreatedAtLegacy)
+	return nil
+}
+
+func (category flexibleBookCategory) toDomain() domain.BookCategory {
+	return domain.BookCategory{CategoryID: firstNonEmpty(category.CategoryID, category.CategoryIDLegacy)}
+}
+
+func (image flexibleBookImage) toDomain() domain.BookImage {
+	return domain.BookImage{
+		IsPrimary: image.IsPrimary || image.IsPrimaryLegacy,
+		Alt:       image.Alt,
+		URL:       image.URL,
+	}
+}
+
+func (series flexibleBookSeries) toDomain() domain.BookSeries {
+	return domain.BookSeries{
+		SeriesID:   firstNonEmpty(series.SeriesID, series.SeriesIDLegacy),
+		SeriesName: firstNonEmpty(series.SeriesName, series.SeriesNameLegacy),
+		SequenceNo: firstNonZero(series.SequenceNo, series.SequenceNoLegacy),
+	}
+}
+
+func (author flexibleBookAuthor) toDomain() domain.BookAuthor {
+	return domain.BookAuthor{
+		AuthorID:   firstNonEmpty(author.AuthorID, author.AuthorIDLegacy),
+		Slug:       author.Slug,
+		AuthorName: firstNonEmpty(author.AuthorName, author.AuthorNameLegacy),
+	}
+}
+
+func (tag flexibleBookTag) toDomain() domain.BookTag {
+	return domain.BookTag{
+		TagID:   firstNonEmpty(tag.TagID, tag.TagIDLegacy),
+		TagName: firstNonEmpty(tag.TagName, tag.TagNameLegacy),
+	}
+}
+
+func flexibleImagesToDomain(images []flexibleBookImage) []domain.BookImage {
+	result := make([]domain.BookImage, 0, len(images))
+	for _, image := range images {
+		result = append(result, image.toDomain())
+	}
+	return result
+}
+
+func flexibleAuthorsToDomain(authors []flexibleBookAuthor) []domain.BookAuthor {
+	result := make([]domain.BookAuthor, 0, len(authors))
+	for _, author := range authors {
+		result = append(result, author.toDomain())
+	}
+	return result
+}
+
+func flexibleTagsToDomain(tags []flexibleBookTag) []domain.BookTag {
+	result := make([]domain.BookTag, 0, len(tags))
+	for _, tag := range tags {
+		result = append(result, tag.toDomain())
+	}
+	return result
+}
+
+func firstNonEmpty(primary, fallback string) string {
+	if primary != "" {
+		return primary
+	}
+	return fallback
+}
+
+func firstNonZero(primary, fallback int) int {
+	if primary != 0 {
+		return primary
+	}
+	return fallback
+}
+
+func firstTime(primary time.Time, fallback any) time.Time {
+	if !primary.IsZero() {
+		return primary
+	}
+
+	switch value := fallback.(type) {
+	case time.Time:
+		return value
+	case primitive.DateTime:
+		return value.Time()
+	case string:
+		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05.999999-07:00"} {
+			parsed, err := time.Parse(layout, value)
+			if err == nil {
+				return parsed
+			}
+		}
+	}
+	return time.Time{}
 }
 
 func bookDocumentFromDomain(book *domain.Book) bookDocument {
@@ -146,22 +321,45 @@ func (r *BookRepository) SearchBooks(ctx context.Context, filter domain.BookFilt
 }
 
 func buildBookSearchQuery(filter domain.BookFilter) bson.D {
-	query := bson.D{}
+	conditions := bson.A{}
+	addCondition := func(condition bson.D) {
+		if len(condition) > 0 {
+			conditions = append(conditions, condition)
+		}
+	}
 
 	if filter.Search != "" {
-		query = append(query, bson.E{Key: "$text", Value: bson.D{{Key: "$search", Value: filter.Search}}})
+		addCondition(anyFieldContainsAllTerms(filter.Search,
+			"name",
+			"shortDescription",
+			"short_description",
+			"detailDescription",
+			"detail_description",
+			"publisher",
+			"authors.authorName",
+			"authors.author_name",
+			"category.categoryName",
+			"category.category_name",
+			"series.seriesName",
+			"series.series_name",
+			"tags.tagName",
+			"tags.tag_name",
+		))
 	}
 	if filter.Author != "" {
-		query = append(query, bson.E{Key: "authors.authorName", Value: filter.Author})
+		addCondition(anyFieldContains(filter.Author, "authors.authorName", "authors.author_name"))
 	}
 	if filter.Category != "" {
-		query = append(query, bson.E{Key: "category.categoryId", Value: filter.Category})
+		addCondition(anyFieldEquals(filter.Category, "category.categoryId", "category.category_id"))
 	}
 	if filter.Publisher != "" {
-		query = append(query, bson.E{Key: "publisher", Value: filter.Publisher})
+		addCondition(anyFieldContains(filter.Publisher, "publisher"))
 	}
 	if filter.Year > 0 {
-		query = append(query, bson.E{Key: "publishYear", Value: filter.Year})
+		addCondition(bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "publishYear", Value: filter.Year}},
+			bson.D{{Key: "publish_year", Value: filter.Year}},
+		}}})
 	}
 	if filter.MinPrice > 0 || filter.MaxPrice > 0 {
 		priceQuery := bson.D{}
@@ -171,10 +369,60 @@ func buildBookSearchQuery(filter domain.BookFilter) bson.D {
 		if filter.MaxPrice > 0 {
 			priceQuery = append(priceQuery, bson.E{Key: "$lte", Value: filter.MaxPrice})
 		}
-		query = append(query, bson.E{Key: "pricing.price", Value: priceQuery})
+		addCondition(bson.D{{Key: "pricing.price", Value: priceQuery}})
 	}
 
-	return query
+	if len(conditions) == 0 {
+		return bson.D{}
+	}
+	if len(conditions) == 1 {
+		if condition, ok := conditions[0].(bson.D); ok {
+			return condition
+		}
+	}
+	return bson.D{{Key: "$and", Value: conditions}}
+}
+
+func anyFieldEquals(value any, fields ...string) bson.D {
+	if len(fields) == 1 {
+		return bson.D{{Key: fields[0], Value: value}}
+	}
+	conditions := make(bson.A, 0, len(fields))
+	for _, field := range fields {
+		conditions = append(conditions, bson.D{{Key: field, Value: value}})
+	}
+	return bson.D{{Key: "$or", Value: conditions}}
+}
+
+func anyFieldContains(value string, fields ...string) bson.D {
+	pattern := regexp.QuoteMeta(strings.TrimSpace(value))
+	if pattern == "" {
+		return bson.D{}
+	}
+	conditions := make(bson.A, 0, len(fields))
+	for _, field := range fields {
+		conditions = append(conditions, bson.D{{Key: field, Value: primitive.Regex{Pattern: pattern, Options: "i"}}})
+	}
+	if len(conditions) == 1 {
+		return conditions[0].(bson.D)
+	}
+	return bson.D{{Key: "$or", Value: conditions}}
+}
+
+func anyFieldContainsAllTerms(value string, fields ...string) bson.D {
+	terms := strings.Fields(value)
+	if len(terms) == 0 {
+		return bson.D{}
+	}
+	if len(terms) == 1 {
+		return anyFieldContains(terms[0], fields...)
+	}
+
+	conditions := make(bson.A, 0, len(terms))
+	for _, term := range terms {
+		conditions = append(conditions, anyFieldContains(term, fields...))
+	}
+	return bson.D{{Key: "$and", Value: conditions}}
 }
 
 func buildBookFindOptions(filter domain.BookFilter) *options.FindOptions {
@@ -190,13 +438,6 @@ func buildBookFindOptions(filter domain.BookFilter) *options.FindOptions {
 	opts := options.Find().
 		SetSkip(int64((page - 1) * pageSize)).
 		SetLimit(int64(pageSize))
-
-	if filter.Search != "" {
-		textScore := bson.D{{Key: "$meta", Value: "textScore"}}
-		return opts.
-			SetProjection(bson.D{{Key: "score", Value: textScore}}).
-			SetSort(bson.D{{Key: "score", Value: textScore}, {Key: "createdAt", Value: -1}})
-	}
 
 	return opts.SetSort(bson.D{{Key: "createdAt", Value: -1}})
 }

@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	bookDetailPrefix = "books:details:" // books:details:{bookID}
-	bookNewestKey    = "books:newest"   // books:newest
-	bookStockPrefix  = "books:stocks:"  // books:stocks:{bookID}
+	bookDetailPrefix = "books:v2:details:" // books:v2:details:{bookID}
+	bookNewestKey    = "books:v2:newest"   // books:v2:newest
+	bookStockPrefix  = "books:stocks:"     // books:stocks:{bookID}
 
 	bookDetailTTL = 60 * time.Minute
 	bookStockTTL  = 5 * time.Minute

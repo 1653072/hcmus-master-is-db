@@ -8,7 +8,6 @@ import (
 	"bookstore/backend/utils/password"
 	"bufio"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -50,6 +49,138 @@ type ExportFiles struct {
 
 func escapeSQL(s string) string {
 	return strings.ReplaceAll(s, "'", "''")
+}
+
+func objectIDOrString(id string) any {
+	if oid, err := primitive.ObjectIDFromHex(id); err == nil {
+		return oid
+	}
+	return id
+}
+
+func writeMongoInsert(file *os.File, collection string, doc any) {
+	jsonData, err := bson.MarshalExtJSON(doc, false, false)
+	if err != nil {
+		log.Printf("failed to marshal Mongo seed for %s: %v", collection, err)
+		return
+	}
+	file.WriteString(fmt.Sprintf("db.%s.insertOne(%s);\n", collection, string(jsonData)))
+}
+
+func categorySeedDocument(cat *domain.Category) bson.M {
+	doc := bson.M{
+		"_id":           objectIDOrString(cat.ID),
+		"category_name": cat.CategoryName,
+		"slug":          cat.Slug,
+		"created_at":    cat.CreatedAt,
+		"updated_at":    cat.UpdatedAt,
+	}
+	if cat.ParentCategory != "" {
+		doc["parent_category"] = cat.ParentCategory
+	}
+	return doc
+}
+
+func bookSeedDocument(book domain.Book) bson.M {
+	authors := bson.A{}
+	for _, author := range book.Authors {
+		authors = append(authors, bson.M{
+			"authorId":   author.AuthorID,
+			"slug":       author.Slug,
+			"authorName": author.AuthorName,
+		})
+	}
+
+	tags := bson.A{}
+	for _, tag := range book.Tags {
+		tags = append(tags, bson.M{
+			"tagId":   tag.TagID,
+			"tagName": tag.TagName,
+		})
+	}
+
+	images := bson.A{}
+	for _, image := range book.Images {
+		images = append(images, bson.M{
+			"isPrimary": image.IsPrimary,
+			"alt":       image.Alt,
+			"url":       image.URL,
+		})
+	}
+
+	return bson.M{
+		"_id":               objectIDOrString(book.ID),
+		"name":              book.Name,
+		"shortDescription":  book.ShortDescription,
+		"detailDescription": book.DetailDescription,
+		"productStatus":     book.ProductStatus,
+		"publisher":         book.Publisher,
+		"publishYear":       book.PublishYear,
+		"pricing": bson.M{
+			"price": book.Pricing.Price,
+		},
+		"category": bson.M{
+			"categoryId": book.Category.CategoryID,
+		},
+		"images": images,
+		"series": bson.M{
+			"seriesId":   book.Series.SeriesID,
+			"seriesName": book.Series.SeriesName,
+			"sequenceNo": book.Series.SequenceNo,
+		},
+		"authors":   authors,
+		"tags":      tags,
+		"createdAt": book.CreatedAt,
+	}
+}
+
+func eventLogSeedDocument(logEntry domain.EventLog) bson.M {
+	return bson.M{
+		"_id":       primitive.NewObjectID(),
+		"userId":    logEntry.UserID,
+		"bookId":    logEntry.BookID,
+		"eventType": logEntry.EventType,
+		"createdAt": logEntry.CreatedAt,
+	}
+}
+
+func writeNeo4jBookGraph(file *os.File, node domain.BookNode) {
+	status := "inactive"
+	if node.IsActive {
+		status = "active"
+	}
+	file.WriteString(fmt.Sprintf("MERGE (b:Book {mongo_id: '%s'}) SET b.title = '%s', b.is_active = %t, b.status = '%s';\n",
+		escapeSQL(node.MongoID), escapeSQL(node.Title), node.IsActive, status))
+
+	for _, categoryID := range node.Categories {
+		if strings.TrimSpace(categoryID) == "" {
+			continue
+		}
+		file.WriteString(fmt.Sprintf("MATCH (b:Book {mongo_id: '%s'}) MERGE (c:Category {categoryId: '%s'}) MERGE (b)-[:BELONGS_TO]->(c);\n",
+			escapeSQL(node.MongoID), escapeSQL(categoryID)))
+	}
+	for _, authorName := range node.Authors {
+		if strings.TrimSpace(authorName) == "" {
+			continue
+		}
+		file.WriteString(fmt.Sprintf("MATCH (b:Book {mongo_id: '%s'}) MERGE (a:Author {name: '%s'}) MERGE (b)-[:WRITTEN_BY]->(a);\n",
+			escapeSQL(node.MongoID), escapeSQL(authorName)))
+	}
+	if strings.TrimSpace(node.Publisher) != "" {
+		file.WriteString(fmt.Sprintf("MATCH (b:Book {mongo_id: '%s'}) MERGE (p:Publisher {name: '%s'}) MERGE (b)-[:PUBLISHED_BY]->(p);\n",
+			escapeSQL(node.MongoID), escapeSQL(node.Publisher)))
+	}
+	for _, tagName := range node.Tags {
+		if strings.TrimSpace(tagName) == "" {
+			continue
+		}
+		file.WriteString(fmt.Sprintf("MATCH (b:Book {mongo_id: '%s'}) MERGE (t:Tag {name: '%s'}) MERGE (b)-[:HAS_TAG]->(t);\n",
+			escapeSQL(node.MongoID), escapeSQL(tagName)))
+	}
+	if strings.TrimSpace(node.SeriesName) != "" {
+		file.WriteString(fmt.Sprintf("MATCH (b:Book {mongo_id: '%s'}) MERGE (s:Series {name: '%s'}) MERGE (b)-[rel:IN_SERIES]->(s) SET rel.sequence_no = %d;\n",
+			escapeSQL(node.MongoID), escapeSQL(node.SeriesName), node.SequenceNo))
+	}
 }
 
 func main() {
@@ -186,15 +317,8 @@ func seedCategories(ctx context.Context, client *mongo.Client, dbName string, ne
 		_, _ = coll.InsertOne(ctx, cat)
 		_ = neoRepo.UpsertCategoryNode(ctx, cat)
 
-		// Export
-		// We need the JSON to have "_id" instead of "id" so that mongo_seed.json will insert with the exact ID.
-		var m map[string]interface{}
-		b, _ := json.Marshal(cat)
-		json.Unmarshal(b, &m)
-		m["_id"] = map[string]string{"$oid": m["id"].(string)}
-		delete(m, "id")
-		jsonData, _ := json.Marshal(m)
-		exports.Mongo.WriteString(fmt.Sprintf("db.categories.insertOne(%s);\n", string(jsonData)))
+		// Export using MongoDB field names so loaded seed files match the live documents.
+		writeMongoInsert(exports.Mongo, "categories", categorySeedDocument(cat))
 		exports.Neo4j.WriteString(fmt.Sprintf("MERGE (c:Category {categoryId: '%s'}) SET c.name = '%s', c.slug = '%s';\n", cat.ID, escapeSQL(cat.CategoryName), cat.Slug))
 		if cat.ParentCategory != "" {
 			exports.Neo4j.WriteString(fmt.Sprintf("MATCH (p:Category {categoryId: '%s'}), (c:Category {categoryId: '%s'}) MERGE (p)-[:PARENT_OF]->(c);\n", cat.ParentCategory, cat.ID))
@@ -257,28 +381,22 @@ func seedBooks(ctx context.Context, client *mongo.Client, dbName string, pgDB *g
 			tagNames = append(tagNames, t.TagName)
 		}
 
-		_ = neoRepo.UpsertBookNode(ctx, domain.BookNode{
+		bookNode := domain.BookNode{
 			MongoID:    mongoID,
 			Title:      book.Name,
 			IsActive:   true,
-			Categories: []string{cat.CategoryName},
+			Categories: []string{cat.ID},
 			Authors:    authorNames,
 			Publisher:  publisher,
 			Tags:       tagNames,
-		})
+		}
+		_ = neoRepo.UpsertBookNode(ctx, bookNode)
 
-		// Export
-		// We need the JSON to have "_id" instead of "id" so that mongo_seed.json will insert with the exact ID.
-		var m map[string]interface{}
-		b, _ := json.Marshal(book)
-		json.Unmarshal(b, &m)
-		m["_id"] = map[string]string{"$oid": m["id"].(string)}
-		delete(m, "id")
-		jsonData, _ := json.Marshal(m)
-		exports.Mongo.WriteString(fmt.Sprintf("db.books.insertOne(%s);\n", string(jsonData)))
+		// Export using MongoDB field names so loaded seed files match the live documents.
+		writeMongoInsert(exports.Mongo, "books", bookSeedDocument(book))
 		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO books_ref (mongo_id, is_active) VALUES ('%s', true);\n", mongoID))
 		exports.Postgres.WriteString(fmt.Sprintf("INSERT INTO inventory (book_id, stock_quantity, updated_at) VALUES ('%s', %d, NOW());\n", mongoID, stock))
-		exports.Neo4j.WriteString(fmt.Sprintf("MERGE (b:Book {mongo_id: '%s'}) SET b.title = '%s', b.is_active = true;\n", mongoID, escapeSQL(book.Name)))
+		writeNeo4jBookGraph(exports.Neo4j, bookNode)
 
 		bookIDs = append(bookIDs, mongoID)
 	}
@@ -606,16 +724,11 @@ func seedViewLogs(ctx context.Context, client *mongo.Client, dbName string, user
 			EventType: "viewed",
 			CreatedAt: time.Now().AddDate(0, 0, -rand.Intn(30)),
 		}
-		if _, err := coll.InsertOne(ctx, logEntry); err != nil {
+		doc := eventLogSeedDocument(logEntry)
+		if _, err := coll.InsertOne(ctx, doc); err != nil {
 			continue
 		}
-		var m map[string]interface{}
-		b, _ := json.Marshal(logEntry)
-		json.Unmarshal(b, &m)
-		m["_id"] = map[string]string{"$oid": m["id"].(string)}
-		delete(m, "id")
-		jsonData, _ := json.Marshal(m)
-		exports.Mongo.WriteString(fmt.Sprintf("db.view_event_logs.insertOne(%s);\n", string(jsonData)))
+		writeMongoInsert(exports.Mongo, "view_event_logs", doc)
 	}
 }
 
@@ -708,7 +821,10 @@ func loadExistingData(ctx context.Context, pgDB *gorm.DB, mongoClient *mongo.Cli
 		for _, q := range queries {
 			q = strings.TrimSpace(q)
 			if q != "" {
-				_, _ = session.Run(ctx, q, nil)
+				result, err := session.Run(ctx, q, nil)
+				if err == nil {
+					_, _ = result.Consume(ctx)
+				}
 			}
 		}
 	}
