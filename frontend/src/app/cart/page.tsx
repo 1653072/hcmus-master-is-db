@@ -12,11 +12,8 @@ import { RouteShell } from '@/components/layout/RouteShell';
 import { Button } from '@/components/ui/button';
 import { cartApi } from '@/lib/api/cart';
 import type { CartItem } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
 import { useCartStore } from '@/stores/cart.store';
-
-function formatPrice(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
-}
 
 export default function Page() {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -129,7 +126,7 @@ export default function Page() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-charcoal">{formatPrice(item.price)}</p>
+                        <p className="text-sm font-semibold text-charcoal">{formatCurrency(item.price, '0 ₫')}</p>
                       </div>
                     </div>
                   </article>
@@ -146,9 +143,9 @@ export default function Page() {
               Freeship từ 149K, áp dụng nếu đơn đủ điều kiện.
             </div>
             <div className="mt-4 space-y-3 text-sm text-graphite">
-              <div className="flex justify-between"><span>Tạm tính</span><span>{formatPrice(subtotal)}</span></div>
-              <div className="flex justify-between"><span>Vận chuyển</span><span>{formatPrice(shipping)}</span></div>
-              <div className="flex justify-between border-t border-stone-surface pt-3 font-medium text-charcoal"><span>Tổng</span><span>{formatPrice(grandTotal)}</span></div>
+              <div className="flex justify-between"><span>Tạm tính</span><span>{formatCurrency(subtotal, '0 ₫')}</span></div>
+              <div className="flex justify-between"><span>Vận chuyển</span><span>{formatCurrency(shipping, '0 ₫')}</span></div>
+              <div className="flex justify-between border-t border-stone-surface pt-3 font-medium text-charcoal"><span>Tổng</span><span>{formatCurrency(grandTotal, '0 ₫')}</span></div>
             </div>
             <Button className="mt-6 w-full" onClick={handleCheckout} disabled={items.length === 0}>
               Thanh toán

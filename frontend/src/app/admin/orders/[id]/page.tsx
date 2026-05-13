@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { ordersApi } from '@/lib/api/orders';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import type { Shipment } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
 
 const STATUS_FLOW = ['pending', 'confirmed', 'packing', 'shipping', 'completed', 'cancelled'] as const;
 
@@ -106,15 +107,15 @@ export default function Page() {
               <div key={i} className="flex items-center justify-between gap-4 rounded-xl border border-stone-100 bg-stone-50/60 px-4 py-3">
                 <div>
                   <p className="font-semibold text-zinc-900">{item.name}</p>
-                  <p className="mt-0.5 text-xs text-zinc-500">Qty: {item.quantity} × ${item.unit_price?.toFixed(2)}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">Qty: {item.quantity} × {formatCurrency(item.unit_price, '0 ₫')}</p>
                 </div>
-                <p className="text-sm font-semibold text-zinc-700">${(item.quantity * item.unit_price).toFixed(2)}</p>
+                <p className="text-sm font-semibold text-zinc-700">{formatCurrency(item.quantity * item.unit_price, '0 ₫')}</p>
               </div>
             ))}
           </div>
           <div className="mt-4 flex justify-end border-t border-stone-100 pt-4">
             <p className="text-sm text-zinc-500">
-              Total: <span className="ml-1 font-display text-xl font-bold text-zinc-900">${order.total_amount?.toFixed(2)}</span>
+              Total: <span className="ml-1 font-display text-xl font-bold text-zinc-900">{formatCurrency(order.total_amount, '0 ₫')}</span>
             </p>
           </div>
         </div>
