@@ -15,12 +15,12 @@ interface CategoryPillsProps {
 export function CategoryPills({ categories }: CategoryPillsProps) {
   return (
     <CommerceSection>
-      <div className="mb-8 flex items-end justify-between gap-4">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-ember">Danh mục</p>
-          <h2 className="mt-2 text-[32px] font-semibold leading-tight text-charcoal md:text-[40px]">Chọn nhanh theo gu đọc</h2>
+          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-ash">Danh mục</p>
+          <h2 className="mt-2 text-[28px] font-semibold leading-tight text-charcoal md:text-[34px]">Chọn nhanh theo gu đọc</h2>
         </div>
-        <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-coral-red" href="/categories">
+        <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-charcoal" href="/categories">
           Xem tất cả
           <ArrowRight className="h-4 w-4" />
         </Link>
@@ -35,10 +35,9 @@ export function CategoryPills({ categories }: CategoryPillsProps) {
             <Link
               key={href || label}
               href={href ? `/categories/${href}` : '/categories'}
-              className="inline-flex min-h-14 shrink-0 items-center gap-3 rounded-cards bg-white px-4 py-3 text-[14px] font-medium text-graphite transition hover:-translate-y-0.5 hover:bg-parchment hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35"
-              style={{ boxShadow: 'var(--shadow-subtle)' }}
+              className="group inline-flex min-h-14 shrink-0 items-center gap-3 rounded-cards border border-stone-surface bg-white px-4 py-3 text-[14px] font-medium text-graphite shadow-subtle transition hover:-translate-y-0.5 hover:bg-parchment hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-icons bg-ember/10 text-ember">
+              <span className="flex h-10 w-10 items-center justify-center rounded-icons bg-parchment text-graphite transition group-hover:text-ember">
                 <BookOpen className="h-4 w-4" />
               </span>
               <span>{label}</span>

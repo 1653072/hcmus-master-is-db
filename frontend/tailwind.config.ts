@@ -50,6 +50,7 @@ const config: Config = {
         'subtle-3': 'var(--shadow-subtle-3)',
         'card-lg': 'var(--shadow-lg)',
         'card-hover': 'var(--shadow-sm)',
+        float: 'var(--shadow-float)',
       },
       maxWidth: {
         page: 'var(--page-max-width)',

@@ -47,6 +47,12 @@ const trustItems = [
   ['Sách chính hãng', ShieldCheck],
 ] as const;
 
+const MAX_CATEGORIES_PER_GROUP = 5;
+
+function getCategoryGroupName(categoryName: string) {
+  return categoryName.trim().split(/\s+/)[0] || 'Khác';
+}
+
 export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
@@ -81,7 +87,7 @@ export function SiteHeader() {
 
   useEffect(() => {
     setMounted(true);
-    categoriesApi.list({ page_size: 50 })
+    categoriesApi.list({ page_size: 500 })
       .then((res) => {
         const cats = Array.isArray((res as any).data) ? (res as any).data : [];
         setFetchedCategories(Array.from(new Map(cats.map((cat: Category) => [cat.category_name, cat])).values()) as Category[]);
@@ -213,29 +219,47 @@ export function SiteHeader() {
     router.push('/');
   }, [clearAuth, router]);
 
+  const categoryGroups = fetchedCategories.reduce<Array<{ name: string; items: Category[] }>>((groups, category) => {
+    if (!category.category_name?.trim()) return groups;
+
+    const groupName = getCategoryGroupName(category.category_name);
+    const existingGroup = groups.find((group) => group.name === groupName);
+    if (existingGroup) {
+      if (existingGroup.items.length < MAX_CATEGORIES_PER_GROUP) {
+        existingGroup.items.push(category);
+      }
+      return groups;
+    }
+
+    groups.push({ name: groupName, items: [category] });
+    return groups;
+  }, []);
+
   const categoryItems = fetchedCategories.slice(0, 10).map((cat) => [
     cat.category_name,
-    `/books?category=${encodeURIComponent(cat.id)}`,
+    `/categories/${encodeURIComponent(cat.slug || cat.id)}`,
   ] as const);
   const isActive = (href: string) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
 
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-40 border-b border-stone-surface bg-canvas">
-        <div className="bg-midnight text-white">
-          <div className="mx-auto flex h-9 max-w-page items-center justify-between gap-4 px-4 text-[12px] font-medium sm:px-6 lg:px-10 xl:px-24">
-            <div className="flex min-w-0 items-center gap-4 overflow-hidden">
-              {trustItems.map(([label, Icon]) => (
-                <span key={label} className="hidden items-center gap-1.5 whitespace-nowrap sm:inline-flex">
-                  <Icon className="h-3.5 w-3.5 text-sunburst" aria-hidden="true" />
-                  {label}
-                </span>
-              ))}
-              <span className="truncate sm:hidden">Freeship từ 149K, voucher mới mỗi ngày</span>
+        <div className="border-b border-stone-surface bg-parchment text-graphite">
+          <div className="mx-auto flex h-9 max-w-page items-center px-4 text-[12px] font-medium sm:px-6 lg:px-10 xl:px-24">
+            <div className="header-content-loop min-w-0 flex-1" aria-label="Freeship từ 149K, voucher mới mỗi ngày, sách chính hãng">
+              <div className="header-content-loop-track">
+                {[0, 1].map((groupIndex) => (
+                  <div key={groupIndex} className="flex items-center gap-8 pr-8" aria-hidden={groupIndex === 1}>
+                    {trustItems.map(([label, Icon]) => (
+                      <span key={`${groupIndex}-${label}`} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                        <Icon className="h-3.5 w-3.5 text-ember" aria-hidden="true" />
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
-            <Link href="/books" className="shrink-0 text-sunburst transition hover:text-white">
-              Săn deal hôm nay
-            </Link>
           </div>
         </div>
 
@@ -252,7 +276,7 @@ export function SiteHeader() {
           </button>
 
           <Link href="/" className="flex shrink-0 items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35" aria-label="Paper Haven">
-            <span className="flex h-10 w-10 items-center justify-center rounded-buttons bg-ember text-[13px] font-bold text-white">
+            <span className="flex h-10 w-10 items-center justify-center rounded-buttons bg-charcoal text-[13px] font-bold text-white">
               PH
             </span>
             <span className="hidden text-[18px] font-semibold text-charcoal sm:block">Paper Haven</span>
@@ -270,34 +294,37 @@ export function SiteHeader() {
             </button>
 
             <div
-              className={`absolute left-0 top-[calc(100%+12px)] w-[560px] origin-top-left rounded-cards-lg border border-stone-surface bg-white p-5 shadow-[0_24px_54px_-28px_rgba(36,33,30,0.35)] transition duration-200 ${
+              className={`absolute left-0 top-[calc(100%+12px)] w-[min(1040px,calc(100vw-4rem))] origin-top-left rounded-cards-lg border border-stone-surface bg-white p-5 shadow-float transition duration-200 ${
                 megaOpen ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'
               }`}
             >
-              <div className="grid gap-6 md:grid-cols-[1.15fr_0.85fr]">
-                <div>
-                  <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-ash">Danh mục sách</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {categoryItems.length === 0 ? (
-                      <p className="col-span-2 rounded-cards bg-parchment p-3 text-sm text-ash">Chưa có danh mục.</p>
-                    ) : categoryItems.map(([label, href]) => (
-                      <Link key={label} href={href} onClick={() => setMegaOpen(false)} className="rounded-cards px-3 py-2 text-sm font-medium text-graphite transition hover:bg-parchment hover:text-ember">
-                        {label}
-                      </Link>
+              <div className="max-h-[72vh] overflow-y-auto pr-1">
+                <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-ash">Danh mục sách</p>
+                {categoryGroups.length === 0 ? (
+                  <p className="mt-3 rounded-cards bg-parchment p-3 text-sm text-ash">Chưa có danh mục.</p>
+                ) : (
+                  <div className="mt-4 grid gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-4">
+                    {categoryGroups.map((group) => (
+                      <section key={group.name} aria-labelledby={`mega-category-${group.name}`} className="min-w-0">
+                        <h3 id={`mega-category-${group.name}`} className="text-[13px] font-semibold text-charcoal">
+                          {group.name}
+                        </h3>
+                        <div className="mt-2 grid gap-1.5">
+                          {group.items.map((category) => (
+                            <Link
+                              key={category.id || category.slug || category.category_name}
+                              href={`/categories/${encodeURIComponent(category.slug || category.id)}`}
+                              onClick={() => setMegaOpen(false)}
+                              className="line-clamp-1 rounded-cards px-2.5 py-1.5 text-[13px] font-medium text-graphite transition hover:bg-parchment hover:text-ember focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35"
+                            >
+                              {category.category_name}
+                            </Link>
+                          ))}
+                        </div>
+                      </section>
                     ))}
                   </div>
-                </div>
-                <div>
-                  <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-ash">Đang hot</p>
-                  <div className="mt-3 space-y-2">
-                    {trendLinks.map(([label, href]) => (
-                      <Link key={label} href={href} onClick={() => setMegaOpen(false)} className="flex items-center gap-2 rounded-cards px-3 py-2 text-sm font-medium text-graphite transition hover:bg-parchment hover:text-ember">
-                        <BookOpen className="h-4 w-4 text-ember" aria-hidden="true" />
-                        {label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -410,7 +437,7 @@ export function SiteHeader() {
             </button>
 
             <div
-              className={`absolute right-0 top-[calc(100%+12px)] w-56 origin-top-right rounded-cards-lg border border-stone-surface bg-white py-1.5 shadow-[0_24px_54px_-28px_rgba(36,33,30,0.35)] transition duration-200 ${
+              className={`absolute right-0 top-[calc(100%+12px)] w-56 origin-top-right rounded-cards-lg border border-stone-surface bg-white py-1.5 shadow-float transition duration-200 ${
                 userMenuOpen ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'
               }`}
               role="menu"
@@ -485,7 +512,7 @@ export function SiteHeader() {
       <div className="h-[117px] lg:h-[157px]" aria-hidden="true" />
 
       <div
-        className={`fixed inset-x-4 top-[124px] z-50 origin-top rounded-cards-lg border border-stone-surface bg-white p-3 shadow-[0_24px_54px_-28px_rgba(36,33,30,0.35)] transition duration-200 lg:hidden ${
+        className={`fixed inset-x-4 top-[124px] z-50 origin-top rounded-cards-lg border border-stone-surface bg-white p-3 shadow-float transition duration-200 lg:hidden ${
           mobileOpen ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
         }`}
         role="menu"
@@ -501,7 +528,7 @@ export function SiteHeader() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   'rounded-cards px-3 py-2 text-sm font-medium transition',
-                  isActive(href) ? 'bg-ember text-white' : 'bg-parchment text-charcoal',
+                  isActive(href) ? 'bg-charcoal text-white' : 'bg-parchment text-charcoal',
                 )}
                 aria-current={isActive(href) ? 'page' : undefined}
               >
@@ -517,24 +544,6 @@ export function SiteHeader() {
               </Link>
             ))}
           </div>
-          <div className="my-1 border-t border-stone-surface" />
-          <p className="px-2 text-[12px] font-medium uppercase tracking-[0.18em] text-ash">Xếp hạng</p>
-          {trendLinks.map(([label, href]) => (
-            <Link
-              key={label}
-              href={href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                'flex items-center gap-2 rounded-cards px-3 py-2 text-sm font-medium transition hover:bg-parchment hover:text-ember',
-                isActive(href) ? 'bg-parchment text-ember' : 'text-graphite',
-              )}
-              role="menuitem"
-              aria-current={isActive(href) ? 'page' : undefined}
-            >
-              <BookOpen className="h-4 w-4 text-ember" aria-hidden="true" />
-              {label}
-            </Link>
-          ))}
           <div className="my-1 border-t border-stone-surface" />
           <Link href="/cart" onClick={() => setMobileOpen(false)} className="rounded-cards px-3 py-2 text-sm font-medium text-graphite">Giỏ hàng</Link>
           {mounted && user ? (

@@ -9,7 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-ember text-white rounded-buttons hover:bg-coral-red shadow-none',
+        primary: 'bg-ember text-white rounded-buttons hover:bg-ember/90 shadow-none',
         secondary: 'bg-[var(--color-cta-light-bg)] text-midnight rounded-buttons hover:bg-stone-surface',
         outline: 'border border-graphite/25 bg-white text-graphite rounded-buttons hover:border-ember/50 hover:text-charcoal',
         ghost: 'bg-transparent rounded-none text-ember hover:text-ember/80 underline-offset-4 hover:underline',

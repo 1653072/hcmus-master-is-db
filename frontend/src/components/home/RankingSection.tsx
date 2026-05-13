@@ -12,9 +12,9 @@ interface RankingSectionProps {
 
 const sectionRoutes = ['/best-sellers', '/most-viewed/30days', '/most-viewed/daily'];
 
-const rankColors = ['bg-sunburst', 'bg-ash/30', 'bg-ember/20'];
-const rankTextColors = ['text-deep-amber', 'text-graphite', 'text-ember'];
-const barColors = ['bg-sunburst', 'bg-sky-accent', 'bg-ember/40', 'bg-stone-surface', 'bg-meadow/40'];
+const rankColors = ['bg-sunburst', 'bg-parchment', 'bg-parchment'];
+const rankTextColors = ['text-deep-amber', 'text-graphite', 'text-graphite'];
+const barColors = ['bg-ember', 'bg-smoke', 'bg-fog', 'bg-stone-surface', 'bg-stone-surface'];
 
 export function RankingSection({ titles }: RankingSectionProps) {
   const [bestSellers, setBestSellers] = useState<any[] | null>(null);
@@ -49,27 +49,26 @@ export function RankingSection({ titles }: RankingSectionProps) {
   ];
 
   return (
-    <CommerceSection className="pt-16">
-      <div className="mb-8 flex items-end justify-between gap-4">
+    <CommerceSection className="pt-[var(--section-y-lg)]">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-ember">Bảng xếp hạng</p>
-          <h2 className="mt-2 text-[32px] font-semibold leading-tight text-charcoal md:text-[40px]">Đang được mua và xem nhiều</h2>
+          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-ash">Bảng xếp hạng</p>
+          <h2 className="mt-2 text-[28px] font-semibold leading-tight text-charcoal md:text-[34px]">Đang được mua và xem nhiều</h2>
         </div>
-        <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-coral-red" href="/best-sellers">
+        <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-charcoal" href="/best-sellers">
           Xem tất cả
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
-      {/* Ranking card — white with inset stone border */}
-      <CommercePanel className="p-6 md:p-8">
-        <div className="grid gap-10 lg:grid-cols-3 lg:gap-12">
+      <CommercePanel className="p-5 md:p-7">
+        <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
           {sections.map((section, sectionIndex) => (
             <div key={section.header} className="flex flex-col">
               <div className="mb-6">
                 <Link href={sectionRoutes[sectionIndex]} className="group flex flex-col gap-1.5">
-                  <h3 className="text-[19px] font-medium text-charcoal transition group-hover:text-ember">{section.header}</h3>
-                  <p className="text-[13px] tracking-[-0.17px] text-ash">{section.type}</p>
+                  <h3 className="text-[18px] font-semibold text-charcoal transition group-hover:text-ember">{section.header}</h3>
+                  <p className="text-[13px] text-ash">{section.type}</p>
                 </Link>
               </div>
               <div className="flex flex-col">
@@ -83,7 +82,7 @@ export function RankingSection({ titles }: RankingSectionProps) {
                       {/* Rank badge */}
                       <div className="flex w-6 shrink-0 justify-center">
                         {index < 3 ? (
-                          <div className={`flex h-7 w-7 items-center justify-center rounded-full ${rankColors[index]} text-[13px] font-medium ${rankTextColors[index]}`}>
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-full ${rankColors[index]} text-[13px] font-semibold ${rankTextColors[index]}`}>
                             {index + 1}
                           </div>
                         ) : (
@@ -102,7 +101,7 @@ export function RankingSection({ titles }: RankingSectionProps) {
                       </div>
 
                       {/* Score */}
-                      <div className="shrink-0 pt-6 text-[13px] tracking-[-0.17px] text-ash whitespace-nowrap">
+                      <div className="shrink-0 pt-6 text-[13px] text-ash whitespace-nowrap">
                         {section.getLabel(row)}
                       </div>
                     </Link>

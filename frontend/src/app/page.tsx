@@ -110,7 +110,7 @@ export default function Page() {
             <RankingSection titles={['Sách bán chạy', 'Xem nhiều trong tháng', 'Đang hot hôm nay']} />
             <CategoryPills categories={categories} />
             <BooksGridSection title="Gợi ý dành cho bạn" books={featuredBooks.slice(0, 4)} subtitle="Chọn nhanh các đầu sách đang có sẵn trong hệ thống." />
-            <BooksGridSection title="Sách mới về" books={featuredBooks.slice(0, 5)} subtitle="Cập nhật từ kho sách mới nhất, sẵn sàng thêm vào giỏ." backgroundClassName="bg-parchment/50" />
+            <BooksGridSection title="Sách mới về" books={featuredBooks.slice(0, 5)} subtitle="Cập nhật từ kho sách mới nhất, sẵn sàng thêm vào giỏ." />
             <OrderJourneySection />
             <Footer />
           </>

@@ -1,5 +1,5 @@
 /**
- * Family Design System — Token Reference
+ * White Commerce Design System — Token Reference
  *
  * These tokens mirror the CSS custom properties in globals.css and
  * the Tailwind theme extensions.  Import when inline styles are
@@ -8,6 +8,7 @@
 
 export const designTokens = {
   colors: {
+    whiteCanvas: 'var(--color-warm-canvas)',
     warmCanvas: 'var(--color-warm-canvas)',
     stoneSurface: 'var(--color-stone-surface)',
     parchmentCard: 'var(--color-parchment-card)',
@@ -57,10 +58,11 @@ export const designTokens = {
     illustrations: 'var(--radius-illustrations)',
   },
   spacing: {
-    pageX: 'var(--spacing-96)',
-    sectionY: 'var(--spacing-120)',
-    cardPad: 'var(--spacing-32)',
-    elementGap: 'var(--spacing-12)',
+    sectionY: 'var(--section-y)',
+    sectionYLarge: 'var(--section-y-lg)',
+    productGridGap: 'var(--product-grid-gap)',
+    panelPad: 'var(--panel-padding)',
+    cardPad: 'var(--card-padding)',
   },
   typography: {
     display: "var(--font-sans)",
@@ -70,6 +72,7 @@ export const designTokens = {
     subtle: 'var(--shadow-subtle)',
     cardHover: 'var(--shadow-sm)',
     lg: 'var(--shadow-lg)',
+    float: 'var(--shadow-float)',
     nav: 'var(--shadow-subtle-3)',
   },
   layout: {

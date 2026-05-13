@@ -46,7 +46,7 @@ export function HeroSection() {
 
   return (
     <section className="bg-canvas">
-      <div className="mx-auto max-w-page px-4 py-6 sm:px-6 lg:px-10 lg:py-8 xl:px-24">
+      <div className="mx-auto max-w-page px-4 py-5 sm:px-6 lg:px-10 lg:py-7 xl:px-24">
         <div className="relative overflow-hidden rounded-cards-lg bg-midnight shadow-card-lg">
           <div
             className="flex transition-transform duration-500 ease-out"
@@ -65,14 +65,14 @@ export function HeroSection() {
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,var(--surface-dark-shell)_0%,oklch(18.7%_0.014_58_/_0.76)_36%,oklch(18.7%_0.014_58_/_0.18)_76%)]" />
                 <div className="relative flex min-h-[260px] max-w-[620px] flex-col justify-center px-5 py-8 sm:min-h-[320px] sm:px-8 lg:min-h-[390px] lg:px-10">
-                  <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-sunburst">{banner.eyebrow}</p>
-                  <h1 className="mt-3 font-display text-[clamp(2.1rem,5vw,4.1rem)] font-semibold leading-[1.03] text-white">
+                  <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-sunburst">{banner.eyebrow}</p>
+                  <h1 className="mt-3 font-display text-[34px] font-semibold leading-[1.08] text-white sm:text-[44px] lg:text-[54px]">
                     {banner.title}
                   </h1>
                   <p className="mt-4 max-w-[480px] text-[15px] leading-6 text-white/78 sm:text-[16px]">
                     {banner.description}
                   </p>
-                  <span className="mt-6 inline-flex h-11 w-fit items-center rounded-buttons bg-ember px-5 text-sm font-medium text-white transition group-hover:bg-coral-red">
+                  <span className="mt-6 inline-flex h-11 w-fit items-center rounded-buttons bg-ember px-5 text-sm font-medium text-white transition group-hover:bg-ember/90">
                     {banner.cta}
                   </span>
                 </div>
@@ -104,7 +104,7 @@ export function HeroSection() {
                 type="button"
                 onClick={() => goTo(index)}
                 className={`h-2.5 rounded-full transition ${
-                  activeIndex === index ? 'w-8 bg-sunburst' : 'w-2.5 bg-white/55 hover:bg-white/80'
+                  activeIndex === index ? 'w-8 bg-white' : 'w-2.5 bg-white/55 hover:bg-white/80'
                 }`}
                 aria-label={`Chuyển đến banner ${index + 1}`}
                 aria-current={activeIndex === index ? 'true' : undefined}

@@ -2,49 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Friendly marketplace bookstore design system */
+/* Clean white marketplace bookstore design system */
 
 :root {
   color-scheme: light;
 
   --color-warm-canvas: oklch(100% 0 0);
-  --color-stone-surface: oklch(92.4% 0.018 78);
-  --color-parchment-card: oklch(96.5% 0.014 80);
-  --color-graphite: oklch(39.5% 0.018 72);
-  --color-charcoal-primary: oklch(25.8% 0.016 64);
-  --color-midnight: oklch(22.2% 0.015 58);
-  --color-ash: oklch(56.2% 0.018 74);
-  --color-fog: oklch(78.4% 0.022 76);
-  --color-smoke: oklch(68.2% 0.02 74);
-  --color-pepper: oklch(28.6% 0.016 62);
-  --color-ember-orange: oklch(57.5% 0.145 38);
-  --color-meadow-green: oklch(55.4% 0.124 151);
-  --color-sky-blue: oklch(55.6% 0.063 224);
-  --color-sunburst-yellow: oklch(73.6% 0.116 83);
-  --color-deep-amber: oklch(52.4% 0.101 76);
-  --color-ocean-blue: oklch(43.8% 0.066 230);
-  --color-ice-blue: oklch(91.7% 0.026 226);
-  --color-spearmint: oklch(92.2% 0.04 154);
-  --color-flamingo: oklch(64.2% 0.116 20);
-  --color-violet-pop: oklch(53.8% 0.055 306);
-  --color-coral-red: oklch(49.8% 0.148 31);
-  --color-valid-green: oklch(48.4% 0.118 151);
+  --color-stone-surface: oklch(91.8% 0 0);
+  --color-parchment-card: oklch(97.4% 0 0);
+  --color-graphite: oklch(39.5% 0 0);
+  --color-charcoal-primary: oklch(23.8% 0 0);
+  --color-midnight: oklch(20.8% 0 0);
+  --color-ash: oklch(57% 0 0);
+  --color-fog: oklch(81.5% 0 0);
+  --color-smoke: oklch(69% 0 0);
+  --color-pepper: oklch(29% 0 0);
+  --color-ember-orange: oklch(55.6% 0.112 39);
+  --color-meadow-green: oklch(53.6% 0.074 151);
+  --color-sky-blue: oklch(57.2% 0.04 224);
+  --color-sunburst-yellow: oklch(76.8% 0.074 82);
+  --color-deep-amber: oklch(50.8% 0.07 76);
+  --color-ocean-blue: oklch(43.8% 0.044 230);
+  --color-ice-blue: oklch(94.6% 0.014 226);
+  --color-spearmint: oklch(94.4% 0.018 154);
+  --color-flamingo: oklch(62.6% 0.076 20);
+  --color-violet-pop: oklch(54.8% 0.038 306);
+  --color-coral-red: oklch(50.6% 0.112 31);
+  --color-valid-green: oklch(49.4% 0.08 151);
 
   --surface-canvas: oklch(100% 0 0);
   --surface-card: oklch(100% 0 0);
-  --surface-recessed: oklch(96.5% 0.014 80);
-  --surface-recessed-panel: oklch(96.5% 0.014 80);
-  --surface-stone-tint: oklch(93.8% 0.018 78);
-  --surface-dark-shell: oklch(22.2% 0.015 58);
-  --color-cta-light-bg: oklch(95.8% 0.02 75);
+  --surface-recessed: oklch(97.4% 0 0);
+  --surface-recessed-panel: oklch(97.4% 0 0);
+  --surface-stone-tint: oklch(95.2% 0 0);
+  --surface-dark-shell: oklch(20.8% 0 0);
+  --color-cta-light-bg: oklch(96.8% 0 0);
 
-  --shadow-subtle: oklch(25.8% 0.016 64 / 0.1) 0px 0px 0px 1px inset;
-  --shadow-subtle-3: oklch(25.8% 0.016 64 / 0.08) 0px 0px 0px 1px;
-  --shadow-lg: oklch(31% 0.04 55 / 0.14) 0px 20px 48px -20px;
-  --shadow-sm: oklch(31% 0.04 55 / 0.08) 0px 10px 30px -18px, oklch(25.8% 0.016 64 / 0.08) 0px 0px 0px 1px;
+  --shadow-subtle: oklch(23.8% 0 0 / 0.08) 0px 0px 0px 1px inset;
+  --shadow-subtle-3: oklch(23.8% 0 0 / 0.07) 0px 0px 0px 1px;
+  --shadow-lg: oklch(23.8% 0 0 / 0.11) 0px 22px 54px -28px;
+  --shadow-sm: oklch(23.8% 0 0 / 0.07) 0px 12px 28px -22px, oklch(23.8% 0 0 / 0.07) 0px 0px 0px 1px;
+  --shadow-float: oklch(23.8% 0 0 / 0.12) 0px 24px 54px -30px, oklch(23.8% 0 0 / 0.07) 0px 0px 0px 1px;
 
   --page-max-width: 1240px;
-  --card-padding: 24px;
+  --section-y: 44px;
+  --section-y-lg: 56px;
+  --product-grid-gap: 18px;
+  --panel-padding: 24px;
+  --card-padding: 18px;
 
   --radius-tags: 6px;
   --radius-cards: 8px;
@@ -190,6 +195,41 @@ body {
 
 .commerce-rail::-webkit-scrollbar {
   display: none;
+}
+
+@keyframes header-content-loop {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.header-content-loop {
+  mask-image: linear-gradient(90deg, transparent, black 24px, black calc(100% - 24px), transparent);
+  overflow: hidden;
+}
+
+.header-content-loop-track {
+  animation: header-content-loop 22s linear infinite;
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.header-content-loop:hover .header-content-loop-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-content-loop {
+    mask-image: none;
+  }
+
+  .header-content-loop-track {
+    animation: none;
+  }
 }
 
 @keyframes shimmer-x {

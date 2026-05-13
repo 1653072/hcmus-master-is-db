@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 import { RouteShell } from '@/components/layout/RouteShell';
 import { booksApi } from '@/lib/api/books';
+import { getAuthorAvatarUrl } from '@/lib/avatars';
 import type { BookAuthor } from '@/lib/types';
 
 type AuthorSummary = BookAuthor & {
@@ -86,22 +87,28 @@ export default function Page() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {authors.map((author) => (
-              <Link
-                key={author.author_name}
-                href={`/books?author=${encodeURIComponent(author.author_name)}`}
-                className="group rounded-cards-lg bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
-                style={{ boxShadow: 'var(--shadow-subtle)' }}
-              >
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-parchment font-display text-2xl text-charcoal">
-                  {author.author_name.slice(0, 1).toUpperCase()}
-                </div>
-                <h2 className="mt-4 text-[19px] font-semibold tracking-[-0.25px] text-charcoal group-hover:text-ember">{author.author_name}</h2>
-                <p className="mt-2 text-[13px] tracking-[-0.17px] text-graphite">
-                  {author.book_count} dau sach trong kho
-                </p>
-              </Link>
-            ))}
+            {authors.map((author) => {
+              const avatarUrl = getAuthorAvatarUrl(author.author_id || author.author_name);
+
+              return (
+                <Link
+                  key={author.author_name}
+                  href={`/books?author=${encodeURIComponent(author.author_name)}`}
+                  className="group rounded-cards-lg border border-stone-surface bg-white p-5 shadow-subtle transition duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35"
+                >
+                  <div
+                    className="h-20 w-20 rounded-full border border-stone-surface bg-white bg-cover bg-center"
+                    style={{ backgroundImage: `url("${avatarUrl}")` }}
+                    role="img"
+                    aria-label={`Ảnh đại diện ${author.author_name}`}
+                  />
+                  <h2 className="mt-4 text-[19px] font-semibold text-charcoal group-hover:text-ember">{author.author_name}</h2>
+                  <p className="mt-2 text-[13px] text-graphite">
+                    {author.book_count} đầu sách trong kho
+                  </p>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>

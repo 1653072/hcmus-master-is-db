@@ -23,12 +23,12 @@ export function BooksGridSection({
   seeAllHref = '/books',
 }: BooksGridSectionProps) {
   return (
-    <CommerceSection className={`py-14 ${backgroundClassName ?? ''}`}>
+    <CommerceSection className={`py-[var(--section-y-lg)] ${backgroundClassName ?? ''}`}>
       <SectionHeader
         title={title}
         subtitle={subtitle}
         action={
-          <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-coral-red" href={seeAllHref}>
+          <Link className="inline-flex items-center gap-2 text-[14px] font-medium text-ember transition hover:text-charcoal" href={seeAllHref}>
             Xem tất cả
             <ArrowRight className="h-4 w-4" />
           </Link>
