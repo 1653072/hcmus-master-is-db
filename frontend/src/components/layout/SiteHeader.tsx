@@ -19,8 +19,11 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 
+import type { FeaturedBook } from '@/components/books/book-card';
+import { booksApi } from '@/lib/api/books';
 import { categoriesApi } from '@/lib/api/categories';
 import { authApi } from '@/lib/api/auth';
+import { toFeaturedBook } from '@/lib/books';
 import { cn } from '@/lib/utils';
 import type { Category } from '@/lib/types';
 import { useAuthStore } from '@/stores/auth.store';
@@ -30,7 +33,6 @@ const primaryLinks = [
   ['Tất cả sách', '/books'],
   ['Danh mục', '/categories'],
   ['Tác giả', '/authors'],
-  ['Tìm kiếm', '/search'],
 ] as const;
 
 const trendLinks = [
@@ -52,10 +54,15 @@ export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<FeaturedBook[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [highlightedSuggestion, setHighlightedSuggestion] = useState(-1);
   const [mounted, setMounted] = useState(false);
   const [fetchedCategories, setFetchedCategories] = useState<Category[]>([]);
   const megaRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLFormElement>(null);
 
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -66,6 +73,7 @@ export function SiteHeader() {
     function handleClick(e: MouseEvent) {
       if (megaRef.current && !megaRef.current.contains(e.target as Node)) setMegaOpen(false);
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -101,26 +109,98 @@ export function SiteHeader() {
   }, [mobileOpen]);
 
   useEffect(() => {
+    const q = searchQuery.trim();
+    setHighlightedSuggestion(-1);
+
+    if (q.length < 2) {
+      setSearchSuggestions([]);
+      setSearchLoading(false);
+      setSearchOpen(false);
+      return;
+    }
+
+    let active = true;
+    setSearchLoading(true);
+    setSearchOpen(true);
+    const timeout = window.setTimeout(async () => {
+      try {
+        const res = await booksApi.search({ page: 1, page_size: 5, search: q });
+        const list = Array.isArray((res as any).data) ? ((res as any).data as unknown[]) : [];
+        if (!active) return;
+        setSearchSuggestions(list.map((book, index) => toFeaturedBook(book as any, index)));
+        setSearchOpen(true);
+      } catch {
+        if (active) setSearchSuggestions([]);
+      } finally {
+        if (active) setSearchLoading(false);
+      }
+    }, 260);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
     setMobileOpen(false);
     setMegaOpen(false);
     setUserMenuOpen(false);
+    setSearchOpen(false);
+    setHighlightedSuggestion(-1);
   }, [pathname]);
+
+  const resetSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchSuggestions([]);
+    setSearchOpen(false);
+    setHighlightedSuggestion(-1);
+    setMobileOpen(false);
+  }, []);
 
   const handleSearch = useCallback(
     (e: FormEvent) => {
       e.preventDefault();
       const q = searchQuery.trim();
       if (!q) return;
-      router.push(`/search?q=${encodeURIComponent(q)}`);
-      setSearchQuery('');
-      setMobileOpen(false);
+      router.push(`/books?search=${encodeURIComponent(q)}`);
+      resetSearch();
     },
-    [router, searchQuery],
+    [resetSearch, router, searchQuery],
   );
 
-  const handleSearchKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') (e.target as HTMLInputElement).blur();
-  }, []);
+  const handleSearchKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setHighlightedSuggestion(-1);
+        (e.target as HTMLInputElement).blur();
+        return;
+      }
+
+      if (!searchOpen || searchSuggestions.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedSuggestion((current) => (current + 1) % searchSuggestions.length);
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedSuggestion((current) => (current <= 0 ? searchSuggestions.length - 1 : current - 1));
+      }
+
+      if (e.key === 'Enter' && highlightedSuggestion >= 0) {
+        const book = searchSuggestions[highlightedSuggestion];
+        if (book?.id) {
+          e.preventDefault();
+          router.push(`/books/${book.id}`);
+          resetSearch();
+        }
+      }
+    },
+    [highlightedSuggestion, resetSearch, router, searchOpen, searchSuggestions],
+  );
 
   const handleLogout = useCallback(async () => {
     try {
@@ -222,18 +302,85 @@ export function SiteHeader() {
             </div>
           </div>
 
-          <form onSubmit={handleSearch} className="relative min-w-0 flex-1">
+          <form ref={searchRef} onSubmit={handleSearch} className="relative min-w-0 flex-1">
             <label className="flex h-11 w-full items-center gap-3 rounded-buttons border border-stone-surface bg-white px-4 transition focus-within:border-ember/45 focus-within:ring-2 focus-within:ring-ember/15 hover:border-ember/30">
               <Search className="h-4 w-4 shrink-0 text-ash" aria-hidden="true" />
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => {
+                  if (searchQuery.trim().length >= 2) setSearchOpen(true);
+                }}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Tìm sách, tác giả, thể loại..."
                 className="w-full bg-transparent text-[14px] font-medium text-charcoal outline-none placeholder:text-smoke"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-controls="site-search-suggestions"
+                aria-expanded={searchOpen}
               />
             </label>
+            {searchOpen && searchQuery.trim().length >= 2 ? (
+              <div
+                id="site-search-suggestions"
+                className="absolute left-0 right-0 top-[calc(100%+10px)] z-50 overflow-hidden rounded-cards-lg border border-stone-surface bg-white p-2 shadow-card-lg"
+              >
+                <div className="px-2 pb-2 pt-1 text-[12px] font-medium uppercase tracking-[0.18em] text-ash">Gợi ý sách</div>
+                {searchLoading ? (
+                  <div className="space-y-2 p-2">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <span className="skeleton-shimmer h-14 w-10 rounded-cards bg-stone-surface" />
+                        <span className="min-w-0 flex-1 space-y-2">
+                          <span className="skeleton-shimmer block h-3 w-3/4 rounded-full bg-stone-surface" />
+                          <span className="skeleton-shimmer block h-3 w-1/2 rounded-full bg-parchment" />
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : searchSuggestions.length > 0 ? (
+                  <div className="space-y-1" role="listbox">
+                    {searchSuggestions.map((book, index) => {
+                      const coverStyle = {
+                        backgroundImage: book.image.startsWith('linear-gradient') ? book.image : `url("${book.image}")`,
+                      };
+
+                      return (
+                        <Link
+                          key={book.id ?? book.title}
+                          href={book.id ? `/books/${book.id}` : `/books?search=${encodeURIComponent(searchQuery.trim())}`}
+                          onClick={resetSearch}
+                          onMouseEnter={() => setHighlightedSuggestion(index)}
+                          className={cn(
+                            'flex items-center gap-3 rounded-cards p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35',
+                            highlightedSuggestion === index ? 'bg-parchment text-charcoal' : 'hover:bg-parchment',
+                          )}
+                          role="option"
+                          aria-selected={highlightedSuggestion === index}
+                        >
+                          <span className="h-14 w-10 shrink-0 rounded-cards bg-parchment bg-cover bg-center" style={coverStyle} aria-hidden="true" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[14px] font-semibold text-charcoal">{book.title}</span>
+                            <span className="mt-1 block truncate text-[12px] font-medium text-ash">{book.author}</span>
+                          </span>
+                          <span className="shrink-0 text-[12px] font-semibold text-ember">{book.price}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-cards bg-parchment p-3 text-sm text-graphite">Chưa tìm thấy sách phù hợp.</p>
+                )}
+                <Link
+                  href={`/books?search=${encodeURIComponent(searchQuery.trim())}`}
+                  onClick={resetSearch}
+                  className="mt-2 flex items-center justify-center rounded-cards border border-stone-surface px-3 py-2 text-[13px] font-semibold text-ember transition hover:bg-ember/5"
+                >
+                  Xem tất cả kết quả
+                </Link>
+              </div>
+            ) : null}
           </form>
 
           <Link

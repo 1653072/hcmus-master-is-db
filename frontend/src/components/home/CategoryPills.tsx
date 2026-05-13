@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { ArrowRight, BookOpen, ChevronRight } from 'lucide-react';
 import { CommerceSection } from '@/components/ui/commerce';
 
-interface CategoryPillsProps {
-  categories: string[];
+export interface CategoryPillItem {
+  id?: string;
+  label: string;
+  slug?: string;
 }
 
-function toSlug(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+interface CategoryPillsProps {
+  categories: CategoryPillItem[];
 }
 
 export function CategoryPills({ categories }: CategoryPillsProps) {
@@ -26,17 +28,20 @@ export function CategoryPills({ categories }: CategoryPillsProps) {
 
       <div className="commerce-rail flex gap-3 overflow-x-auto pb-2">
         {categories.map((item, index) => {
+          const href = item.slug || item.id || '';
+          const label = item.label || `Tủ sách ${index + 1}`;
+
           return (
             <Link
-              key={item}
-              href={`/categories/${toSlug(item)}`}
+              key={href || label}
+              href={href ? `/categories/${href}` : '/categories'}
               className="inline-flex min-h-14 shrink-0 items-center gap-3 rounded-cards bg-white px-4 py-3 text-[14px] font-medium text-graphite transition hover:-translate-y-0.5 hover:bg-parchment hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/35"
               style={{ boxShadow: 'var(--shadow-subtle)' }}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-icons bg-ember/10 text-ember">
                 <BookOpen className="h-4 w-4" />
               </span>
-              <span>{item || `Tủ sách ${index + 1}`}</span>
+              <span>{label}</span>
               <ChevronRight className="h-4 w-4 text-fog" />
             </Link>
           );

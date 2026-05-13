@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 
 import { RouteShell } from '@/components/layout/RouteShell';
 import { booksApi } from '@/lib/api/books';
-import { categoriesApi } from '@/lib/api/categories';
+import { categoriesApi, type Category } from '@/lib/api/categories';
 import { toFeaturedBook } from '@/lib/books';
 import type { FeaturedBook } from '@/components/books/book-card';
 import { BookCard } from '@/components/books/book-card';
@@ -28,9 +28,9 @@ export default function Page() {
       try {
         setLoading(true);
         setError(null);
-        const categoriesRes = await categoriesApi.list({ page: 1, page_size: 100 });
-        const categories = Array.isArray((categoriesRes as any).data) ? (categoriesRes as any).data : [];
-        const category = categories.find((item: any) => item.slug === slug || item.id === slug);
+        const categoriesRes = await categoriesApi.list({ page: 1, page_size: 1000 });
+        const categories = Array.isArray((categoriesRes as any).data) ? ((categoriesRes as any).data as Category[]) : [];
+        const category = categories.find((item) => item.slug === slug || item.id === slug);
         const categoryID = category?.id || slug;
         const res = await booksApi.search({ page: 1, page_size: 24, category: categoryID });
         const list = Array.isArray((res as any).data) ? ((res as any).data as unknown[]) : [];
@@ -53,7 +53,7 @@ export default function Page() {
 
   return (
     <RouteShell title={categoryName} subtitle="Các đầu sách giúp bạn khám phá thêm trong chủ đề này.">
-      <CommerceSection className="pb-16 pt-0">
+      <CommerceSection className="pb-16 pt-8">
         <Link href="/categories" className="inline-flex items-center gap-2 text-sm font-medium text-graphite transition hover:text-charcoal">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Quay lại danh mục
         </Link>
@@ -85,13 +85,11 @@ export default function Page() {
                 <CommerceState title="Chưa có sách trong danh mục" message="Bạn có thể quay lại kho sách để xem các danh mục khác." actionHref="/books" actionLabel="Mở kho sách" />
               </div>
             ) : (
-            <ProductGrid className="mt-10">
-              {books.map((book) => (
-                <Link key={book.id ?? book.title} href={book.id ? `/books/${book.id}` : '/books'} className="block rounded-cards transition duration-200 ease-out hover:-translate-y-0.5">
-                  <BookCard book={book} compact />
-                </Link>
-              ))}
-            </ProductGrid>
+              <ProductGrid className="mt-10">
+                {books.map((book) => (
+                  <BookCard key={book.id ?? book.title} book={book} compact href={book.id ? `/books/${book.id}` : '/books'} />
+                ))}
+              </ProductGrid>
             )}
           </>
         )}

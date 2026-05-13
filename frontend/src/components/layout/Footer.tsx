@@ -22,7 +22,6 @@ export function Footer() {
               <ul className="mt-4 space-y-3 text-[15px] text-white/70">
                 {[
                   ['Tất cả sách', '/books'],
-                  ['Tìm kiếm', '/search'],
                   ['Danh mục', '/categories'],
                   ['Tác giả', '/authors'],
                 ].map(([label, href]) => (

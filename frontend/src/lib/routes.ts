@@ -3,7 +3,6 @@ export const navLinks = [
   { label: 'Tất cả sách', href: '/books' },
   { label: 'Danh mục', href: '/categories' },
   { label: 'Tác giả', href: '/authors' },
-  { label: 'Tìm kiếm', href: '/search' },
   { label: 'Sách bán chạy', href: '/best-sellers' },
   { label: 'Xem nhiều hôm nay', href: '/most-viewed/daily' },
   { label: 'Top 30 ngày', href: '/most-viewed/30days' },
@@ -11,7 +10,6 @@ export const navLinks = [
 
 export const footerLinks = [
   { label: 'Tất cả sách', href: '/books' },
-  { label: 'Tìm kiếm', href: '/search' },
   { label: 'Danh mục', href: '/categories' },
   { label: 'Tác giả', href: '/authors' },
   { label: 'Sách bán chạy', href: '/best-sellers' },

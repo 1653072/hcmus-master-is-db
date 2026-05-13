@@ -11,6 +11,7 @@ import { Header } from '@/components/layout/Header';
 interface RouteShellProps {
   title?: string;
   subtitle?: string;
+  breadcrumbLabels?: Record<string, string | undefined>;
   children: ReactNode;
 }
 
@@ -24,6 +25,10 @@ function getBreadcrumbs(pathname: string) {
     crumbs.push({ label: part.replace(/-/g, ' '), href: current });
   }
   return crumbs;
+}
+
+function looksLikeTechnicalId(label: string) {
+  return /^[a-f0-9]{20,}$/i.test(label) || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(label);
 }
 
 function normalizeLabel(label: string) {
@@ -41,12 +46,12 @@ function normalizeLabel(label: string) {
     orders: 'Đơn hàng',
     profile: 'Hồ sơ',
     register: 'Đăng ký',
-    search: 'Tìm kiếm',
   };
+  if (looksLikeTechnicalId(label)) return 'Chi tiết';
   return routeLabels[label] ?? label.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-export function RouteShell({ title, subtitle, children }: RouteShellProps) {
+export function RouteShell({ title, subtitle, breadcrumbLabels, children }: RouteShellProps) {
   const pathname = usePathname();
   const breadcrumbs = getBreadcrumbs(pathname);
 
@@ -57,14 +62,25 @@ export function RouteShell({ title, subtitle, children }: RouteShellProps) {
 
       <section className="mx-auto max-w-page px-6 pt-8 lg:px-10 xl:px-24">
         <p className="text-[13px] tracking-[-0.17px] text-ash">
-          {breadcrumbs.map((crumb, index) => (
-            <span key={crumb.href}>
-              {index > 0 ? ' / ' : ''}
-              <Link href={crumb.href} className="transition hover:text-charcoal">
-                {normalizeLabel(crumb.label)}
-              </Link>
-            </span>
-          ))}
+          {breadcrumbs.map((crumb, index) => {
+            const isCurrent = index === breadcrumbs.length - 1;
+            const label = breadcrumbLabels?.[crumb.href] ?? breadcrumbLabels?.[crumb.label] ?? normalizeLabel(crumb.label);
+
+            return (
+              <span key={crumb.href}>
+                {index > 0 ? ' / ' : ''}
+                {isCurrent ? (
+                  <span className="text-graphite" aria-current="page">
+                    {label}
+                  </span>
+                ) : (
+                  <Link href={crumb.href} className="transition hover:text-charcoal">
+                    {label}
+                  </Link>
+                )}
+              </span>
+            );
+          })}
         </p>
         {title ? <h1 className="mt-4 font-display text-[clamp(2.25rem,5vw,3.75rem)] font-medium leading-[1.09] tracking-[-0.031em] text-charcoal">{title}</h1> : null}
         {subtitle ? <p className="mt-4 max-w-[560px] text-[17px] leading-[1.47] tracking-[-0.22px] text-graphite">{subtitle}</p> : null}

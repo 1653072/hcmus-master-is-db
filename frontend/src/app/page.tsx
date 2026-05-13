@@ -7,12 +7,12 @@ import { FeaturedBook } from '@/components/books/book-card';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { BooksGridSection } from '@/components/home/BooksGridSection';
-import { CategoryPills } from '@/components/home/CategoryPills';
+import { CategoryPills, type CategoryPillItem } from '@/components/home/CategoryPills';
 import { HeroSection } from '@/components/home/HeroSection';
 import { OrderJourneySection } from '@/components/home/OrderJourneySection';
 import { RankingSection } from '@/components/home/RankingSection';
 import { booksApi } from '@/lib/api/books';
-import { categoriesApi } from '@/lib/api/categories';
+import { categoriesApi, type Category } from '@/lib/api/categories';
 import { toFeaturedBook } from '@/lib/books';
 
 function Loading() {
@@ -43,7 +43,7 @@ function ErrorState({ message }: { message: string }) {
 
 export default function Page() {
   const [books, setBooks] = useState<FeaturedBook[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategoryPillItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,12 +60,25 @@ export default function Page() {
         ]);
 
         const bookList = Array.isArray((booksRes as any).data) ? ((booksRes as any).data as unknown[]) : [];
-        const categoryList = Array.isArray((categoriesRes as any).data) ? (categoriesRes as any).data : [];
+        const categoryList = Array.isArray((categoriesRes as any).data) ? ((categoriesRes as any).data as Category[]) : [];
 
         if (!mounted) return;
         setBooks(bookList.map((book, index) => toFeaturedBook(book as any, index)));
-        const uniqueCategories = Array.from(new Set(categoryList.map((category: any) => category.category_name || category.slug || 'Danh mục').filter(Boolean)));
-        setCategories(uniqueCategories as string[]);
+        const uniqueCategories = Array.from(
+          new Map<string, CategoryPillItem>(
+            categoryList
+              .filter((category) => Boolean(category.category_name && (category.slug || category.id)))
+              .map((category) => [
+                category.category_name,
+                {
+                  id: category.id,
+                  label: category.category_name,
+                  slug: category.slug,
+                },
+              ]),
+          ).values(),
+        );
+        setCategories(uniqueCategories as CategoryPillItem[]);
       } catch (err) {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : 'Không tải được sách ở trang chủ');
