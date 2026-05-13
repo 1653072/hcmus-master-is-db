@@ -153,11 +153,11 @@ The system solves four core technical challenges:
       │ order_items         │                                     │                                                    └──────────▲──────────┘
       │ order_status        │                                     │                                                               │
       │  _histories         │                                     │                internal/worker/                               │
-      │ shipments           │                                     └─────── best_seller_worker.go  (daily 00:00 UTC) ──────────────┘
+      │ shipments           │                                     └─────── best_seller_worker.go  (daily 17:00 UTC) ──────────────┘
       └──────────▲──────────┘                                              → Query PostgreSQL order_items (past 30 days)
                  │                                                        → Write top-10 JSON to Redis "books:best_sellers"
                  │
-                 └──────────────────────────────────────────────────────── most_viewed_worker.go  (daily 00:00 UTC)
+                 └──────────────────────────────────────────────────────── most_viewed_worker.go  (daily 17:00 UTC)
                                                                            → Aggregate MongoDB view_event_logs (past 30 days)
                                                                            → Write JSON to Redis "books:most_viewed:30d:data"
                                                                            → DEL "books:most_viewed:daily:count"
@@ -190,9 +190,9 @@ The system solves four core technical challenges:
 |---|---|---|
 | Related books | Neo4j: pre-computed `SIMILARITY_TO` edges (computed on book upsert) with live traversal fallback | `GET /books/:id/similar` |
 | Same series | Neo4j `IN_SERIES` relationships ordered by `sequence_no` | `GET /books/:id/series` |
-| Best Seller (top 10) | Redis `books:best_sellers` JSON STRING — refreshed daily at 00:00 UTC from PostgreSQL order_items | `GET /best-sellers` |
+| Best Seller (top 10) | Redis `books:best_sellers` JSON STRING — refreshed daily at 17:00 UTC (00:00 GMT+7) from PostgreSQL order_items | `GET /best-sellers` |
 | Most Viewed today (top 10) | Redis `books:most_viewed:daily:count` ZSET (ZINCRBY per view) + on-demand enrichment from MongoDB | `GET /most-viewed/daily` |
-| Most Viewed 30 days (top 10) | Redis `books:most_viewed:30d:data` JSON STRING — refreshed daily at 00:00 UTC from MongoDB view_event_logs | `GET /most-viewed/30days` |
+| Most Viewed 30 days (top 10) | Redis `books:most_viewed:30d:data` JSON STRING — refreshed daily at 17:00 UTC (00:00 GMT+7) from MongoDB view_event_logs | `GET /most-viewed/30days` |
 
 #### Category Sync Flow (F4)
 Admin CRUD on categories → MongoDB write → Neo4j `Category` node upsert (with `PARENT_OF` relationship) → Redis category cache invalidation
@@ -603,7 +603,7 @@ All values are stored as **Snappy-compressed JSON** to reduce memory footprint.
 | `books:newest` | STRING | 30 min | `REDIS_BOOK_CACHE` | Newest books list JSON |
 | `books:stocks:{bookID}` | STRING | 5 min | `REDIS_BOOK_CACHE` | Stock quantity cache |
 | `books:categories:{page}:{size}` | STRING | 30 min | `REDIS_CATEGORY_CACHE` | Category list page cache |
-| `books:best_sellers` | STRING | 1 day | `REDIS_BEST_SELLERS` | Top-10 bestselling books — Snappy-compressed JSON, refreshed daily at 00:00 UTC by BestSellerWorker from PostgreSQL order_items |
+| `books:best_sellers` | STRING | 1 day | `REDIS_BEST_SELLERS` | Top-10 bestselling books — Snappy-compressed JSON, refreshed daily at 17:00 UTC (00:00 GMT+7) by BestSellerWorker from PostgreSQL order_items |
 | `books:most_viewed:daily:count` | ZSET | 1 day | `REDIS_MOST_VIEWED_DAILY` | Live daily view counter — `ZINCRBY` on every `POST /books/:id/view`; expires automatically after 24 hours |
 | `books:most_viewed:daily:data` | STRING | 1 day | `REDIS_MOST_VIEWED_DAILY` | Enriched top-10 daily most-viewed JSON — rebuilt on demand by the API handler when the live count ranking diverges from the cached ranking |
 | `books:most_viewed:30d:data` | STRING | 1 day | `REDIS_MOST_VIEWED_DAILY` | Top-10 most-viewed books in the past 30 days — refreshed nightly by MostViewedWorker from MongoDB view_event_logs |
@@ -731,8 +731,8 @@ backend/
 │   │                                #  (MongoDB + Neo4j sync + Redis invalidation)
 │   │
 │   └── worker/
-│       ├── best_seller_worker.go    # Daily 00:00 UTC: PG aggregate → Redis best-sellers (E2)
-│       └── most_viewed_worker.go    # Daily 00:00 UTC: ZSET snapshot + MongoDB 30d aggregate (E3)
+│       ├── best_seller_worker.go    # Daily 17:00 UTC (00:00 GMT+7): PG aggregate → Redis best-sellers (E2)
+│       └── most_viewed_worker.go    # Daily 17:00 UTC (00:00 GMT+7): ZSET snapshot + MongoDB 30d aggregate (E3)
 │
 ├── utils/
 │   ├── database/                    # ConnectPostgres, ConnectMongo, ConnectNeo4j, ConnectRedis
@@ -756,11 +756,11 @@ backend/
 
 ### 4.3. Background Workers
 
-Two cron workers start automatically when the server starts (initial run immediately, then daily at **00:00 UTC**):
+Two cron workers start automatically when the server starts (initial run immediately, then daily at **17:00 UTC / 00:00 GMT+7**):
 
 #### `BestSellerWorker` — NV-E2
 ```
-Runs daily at 00:00 UTC
+Runs daily at 17:00 UTC (00:00 GMT+7)
   └─ PostgreSQL query:
        SELECT oi.mongo_book_id, SUM(oi.quantity) AS total_sold
        FROM order_items oi
@@ -780,7 +780,7 @@ sole authoritative data source for bestseller rankings.
 
 #### `MostViewedWorker` — NV-E3
 ```
-Runs daily at 00:00 UTC
+Runs daily at 17:00 UTC (00:00 GMT+7)
 
   Step 1 — Aggregate 30-day views from MongoDB:
     MongoDB aggregate pipeline on "view_event_logs":

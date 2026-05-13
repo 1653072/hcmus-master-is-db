@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// MostViewedWorker runs a daily cron job at 00:00 UTC that clears the daily
+// MostViewedWorker runs a daily cron job at 17:00 UTC (00:00 GMT+7) that clears the daily
 // most-viewed data so the new day starts from zero (NV-E3).
 //
 // The worker also pre-computes the 30-day most-viewed ranking from MongoDB
@@ -19,7 +19,7 @@ import (
 // NOT by this worker — the worker's sole daily responsibility is to reset the
 // count sorted set and re-aggregate the 30-day cache.
 //
-// Flow at 00:00 UTC:
+// Flow at 17:00 UTC (00:00 GMT+7):
 //  1. Aggregate MongoDB view_event_logs for the past 30 days → write to "books:most_viewed:30d:data".
 //  2. Clear both daily Redis keys ("books:most_viewed:daily:count" and "books:most_viewed:daily:data")
 //     so the new day's counters start from zero.
@@ -44,12 +44,12 @@ func NewMostViewedWorker(
 	}
 }
 
-// Start registers the daily 00:00 UTC schedule and fires an initial run on startup
+// Start registers the daily 17:00 UTC (00:00 GMT+7) schedule and fires an initial run on startup
 // to populate the 30-day cache immediately.
 // Note: The initial run only re-aggregates the 30-day data; it does NOT reset
-// the daily counters (that only happens at the scheduled 00:00 UTC time).
+// the daily counters (that only happens at the scheduled 17:00 UTC time).
 func (w *MostViewedWorker) Start() {
-	_, err := w.cron.AddFunc("0 0 * * *", func() {
+	_, err := w.cron.AddFunc("0 17 * * *", func() {
 		w.run()
 	})
 	if err != nil {
@@ -58,7 +58,7 @@ func (w *MostViewedWorker) Start() {
 	}
 
 	w.cron.Start()
-	w.logger.Info("most viewed worker started (daily 00:00 UTC)")
+	w.logger.Info("most viewed worker started (daily 17:00 UTC / 00:00 GMT+7)")
 
 	// Initial run: only refresh 30-day aggregation, don't clear daily counts.
 	go w.RunAggregation()

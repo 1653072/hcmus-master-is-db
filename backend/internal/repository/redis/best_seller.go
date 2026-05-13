@@ -59,7 +59,7 @@ func (r *BestSellerRepository) GetTopBestSellers(ctx context.Context, topN int) 
 }
 
 // SetTopBestSellers stores the pre-computed bestseller list with a 1-day TTL.
-// Called exclusively by BestSellerWorker at 00:00 UTC.
+// Called exclusively by BestSellerWorker at 17:00 UTC (00:00 GMT+7).
 func (r *BestSellerRepository) SetTopBestSellers(ctx context.Context, books []domain.BestSellerBook) error {
 	data, err := json.Marshal(books)
 	if err != nil {

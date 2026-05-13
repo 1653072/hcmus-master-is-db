@@ -70,7 +70,7 @@ func (s *Service) GetSeriesBooks(c *gin.Context) {
 
 // GetBestSellers handles GET /api/v1/best-sellers (NV-E2).
 // Returns the top-10 bestselling books by units sold in the past 30 days.
-// Data is pre-computed daily at 00:00 UTC by BestSellerWorker and cached in Redis
+// Data is pre-computed daily at 17:00 UTC (00:00 GMT+7) by BestSellerWorker and cached in Redis
 // under the key "books:best_sellers" as a JSON string with a 1-day TTL.
 //
 // @Summary      Get best sellers

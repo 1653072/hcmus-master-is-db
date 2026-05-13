@@ -17,7 +17,7 @@ type bestSellerQueryRow struct {
 	TotalSold   float64
 }
 
-// BestSellerWorker runs a daily cron job at 00:00 UTC that computes the top-N
+// BestSellerWorker runs a daily cron job at 17:00 UTC (00:00 GMT+7) that computes the top-N
 // bestselling books over the past 30 days by querying PostgreSQL order_items,
 // then stores the result as a JSON string in the Redis key "books:best_sellers"
 // with a 1-day TTL (NV-E2).
@@ -43,10 +43,10 @@ func NewBestSellerWorker(postgresDatabase *gorm.DB, bestSellerRepository domain.
 	}
 }
 
-// Start registers the daily 00:00 UTC cron schedule, starts the scheduler,
+// Start registers the daily 17:00 UTC (00:00 GMT+7) cron schedule, starts the scheduler,
 // and fires an initial run immediately so Redis is pre-populated on startup.
 func (w *BestSellerWorker) Start() {
-	_, err := w.cron.AddFunc("0 0 * * *", func() {
+	_, err := w.cron.AddFunc("0 17 * * *", func() {
 		w.Run()
 	})
 	if err != nil {
@@ -55,7 +55,7 @@ func (w *BestSellerWorker) Start() {
 	}
 
 	w.cron.Start()
-	w.logger.Info("best seller worker started (daily 00:00 UTC)")
+	w.logger.Info("best seller worker started (daily 17:00 UTC / 00:00 GMT+7)")
 
 	go w.Run()
 }

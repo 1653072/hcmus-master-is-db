@@ -80,7 +80,7 @@ func (r *MostViewedRepository) GetTopDailyViewedFromCountSet(ctx context.Context
 }
 
 // ResetDailyViewCountSet deletes both the daily count sorted set and the daily data cache.
-// Called by MostViewedWorker at 00:00 UTC so the new day starts from zero.
+// Called by MostViewedWorker at 17:00 UTC (00:00 GMT+7) so the new day starts from zero.
 func (r *MostViewedRepository) ResetDailyViewCountSet(ctx context.Context) error {
 	return r.rdb.Del(ctx, mostViewedDailyCountKey, mostViewedDailyDataKey).Err()
 }

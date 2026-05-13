@@ -190,7 +190,7 @@ type CheckoutSessionRepository interface {
 
 // BestSellerRepository manages the Redis JSON string cache for bestseller rankings (NV-E2).
 // The cache key "books:best_sellers" stores a Snappy-compressed JSON array with TTL 1 day.
-// The data is refreshed daily at 00:00 UTC by BestSellerWorker, which aggregates
+// The data is refreshed daily at 17:00 UTC (00:00 GMT+7) by BestSellerWorker, which aggregates
 // order_items from PostgreSQL for the past 30 days.
 type BestSellerRepository interface {
 	GetTopBestSellers(ctx context.Context, topN int) ([]BestSellerBook, error)
@@ -236,7 +236,7 @@ type CategoryCacheRepository interface {
 //     enriched with book titles from MongoDB.  Refreshed on demand by the API handler
 //     whenever the live count set diverges from the cached ranking.
 //
-// MostViewedWorker runs at 00:00 UTC and simply clears both keys so the new day
+// MostViewedWorker runs at 17:00 UTC (00:00 GMT+7) and simply clears both keys so the new day
 // starts from zero.
 type MostViewedRepository interface {
 	// IncrementDailyViewCount atomically increments the view counter for bookID in the
@@ -246,7 +246,7 @@ type MostViewedRepository interface {
 	// GetTopDailyViewedFromCountSet returns the top-N entries from the live daily count sorted set.
 	GetTopDailyViewedFromCountSet(ctx context.Context, topN int) ([]MostViewedBook, error)
 
-	// ResetDailyViewCountSet deletes the daily count sorted set (called by worker at 00:00 UTC).
+	// ResetDailyViewCountSet deletes the daily count sorted set (called by worker at 17:00 UTC / 00:00 GMT+7).
 	ResetDailyViewCountSet(ctx context.Context) error
 
 	// SetDailyTopViewedData stores the enriched top-N JSON in the daily data cache (TTL 1 day).
