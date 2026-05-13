@@ -200,13 +200,9 @@ func (s *Service) BuyNow(c *gin.Context) {
 	// Store the alias_id in the Buy-Now session (safe external identifier).
 	userAliasStr := mustUserAliasID(c).String()
 
-	inventory, err := s.pg.GetInventory(ctx, buyNowRequest.BookID)
-	if err != nil || inventory == nil {
-		respondNotFound(c, "book not found in inventory")
-		return
-	}
-	if inventory.StockQuantity < buyNowRequest.Quantity {
-		respondBadRequest(c, "insufficient stock")
+	// Stock check
+	if err := s.checkStock(ctx, buyNowRequest.BookID, buyNowRequest.Quantity); err != nil {
+		respondBadRequest(c, err.Error())
 		return
 	}
 

@@ -89,7 +89,7 @@ The system solves four core technical challenges:
 | **A2** | Login | ✓ | | ✓ | |
 | **A3** | Logout | | | ✓ | |
 | **A4** | View & update profile | ✓ | | ✓ | |
-| **B1** | Search & filter products | | ✓ | ✓ | |
+| **B1** | Search & filter products | | ✓ | | |
 | **B2** | View product detail | ✓ | ✓ | ✓ | ✓ |
 | **B3** | View newest books | | ✓ | ✓ | |
 | **C1** | Add to cart | ✓ | | ✓ | |

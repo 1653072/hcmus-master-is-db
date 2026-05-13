@@ -3,6 +3,7 @@ package server
 import (
 	"bookstore/backend/internal/domain"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -32,26 +33,9 @@ func (s *Service) AddToCart(c *gin.Context) {
 	userInternalID := mustUserInternalID(c)
 	userAliasStr := mustUserAliasID(c).String()
 
-	// Stock check — use Redis cache when enabled, else query PostgreSQL directly.
-	var stockQuantity int
-	if s.features.RedisBookCache {
-		if quantity, hit, _ := s.bookCache.GetStock(ctx, addRequest.BookID); hit {
-			stockQuantity = quantity
-		} else {
-			if inventory, err := s.pg.GetInventory(ctx, addRequest.BookID); err == nil && inventory != nil {
-				stockQuantity = inventory.StockQuantity
-				if err := s.bookCache.SetStock(ctx, addRequest.BookID, stockQuantity); err != nil {
-					s.logger.Warn("failed to cache stock", zap.String("book_id", addRequest.BookID), zap.Error(err))
-				}
-			}
-		}
-	} else {
-		if inventory, err := s.pg.GetInventory(ctx, addRequest.BookID); err == nil && inventory != nil {
-			stockQuantity = inventory.StockQuantity
-		}
-	}
-	if stockQuantity < addRequest.Quantity {
-		respondBadRequest(c, "insufficient stock")
+	// Stock check
+	if err := s.checkStock(ctx, addRequest.BookID, addRequest.Quantity); err != nil {
+		respondBadRequest(c, err.Error())
 		return
 	}
 
@@ -151,6 +135,12 @@ func (s *Service) UpdateCartItem(c *gin.Context) {
 	bookID := c.Param("bookId")
 	userInternalID := mustUserInternalID(c)
 	userAliasStr := mustUserAliasID(c).String()
+
+	// Stock check
+	if err := s.checkStock(ctx, bookID, updateRequest.Quantity); err != nil {
+		respondBadRequest(c, err.Error())
+		return
+	}
 
 	if s.features.RedisCartCache {
 		if err := s.cartCache.InvalidateCart(ctx, userAliasStr); err != nil {
@@ -256,4 +246,31 @@ func (s *Service) loadCartFromPostgres(ctx context.Context, userInternalID int64
 		cartItems = append(cartItems, cartItem)
 	}
 	return cartItems
+}
+
+// checkStock verifies if the requested quantity is available in stock,
+// using Redis cache if enabled, falling back to PostgreSQL.
+func (s *Service) checkStock(ctx context.Context, bookID string, requestedQty int) error {
+	var stockQuantity int
+	if s.features.RedisBookCache {
+		if quantity, hit, _ := s.bookCache.GetStock(ctx, bookID); hit {
+			stockQuantity = quantity
+		} else {
+			if inventory, err := s.pg.GetInventory(ctx, bookID); err == nil && inventory != nil {
+				stockQuantity = inventory.StockQuantity
+				if err := s.bookCache.SetStock(ctx, bookID, stockQuantity); err != nil {
+					s.logger.Warn("failed to cache stock", zap.String("book_id", bookID), zap.Error(err))
+				}
+			}
+		}
+	} else {
+		if inventory, err := s.pg.GetInventory(ctx, bookID); err == nil && inventory != nil {
+			stockQuantity = inventory.StockQuantity
+		}
+	}
+
+	if stockQuantity < requestedQty {
+		return fmt.Errorf("insufficient stock (available: %d, requested: %d)", stockQuantity, requestedQty)
+	}
+	return nil
 }
