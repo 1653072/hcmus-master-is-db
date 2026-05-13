@@ -315,14 +315,12 @@ export default function Page() {
 
   return (
     <RouteShell
-      title={pageTitle}
-      subtitle={book?.short_description ?? (loading ? 'Đang tải thông tin sách.' : 'Xem thông tin sách, tình trạng kho và gợi ý liên quan.')}
       breadcrumbLabels={{
         ...(id ? { [id]: pageTitle, [`/books/${id}`]: pageTitle } : {}),
       }}
     >
-      <section className="mx-auto max-w-page px-6 pb-16 pt-0 lg:px-10 xl:px-24">
-        <Link href="/books" className="inline-flex items-center gap-2 text-[14px] font-medium tracking-[-0.18px] text-graphite transition hover:text-charcoal">
+      <section className="mx-auto max-w-page px-6 pb-16 pt-6 lg:px-10 xl:px-24">
+        <Link href="/books" className="inline-flex items-center gap-2 text-[14px] font-medium text-graphite transition hover:text-charcoal">
           <ArrowLeft className="h-4 w-4" />
           Quay lại kho sách
         </Link>
@@ -340,9 +338,9 @@ export default function Page() {
           </div>
         ) : book ? (
           <>
-            <div className="mt-6 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-              <div className="order-2 rounded-cards-lg bg-white p-5 lg:order-1" style={{ boxShadow: 'var(--shadow-sm)' }}>
-                <div className="relative flex min-h-[420px] items-center justify-center overflow-hidden rounded-cards bg-stone-surface/20 p-8 sm:min-h-[520px]">
+            <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(360px,0.92fr)_minmax(0,1.08fr)] xl:grid-cols-[500px_minmax(0,1fr)]">
+              <div className="rounded-cards-lg border border-stone-surface bg-white p-4 shadow-card-hover lg:sticky lg:top-36 lg:self-start">
+                <div className="relative flex aspect-[4/5] min-h-[360px] items-center justify-center overflow-hidden rounded-cards bg-parchment p-6 sm:min-h-[460px]">
                   {primaryImage ? (
                     <Image
                       src={primaryImage}
@@ -350,18 +348,18 @@ export default function Page() {
                       width={360}
                       height={520}
                       unoptimized
-                      className="max-h-[520px] w-auto object-contain rounded-cards shadow-2xl"
+                      className="max-h-full w-auto rounded-cards object-contain shadow-card-lg"
                     />
                   ) : (
-                    <div className="flex h-[340px] w-[230px] items-center justify-center rounded-cards border border-stone-surface bg-parchment text-center text-sm font-medium text-graphite/50 shadow-2xl sm:h-[420px] sm:w-[280px]">
+                    <div className="flex h-[320px] w-[220px] items-center justify-center rounded-cards border border-stone-surface bg-white text-center text-sm font-medium text-graphite/50 shadow-subtle sm:h-[400px] sm:w-[270px]">
                       Chưa có ảnh bìa
                     </div>
                   )}
                 </div>
                 {book.images?.length > 1 ? (
-                  <div className="mt-4 grid grid-cols-4 gap-3">
+                  <div className="mt-3 grid grid-cols-4 gap-3">
                     {book.images.slice(0, 4).map((image, index) => (
-                      <div key={`${image.url}-${index}`} className="relative h-20 overflow-hidden rounded-tags border border-stone-surface bg-parchment">
+                      <div key={`${image.url}-${index}`} className="relative aspect-[3/4] overflow-hidden rounded-tags border border-stone-surface bg-parchment">
                         <Image
                           src={image.url}
                           alt={image.alt || `${book.name} image ${index + 1}`}
@@ -376,22 +374,30 @@ export default function Page() {
                 ) : null}
               </div>
 
-              <div className="order-1 space-y-6 lg:sticky lg:top-32 lg:order-2 lg:self-start">
+              <div className="space-y-6">
                 <div className="space-y-3">
-                  <div className="inline-flex items-center gap-2 rounded-pill border border-deep-amber/20 bg-sunburst/10 px-4 py-2 text-[12px] font-medium uppercase tracking-[0.16em] text-deep-amber">
+                  <div className="inline-flex items-center gap-2 rounded-pill border border-stone-surface bg-parchment px-3 py-1.5 text-[12px] font-medium uppercase tracking-[0.14em] text-graphite">
                     {categoryName}
                   </div>
+                  <h1 className="max-w-[760px] text-[34px] font-semibold leading-[1.08] text-charcoal md:text-[44px]">
+                    {pageTitle}
+                  </h1>
                   <div className="flex flex-wrap items-center gap-3 text-[14px] text-graphite">
                     {authors ? <span>Tác giả {authors}</span> : null}
                     <span className={book.stock_quantity > 0 ? 'text-meadow' : 'text-coral-red'}>
                       {book.stock_quantity > 0 ? `Còn ${book.stock_quantity} trong kho` : 'Hết hàng'}
                     </span>
                   </div>
+                  {book.short_description ? (
+                    <p className="max-w-[680px] text-[16px] leading-7 text-graphite">
+                      {book.short_description}
+                    </p>
+                  ) : null}
                 </div>
 
-                <div className="rounded-cards-lg border border-ember/20 bg-white p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+                <div className="rounded-cards-lg border border-stone-surface bg-white p-5 shadow-card-hover">
                   <p className="text-[13px] font-medium uppercase tracking-[0.18em] text-ash">Giá bán</p>
-                  <p className="mt-2 text-[34px] font-semibold leading-none text-ember">{price}</p>
+                  <p className="mt-2 text-[34px] font-semibold leading-none text-charcoal">{price}</p>
                   <div className="mt-4 grid gap-2 text-sm text-graphite sm:grid-cols-3">
                     <span className="rounded-cards bg-parchment px-3 py-2 font-medium">Freeship từ 149K</span>
                     <span className="rounded-cards bg-parchment px-3 py-2 font-medium">Đổi trả 30 ngày</span>
@@ -399,16 +405,12 @@ export default function Page() {
                   </div>
                 </div>
 
-                <p className="max-w-[560px] text-[17px] leading-[1.47] tracking-[-0.22px] text-graphite">
-                  {book.detail_description || book.short_description || 'Thông tin sách được đồng bộ từ dữ liệu backend.'}
-                </p>
-
                 <div className="flex flex-wrap items-center gap-4">
-                  <Button onClick={handleAddToCart} disabled={addingToCart || !canPurchase}>
+                  <Button size="lg" onClick={handleAddToCart} disabled={addingToCart || !canPurchase}>
                     <ShoppingCart className="mr-2 h-4 w-4" />
                     {addingToCart ? 'Đang thêm...' : canPurchase ? 'Thêm vào giỏ' : purchaseBlockedLabel}
                   </Button>
-                  <Button variant="outline" onClick={handleBuyNow} disabled={buyingNow || !canPurchase}>
+                  <Button size="lg" variant="outline" onClick={handleBuyNow} disabled={buyingNow || !canPurchase}>
                     {buyingNow ? 'Đang tạo đơn...' : 'Mua ngay'}
                   </Button>
                 </div>
@@ -418,8 +420,17 @@ export default function Page() {
                   </p>
                 ) : null}
 
-                <div className="grid gap-3 rounded-cards-lg border border-stone-surface bg-white p-5 text-sm text-graphite" style={{ boxShadow: 'var(--shadow-sm)' }}>
+                <div className="grid gap-3 rounded-cards-lg border border-stone-surface bg-white p-5 text-sm text-graphite shadow-card-hover">
                   <div className="flex justify-between gap-4"><span>Trạng thái</span><span className="font-medium text-charcoal">{statusLabel}</span></div>
+                  {authors ? (
+                    <div className="flex justify-between gap-4"><span>Tác giả</span><span className="text-right font-medium text-charcoal">{authors}</span></div>
+                  ) : null}
+                  {book.publisher ? (
+                    <div className="flex justify-between gap-4"><span>Nhà xuất bản</span><span className="text-right font-medium text-charcoal">{book.publisher}</span></div>
+                  ) : null}
+                  {book.publish_year ? (
+                    <div className="flex justify-between gap-4"><span>Năm xuất bản</span><span className="font-medium text-charcoal">{book.publish_year}</span></div>
+                  ) : null}
                   {book.series?.series_name ? (
                     <div className="flex justify-between gap-4"><span>Bộ sách</span><span className="text-right font-medium text-charcoal">{book.series.series_name}{book.series.sequence_no ? ` #${book.series.sequence_no}` : ''}</span></div>
                   ) : null}

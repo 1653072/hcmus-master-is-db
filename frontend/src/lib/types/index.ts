@@ -366,11 +366,8 @@ export interface DeactivateUserRequest {
 export interface ApiListParams {
   page?: number;
   page_size?: number;
-  query?: string;
-  q?: string;
   search?: string;
   author?: string;
-  category?: string;
   publisher?: string;
   year?: number;
   min_price?: number;

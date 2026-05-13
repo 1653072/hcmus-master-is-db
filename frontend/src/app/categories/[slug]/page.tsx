@@ -31,8 +31,8 @@ export default function Page() {
         const categoriesRes = await categoriesApi.list({ page: 1, page_size: 1000 });
         const categories = Array.isArray((categoriesRes as any).data) ? ((categoriesRes as any).data as Category[]) : [];
         const category = categories.find((item) => item.slug === slug || item.id === slug);
-        const categoryID = category?.id || slug;
-        const res = await booksApi.search({ page: 1, page_size: 24, category: categoryID });
+        const categorySearch = category?.category_name || (slug ? slug.replace(/-/g, ' ') : undefined);
+        const res = await booksApi.search({ page: 1, page_size: 24, search: categorySearch });
         const list = Array.isArray((res as any).data) ? ((res as any).data as unknown[]) : [];
         if (!mounted) return;
         setBooks(list.map((book, index) => toFeaturedBook(book as any, index)));

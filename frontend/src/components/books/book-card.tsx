@@ -38,53 +38,43 @@ export function BookCard({ book, className, compact, href }: BookCardProps) {
   const hasImage = currentBook.image.startsWith('http') || currentBook.image.startsWith('/');
   const hasDiscount = typeof currentBook.discountPercent === 'number' && currentBook.discountPercent > 0;
   const hasRating = typeof currentBook.rating === 'string' && currentBook.rating.trim() !== '';
-  const stockLabel = typeof currentBook.stockQuantity === 'number'
-    ? currentBook.stockQuantity > 0
-      ? `Còn ${currentBook.stockQuantity}`
-      : 'Hết hàng'
-    : null;
 
   const content = (
     <article
       className={cn(
-        'group overflow-hidden rounded-cards bg-white transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-hover',
-        compact ? 'space-y-3 p-3' : 'space-y-4 p-4',
+        'group overflow-hidden rounded-cards border border-stone-surface bg-white shadow-subtle transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-hover',
         className,
       )}
-      style={{ boxShadow: 'var(--shadow-subtle)' }}
     >
       <div
         className={cn(
-          'relative overflow-hidden rounded-tags bg-parchment transition duration-200 ease-out',
-          compact ? 'h-[154px]' : 'h-60',
+          'relative isolate overflow-hidden bg-parchment transition duration-200 ease-out',
+          compact ? 'aspect-[2/3]' : 'aspect-[2/3]',
         )}
         style={
           hasImage
             ? {
                 backgroundImage: `url(${currentBook.image})`,
-                backgroundSize: 'contain',
+                backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',
               }
             : { background: currentBook.image }
         }
+        role="img"
+        aria-label={currentBook.title}
       >
         {hasDiscount ? (
-          <span className="absolute left-2 top-2 rounded-tags bg-ember px-2 py-1 text-[11px] font-medium text-white">
+          <span className="absolute left-2 top-2 rounded-tags bg-ember px-2 py-1 text-[11px] font-semibold text-white">
             -{currentBook.discountPercent}%
-          </span>
-        ) : null}
-        {stockLabel ? (
-          <span className="absolute bottom-2 right-2 rounded-tags bg-white/90 px-2 py-1 text-[11px] font-medium text-charcoal shadow-sm">
-            {stockLabel}
           </span>
         ) : null}
       </div>
 
       {!compact ? (
-        <div className="space-y-2">
-          <p className="line-clamp-1 text-[11px] font-medium uppercase tracking-[0.16em] text-ember">{currentBook.category}</p>
-          <h3 className="line-clamp-2 text-[15px] font-medium text-charcoal">{currentBook.title}</h3>
+        <div className="space-y-2 p-[var(--card-padding)]">
+          <p className="line-clamp-1 text-[11px] font-medium uppercase tracking-[0.14em] text-ash">{currentBook.category}</p>
+          <h3 className="line-clamp-2 text-[15px] font-semibold leading-6 text-charcoal">{currentBook.title}</h3>
           <p className="text-[13px] text-ash">Tác giả {currentBook.author}</p>
           {hasRating || typeof currentBook.reviewCount === 'number' ? (
             <div className="flex items-center gap-2 text-[13px] text-ash">
@@ -99,22 +89,22 @@ export function BookCard({ book, className, compact, href }: BookCardProps) {
           ) : null}
           <div className="flex items-end justify-between gap-3">
             <div>
-              <p className="text-[17px] font-semibold text-ember">{currentBook.price}</p>
+              <p className="text-[17px] font-semibold text-charcoal">{currentBook.price}</p>
               {currentBook.listPrice ? <p className="text-[12px] text-ash line-through">{currentBook.listPrice}</p> : null}
             </div>
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-buttons bg-ember text-white transition group-hover:bg-coral-red">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-buttons border border-stone-surface bg-parchment text-charcoal transition group-hover:border-ember group-hover:bg-ember group-hover:text-white">
               <ShoppingCart className="h-4 w-4" aria-hidden="true" />
             </span>
           </div>
         </div>
       ) : (
-        <div className="space-y-2">
-          <p className="line-clamp-1 text-[10px] font-medium uppercase tracking-[0.16em] text-ember">{currentBook.category}</p>
-          <h3 className="line-clamp-2 min-h-[40px] text-[14px] font-medium text-charcoal">{currentBook.title}</h3>
+        <div className="space-y-2 p-3">
+          <p className="line-clamp-1 text-[10px] font-medium uppercase tracking-[0.14em] text-ash">{currentBook.category}</p>
+          <h3 className="line-clamp-2 min-h-[42px] text-[14px] font-semibold leading-[1.45] text-charcoal">{currentBook.title}</h3>
           <p className="line-clamp-1 text-[12px] text-ash">Tác giả {currentBook.author}</p>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[15px] font-semibold text-ember">{currentBook.price}</p>
+              <p className="text-[15px] font-semibold text-charcoal">{currentBook.price}</p>
               {currentBook.listPrice ? <p className="text-[11px] text-ash line-through">{currentBook.listPrice}</p> : null}
             </div>
             {hasRating ? (
@@ -123,7 +113,7 @@ export function BookCard({ book, className, compact, href }: BookCardProps) {
                 {currentBook.rating}
               </span>
             ) : (
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-buttons bg-ember text-white transition group-hover:bg-coral-red">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-buttons border border-stone-surface bg-parchment text-charcoal transition group-hover:border-ember group-hover:bg-ember group-hover:text-white">
                 <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
             )}

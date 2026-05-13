@@ -9,15 +9,21 @@ import { RouteShell } from '@/components/layout/RouteShell';
 import { booksApi } from '@/lib/api/books';
 import { toFeaturedBook } from '@/lib/books';
 
-import { categoriesApi, type Category } from '@/lib/api/categories';
+function toCatalogPriceFilter(value: string | null) {
+  if (!value) return undefined;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  return amount >= 1000 ? amount / 1000 : amount;
+}
 
 function BooksContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
-  const categoryParam = searchParams.get('category');
   const authorParam = searchParams.get('author');
-  const queryParam = searchParams.get('search') || searchParams.get('query') || searchParams.get('q');
+  const queryParam = searchParams.get('search');
+  const legacyQueryParam = searchParams.get('query') || searchParams.get('q');
+  const hasUnsupportedBookFilters = searchParams.has('category') || Boolean(legacyQueryParam);
   const publisherParam = searchParams.get('publisher');
   const yearParam = searchParams.get('year');
   const minPriceParam = searchParams.get('min_price');
@@ -26,33 +32,45 @@ function BooksContent() {
   const pageParam = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
 
   const [books, setBooks] = useState<FeaturedBook[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [total, setTotal] = useState(0);
   const pageSize = 12;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!hasUnsupportedBookFilters) return;
+
+    const nextParams = new URLSearchParams(searchParamsString);
+    if (!nextParams.get('search') && legacyQueryParam) {
+      nextParams.set('search', legacyQueryParam);
+    }
+    nextParams.delete('category');
+    nextParams.delete('query');
+    nextParams.delete('q');
+
+    const query = nextParams.toString();
+    router.replace(query ? `/books?${query}` : '/books');
+  }, [hasUnsupportedBookFilters, legacyQueryParam, router, searchParamsString]);
+
+  useEffect(() => {
+    if (hasUnsupportedBookFilters) return;
+
     let mounted = true;
 
     async function loadData() {
       try {
         setLoading(true);
         setError(null);
-        const [booksRes, categoriesList] = await Promise.all([
-          booksApi.search({
-            page: pageParam,
-            page_size: pageSize,
-            search: queryParam || undefined,
-            category: categoryParam || undefined,
-            author: authorParam || undefined,
-            publisher: publisherParam || undefined,
-            year: yearParam ? Number(yearParam) : undefined,
-            min_price: minPriceParam ? Number(minPriceParam) : undefined,
-            max_price: maxPriceParam ? Number(maxPriceParam) : undefined,
-          }),
-          categoriesApi.list().catch(() => []),
-        ]);
+        const booksRes = await booksApi.search({
+          page: pageParam,
+          page_size: pageSize,
+          search: queryParam || undefined,
+          author: authorParam || undefined,
+          publisher: publisherParam || undefined,
+          year: yearParam ? Number(yearParam) : undefined,
+          min_price: toCatalogPriceFilter(minPriceParam),
+          max_price: toCatalogPriceFilter(maxPriceParam),
+        });
 
         if (!mounted) return;
         
@@ -67,11 +85,6 @@ function BooksContent() {
         }
         setBooks(list.map((book, index) => toFeaturedBook(book as any, index)));
         setTotal(nextTotal);
-        
-        // Filter out empty category names and deduplicate
-        const rawCategories = Array.isArray((categoriesList as any).data) ? (categoriesList as any).data : [];
-        const uniqueCats = Array.from(new Map(rawCategories.filter((c: Category) => c.category_name && c.category_name.trim() !== '').map((c: Category) => [c.category_name, c])).values());
-        setCategories(uniqueCats as Category[]);
       } catch (err) {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : 'Không tải được dữ liệu kho sách');
@@ -84,15 +97,13 @@ function BooksContent() {
     return () => {
       mounted = false;
     };
-  }, [authorParam, categoryParam, maxPriceParam, minPriceParam, pageParam, publisherParam, queryParam, router, searchParamsString, yearParam]);
+  }, [authorParam, hasUnsupportedBookFilters, maxPriceParam, minPriceParam, pageParam, publisherParam, queryParam, router, searchParamsString, yearParam]);
 
   return (
     <BooksPage
       books={books}
-      categories={categories}
       loading={loading}
       error={error}
-      currentCategory={categoryParam}
       currentAuthor={authorParam}
       currentQuery={queryParam}
       currentPublisher={publisherParam}

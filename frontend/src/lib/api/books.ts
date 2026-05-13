@@ -10,15 +10,7 @@ import type {
 
 export const booksApi = {
   search: async (params?: ApiListParams) => {
-    const requestParams = params
-      ? {
-          ...params,
-          search: params.search ?? params.query ?? params.q,
-          query: undefined,
-          q: undefined,
-        }
-      : undefined;
-    const { data } = await apiClient.get<{ data: any[]; total: number; page: number; page_size: number }>('/books', { params: requestParams });
+    const { data } = await apiClient.get<{ data: any[]; total: number; page: number; page_size: number }>('/books', { params });
     return data;
   },
   getNewBooks: async () => {
