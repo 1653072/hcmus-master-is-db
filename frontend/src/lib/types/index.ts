@@ -142,6 +142,11 @@ export interface SimilarBook {
   book_id: string;
   title: string;
   score: number;
+  price?: number;
+  publisher?: string;
+  category?: BookCategoryRef;
+  authors?: BookAuthor[];
+  images?: BookImage[];
   cover_url?: string;
 }
 
@@ -156,12 +161,24 @@ export interface BestSellerBook {
   book_id: string;
   title: string;
   total_sold: number;
+  price?: number;
+  publisher?: string;
+  category?: BookCategoryRef;
+  authors?: BookAuthor[];
+  images?: BookImage[];
+  cover_url?: string;
 }
 
 export interface MostViewedBook {
   book_id: string;
   title: string;
   view_count: number;
+  price?: number;
+  publisher?: string;
+  category?: BookCategoryRef;
+  authors?: BookAuthor[];
+  images?: BookImage[];
+  cover_url?: string;
 }
 
 export interface EventLog {

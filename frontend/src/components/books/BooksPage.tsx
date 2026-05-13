@@ -302,9 +302,7 @@ export function BooksPage({
           ) : (
             <ProductGrid>
               {books.map((book) => (
-                <Link key={`${book.id}`} href={`/books/${book.id}`} className="block rounded-cards transition duration-200 ease-out hover:-translate-y-0.5">
-                  <BookCard book={book} compact />
-                </Link>
+                <BookCard key={`${book.id}`} book={book} compact href={`/books/${book.id}`} />
               ))}
             </ProductGrid>
           )}

@@ -63,7 +63,8 @@ function getImage(index: number, book: ApiBookLike) {
 function formatVnd(value: unknown) {
   const amount = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
   if (!Number.isFinite(amount) || amount <= 0) return 'Liên hệ';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount);
+  const normalizedAmount = amount < 1000 ? amount * 1000 : amount;
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(normalizedAmount);
 }
 
 function getNumber(value: unknown) {
@@ -85,7 +86,7 @@ export function toFeaturedBook(book: ApiBookLike, index = 0): FeaturedBook {
     ? Math.round(((listPriceNumber - priceValue) / listPriceNumber) * 100)
     : undefined;
   const explicitDiscount = getNumber(book.discount_percent);
-  const rating = typeof book.rating === 'number' ? String(book.rating) : getText(book.rating, 'No rating');
+  const rating = book.rating === undefined || book.rating === null ? undefined : getText(book.rating, '');
   const image = getImage(index, book);
 
   return {
@@ -98,7 +99,7 @@ export function toFeaturedBook(book: ApiBookLike, index = 0): FeaturedBook {
     discountPercent: explicitDiscount ?? computedDiscount,
     stockQuantity: getNumber(book.stock_quantity),
     reviewCount: getNumber(book.review_count),
-    rating,
+    rating: rating || undefined,
     image,
     rawTitle: title,
   };

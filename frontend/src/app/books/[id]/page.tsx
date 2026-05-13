@@ -1,13 +1,15 @@
 'use client';
 
-import { ArrowLeft, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShoppingCart } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { RouteShell } from '@/components/layout/RouteShell';
+import { BookCard, type FeaturedBook } from '@/components/books/book-card';
 import { Button } from '@/components/ui/button';
+import { ProductGrid } from '@/components/ui/commerce';
 import { booksApi } from '@/lib/api/books';
 import { cartApi } from '@/lib/api/cart';
 import { categoriesApi } from '@/lib/api/categories';
@@ -19,9 +21,152 @@ import { useCartStore } from '@/stores/cart.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
 
+function normalizePrice(value?: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
+  return value < 1000 ? value * 1000 : value;
+}
+
 function formatPrice(value?: number) {
-  if (typeof value !== 'number') return 'Liên hệ';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
+  const normalized = normalizePrice(value);
+  if (typeof normalized !== 'number') return 'Liên hệ';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(normalized);
+}
+
+function formatDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatStatus(status?: string, stockQuantity = 0) {
+  if (stockQuantity <= 0) return 'Hết hàng';
+  const normalized = status?.trim().toLowerCase();
+  const labels: Record<string, string> = {
+    active: 'Đang bán',
+    available: 'Đang bán',
+    published: 'Đang bán',
+    on_sale: 'Đang bán',
+    inactive: 'Ngừng bán',
+    draft: 'Chưa mở bán',
+    archived: 'Ngừng bán',
+    discontinued: 'Ngừng bán',
+    out_of_stock: 'Hết hàng',
+  };
+  return normalized ? labels[normalized] ?? 'Đang cập nhật' : 'Đang cập nhật';
+}
+
+function formatCategoryName(value?: string) {
+  const label = value?.trim();
+  if (!label) return 'Sách';
+  const categoryLabels: Record<string, string> = {
+    adventure: 'Phiêu lưu',
+    biography: 'Tiểu sử',
+    business: 'Kinh doanh',
+    children: 'Thiếu nhi',
+    comics: 'Truyện tranh',
+    education: 'Giáo dục',
+    fantasy: 'Kỳ ảo',
+    health: 'Sức khỏe',
+    history: 'Lịch sử',
+    horror: 'Kinh dị',
+    literature: 'Văn học',
+    mystery: 'Trinh thám',
+    romance: 'Lãng mạn',
+    'science fiction': 'Khoa học viễn tưởng',
+    'self help': 'Kỹ năng sống',
+    'self-help': 'Kỹ năng sống',
+    technology: 'Công nghệ',
+  };
+  return categoryLabels[label.toLowerCase()] ?? label;
+}
+
+function canPurchaseBook(book: BookDetail) {
+  const status = book.product_status?.trim().toLowerCase();
+  const blockedStatuses = new Set(['inactive', 'draft', 'archived', 'discontinued', 'out_of_stock']);
+  return book.stock_quantity > 0 && !blockedStatuses.has(status ?? '') && typeof normalizePrice(book.price ?? book.pricing?.price) === 'number';
+}
+
+function shortBookCode(id?: string) {
+  if (!id) return 'Đang cập nhật';
+  return id.length > 10 ? id.slice(-8).toUpperCase() : id.toUpperCase();
+}
+
+function toRelatedBookCard(book: SimilarBook, index: number): FeaturedBook {
+  return toFeaturedBook({
+    ...book,
+    id: book.book_id,
+    name: book.title,
+    image: book.cover_url,
+  }, index);
+}
+
+function BookDetailSkeleton() {
+  return (
+    <>
+      <div className="mt-6 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="order-2 rounded-cards-lg bg-white p-5 lg:order-1" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <div className="flex min-h-[420px] items-center justify-center rounded-cards bg-stone-surface/20 p-8 sm:min-h-[520px]">
+            <div className="skeleton-shimmer h-[340px] w-[230px] rounded-cards bg-parchment shadow-subtle sm:h-[420px] sm:w-[280px]" />
+          </div>
+        </div>
+
+        <div className="order-1 space-y-6 lg:order-2">
+          <div className="space-y-3">
+            <div className="skeleton-shimmer h-9 w-44 rounded-pill bg-parchment" />
+            <div className="flex gap-3">
+              <div className="skeleton-shimmer h-4 w-36 rounded-full bg-stone-surface" />
+              <div className="skeleton-shimmer h-4 w-28 rounded-full bg-stone-surface" />
+            </div>
+          </div>
+
+          <div className="rounded-cards-lg border border-stone-surface bg-white p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+            <div className="skeleton-shimmer h-3 w-20 rounded-full bg-stone-surface" />
+            <div className="skeleton-shimmer mt-3 h-9 w-36 rounded-full bg-parchment" />
+            <div className="mt-5 grid gap-2 sm:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="skeleton-shimmer h-10 rounded-cards bg-parchment" />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="skeleton-shimmer h-4 w-full rounded-full bg-stone-surface" />
+            <div className="skeleton-shimmer h-4 w-11/12 rounded-full bg-stone-surface" />
+            <div className="skeleton-shimmer h-4 w-4/5 rounded-full bg-stone-surface" />
+          </div>
+
+          <div className="flex gap-4">
+            <div className="skeleton-shimmer h-11 w-36 rounded-buttons bg-ember/20" />
+            <div className="skeleton-shimmer h-11 w-28 rounded-buttons bg-stone-surface" />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-16 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+        <div className="rounded-cards-lg bg-white p-8" style={{ boxShadow: 'var(--shadow-subtle)' }}>
+          <div className="skeleton-shimmer h-8 w-40 rounded-full bg-stone-surface" />
+          <div className="mt-6 space-y-3">
+            <div className="skeleton-shimmer h-4 w-full rounded-full bg-stone-surface" />
+            <div className="skeleton-shimmer h-4 w-11/12 rounded-full bg-stone-surface" />
+            <div className="skeleton-shimmer h-4 w-4/5 rounded-full bg-stone-surface" />
+          </div>
+        </div>
+        <div className="rounded-cards-lg bg-parchment p-8" style={{ boxShadow: 'var(--shadow-subtle)' }}>
+          <div className="skeleton-shimmer h-8 w-52 rounded-full bg-stone-surface" />
+          <div className="mt-6 space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="skeleton-shimmer h-4 rounded-full bg-stone-surface" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
 
 export default function Page() {
@@ -35,12 +180,17 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const user = useAuthStore((s) => s.user);
   const setCart = useCartStore((s) => s.setCart);
   const setCheckoutItems = useCartStore((s) => s.setCheckoutItems);
 
   const handleBuyNow = async () => {
     if (!book) return;
+    if (!canPurchaseBook(book)) {
+      toast.error('Sách hiện chưa thể mua. Vui lòng chọn sách khác hoặc quay lại sau.');
+      return;
+    }
     if (!user) {
       toast.error('Vui lòng đăng nhập để mua sách.');
       return;
@@ -53,7 +203,7 @@ export default function Page() {
         {
           book_id: book.id,
           name: book.name,
-          price: book.price ?? book.pricing?.price ?? 0,
+          price: normalizePrice(book.price ?? book.pricing?.price) ?? 0,
           quantity: 1,
         },
       ], session.session_id);
@@ -67,6 +217,10 @@ export default function Page() {
 
   const handleAddToCart = async () => {
     if (!book) return;
+    if (!canPurchaseBook(book)) {
+      toast.error('Sách hiện chưa thể thêm vào giỏ.');
+      return;
+    }
     if (!user) {
       toast.error('Vui lòng đăng nhập để thêm sách vào giỏ.');
       return;
@@ -95,6 +249,9 @@ export default function Page() {
       try {
         setLoading(true);
         setError(null);
+        setBook(null);
+        setRelatedBooks([]);
+        setCategoryLabel('');
         const [detail, recommendations] = await Promise.allSettled([
           booksApi.getDetail(id),
           recommendationsApi.similarBooks(id),
@@ -104,9 +261,8 @@ export default function Page() {
 
         if (detail.status === 'fulfilled') {
           setBook(detail.value);
-          setCategoryLabel(detail.value.category?.category_id || 'Sách');
 
-          categoriesApi.list({ page: 1, page_size: 100 }).then((res) => {
+          categoriesApi.list({ page: 1, page_size: 1000 }).then((res) => {
             if (!mounted) return;
             const categories = Array.isArray((res as any).data) ? (res as any).data : [];
             const match = categories.find((category: any) => category.id === detail.value.category?.category_id);
@@ -117,8 +273,7 @@ export default function Page() {
         }
 
         if (recommendations.status === 'fulfilled') {
-          const data = recommendations.value?.data ?? recommendations.value;
-          setRelatedBooks(Array.isArray(data?.similar_books) ? data.similar_books : []);
+          setRelatedBooks(Array.isArray(recommendations.value) ? recommendations.value : []);
         }
       } catch (err) {
         if (!mounted) return;
@@ -132,7 +287,7 @@ export default function Page() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [id, loadAttempt]);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -140,15 +295,32 @@ export default function Page() {
   }, [id, user]);
 
   const featured = book ? toFeaturedBook(book, 0) : null;
-  const categoryName = categoryLabel || book?.category?.category_id || 'Sách';
+  const pageTitle = featured?.title ?? 'Chi tiết sách';
+  const categoryName = formatCategoryName(categoryLabel);
   const price = formatPrice(book?.price ?? book?.pricing?.price);
   const authors = book?.authors?.map((author) => author.author_name).filter(Boolean).join(', ');
   const tags = book?.tags?.map((tag) => tag.tag_name).filter(Boolean) ?? [];
   const primaryImage = book?.images?.find((image) => image.is_primary)?.url || book?.images?.[0]?.url;
-  const createdAt = book?.created_at ? new Date(book.created_at).toLocaleDateString() : '';
+  const createdAt = formatDate(book?.created_at);
+  const statusLabel = book ? formatStatus(book.product_status, book.stock_quantity) : '';
+  const canPurchase = book ? canPurchaseBook(book) : false;
+  const unavailableReason = book && !canPurchase
+    ? book.stock_quantity <= 0
+      ? 'Sách đang hết hàng, các nút mua đã được tạm khóa.'
+      : price === 'Liên hệ'
+        ? 'Sách chưa có giá bán công khai. Vui lòng quay lại sau.'
+        : 'Sách hiện chưa mở bán trực tuyến.'
+    : '';
+  const purchaseBlockedLabel = book?.stock_quantity === 0 ? 'Tạm hết hàng' : 'Chưa mở bán';
 
   return (
-    <RouteShell title={featured?.title ?? 'Chi tiết sách'} subtitle={book?.short_description ?? 'Xem thông tin sách, tình trạng kho và gợi ý liên quan.'}>
+    <RouteShell
+      title={pageTitle}
+      subtitle={book?.short_description ?? (loading ? 'Đang tải thông tin sách.' : 'Xem thông tin sách, tình trạng kho và gợi ý liên quan.')}
+      breadcrumbLabels={{
+        ...(id ? { [id]: pageTitle, [`/books/${id}`]: pageTitle } : {}),
+      }}
+    >
       <section className="mx-auto max-w-page px-6 pb-16 pt-0 lg:px-10 xl:px-24">
         <Link href="/books" className="inline-flex items-center gap-2 text-[14px] font-medium tracking-[-0.18px] text-graphite transition hover:text-charcoal">
           <ArrowLeft className="h-4 w-4" />
@@ -156,19 +328,21 @@ export default function Page() {
         </Link>
 
         {loading ? (
-          <div className="mt-8 rounded-cards-lg border border-stone-surface bg-white p-6 text-sm text-graphite" style={{ boxShadow: 'var(--shadow-sm)' }}>
-            Đang tải chi tiết sách...
-          </div>
+          <BookDetailSkeleton />
         ) : error ? (
           <div className="mt-8 rounded-cards-lg border border-coral-red/20 bg-coral-red/5 p-6 text-coral-red" style={{ boxShadow: 'var(--shadow-sm)' }}>
             <p className="font-medium">Không tải được chi tiết sách</p>
             <p className="mt-2 text-sm text-graphite">{error}</p>
+            <Button variant="outline" className="mt-5 bg-white" onClick={() => setLoadAttempt((current) => current + 1)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Tải lại
+            </Button>
           </div>
         ) : book ? (
           <>
             <div className="mt-6 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-              <div className="rounded-cards-lg bg-white p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
-                <div className="relative flex min-h-[520px] items-center justify-center overflow-hidden rounded-cards bg-stone-surface/20 p-8">
+              <div className="order-2 rounded-cards-lg bg-white p-5 lg:order-1" style={{ boxShadow: 'var(--shadow-sm)' }}>
+                <div className="relative flex min-h-[420px] items-center justify-center overflow-hidden rounded-cards bg-stone-surface/20 p-8 sm:min-h-[520px]">
                   {primaryImage ? (
                     <Image
                       src={primaryImage}
@@ -179,7 +353,7 @@ export default function Page() {
                       className="max-h-[520px] w-auto object-contain rounded-cards shadow-2xl"
                     />
                   ) : (
-                    <div className="mb-4 flex h-[420px] w-[280px] items-center justify-center rounded-cards border border-stone-surface bg-parchment text-sm font-medium text-graphite/50 shadow-2xl">
+                    <div className="flex h-[340px] w-[230px] items-center justify-center rounded-cards border border-stone-surface bg-parchment text-center text-sm font-medium text-graphite/50 shadow-2xl sm:h-[420px] sm:w-[280px]">
                       Chưa có ảnh bìa
                     </div>
                   )}
@@ -202,7 +376,7 @@ export default function Page() {
                 ) : null}
               </div>
 
-              <div className="space-y-6 lg:sticky lg:top-32 lg:self-start">
+              <div className="order-1 space-y-6 lg:sticky lg:top-32 lg:order-2 lg:self-start">
                 <div className="space-y-3">
                   <div className="inline-flex items-center gap-2 rounded-pill border border-deep-amber/20 bg-sunburst/10 px-4 py-2 text-[12px] font-medium uppercase tracking-[0.16em] text-deep-amber">
                     {categoryName}
@@ -230,22 +404,27 @@ export default function Page() {
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4">
-                  <Button onClick={handleAddToCart} disabled={addingToCart}>
+                  <Button onClick={handleAddToCart} disabled={addingToCart || !canPurchase}>
                     <ShoppingCart className="mr-2 h-4 w-4" />
-                    {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ'}
+                    {addingToCart ? 'Đang thêm...' : canPurchase ? 'Thêm vào giỏ' : purchaseBlockedLabel}
                   </Button>
-                  <Button variant="outline" onClick={handleBuyNow} disabled={buyingNow}>
+                  <Button variant="outline" onClick={handleBuyNow} disabled={buyingNow || !canPurchase}>
                     {buyingNow ? 'Đang tạo đơn...' : 'Mua ngay'}
                   </Button>
                 </div>
+                {unavailableReason ? (
+                  <p className="rounded-cards border border-coral-red/20 bg-coral-red/5 px-4 py-3 text-sm font-medium text-coral-red">
+                    {unavailableReason}
+                  </p>
+                ) : null}
 
                 <div className="grid gap-3 rounded-cards-lg border border-stone-surface bg-white p-5 text-sm text-graphite" style={{ boxShadow: 'var(--shadow-sm)' }}>
-                  <div className="flex justify-between gap-4"><span>Trạng thái</span><span className="font-medium capitalize text-charcoal">{book.product_status || 'Chưa rõ'}</span></div>
+                  <div className="flex justify-between gap-4"><span>Trạng thái</span><span className="font-medium text-charcoal">{statusLabel}</span></div>
                   {book.series?.series_name ? (
                     <div className="flex justify-between gap-4"><span>Bộ sách</span><span className="text-right font-medium text-charcoal">{book.series.series_name}{book.series.sequence_no ? ` #${book.series.sequence_no}` : ''}</span></div>
                   ) : null}
                   {createdAt ? <div className="flex justify-between gap-4"><span>Ngày thêm</span><span className="font-medium text-charcoal">{createdAt}</span></div> : null}
-                  <div className="flex justify-between gap-4"><span>Mã sách</span><span className="max-w-[220px] truncate font-mono text-xs text-charcoal">{book.id}</span></div>
+                  <div className="flex justify-between gap-4"><span>Mã tham chiếu</span><span className="font-mono text-xs font-medium text-charcoal">{shortBookCode(book.id)}</span></div>
                 </div>
               </div>
             </div>
@@ -276,6 +455,7 @@ export default function Page() {
                   <div className="flex items-center justify-between font-medium text-charcoal"><span>Giá niêm yết</span><span>{price}</span></div>
                   <div className="flex items-center justify-between font-medium text-charcoal"><span>Tồn kho</span><span>{book.stock_quantity}</span></div>
                   <div className="flex items-center justify-between font-medium text-charcoal"><span>Danh mục</span><span className="text-right">{categoryName}</span></div>
+                  <div className="flex items-center justify-between font-medium text-charcoal"><span>Trạng thái</span><span className="text-right">{statusLabel}</span></div>
                   <p className="border-t border-stone-surface pt-3 text-sm text-graphite">Phí vận chuyển và ưu đãi được tính ở bước thanh toán.</p>
                 </div>
               </div>
@@ -290,19 +470,11 @@ export default function Page() {
                   Chưa có sách liên quan.
                 </div>
               ) : (
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-                  {relatedBooks.map((related) => (
-                    <Link key={related.book_id} href={`/books/${related.book_id}`} className="rounded-cards bg-white p-4 transition duration-200 hover:shadow-card-hover" style={{ boxShadow: 'var(--shadow-subtle)' }}>
-                      <div
-                        className="h-40 rounded-tags bg-gradient-to-br from-parchment to-stone-surface bg-cover bg-center"
-                        style={related.cover_url ? { backgroundImage: `url(${related.cover_url})` } : undefined}
-                      />
-                      <p className="mt-3 text-[11px] font-medium uppercase tracking-[0.14em] text-ash">Gợi ý</p>
-                      <h3 className="mt-1 text-[17px] font-medium tracking-[-0.22px] text-charcoal">{related.title}</h3>
-                      <p className="mt-1 text-[15px] text-graphite">Độ phù hợp {related.score}</p>
-                    </Link>
+                <ProductGrid>
+                  {relatedBooks.map((related, index) => (
+                    <BookCard key={related.book_id} book={toRelatedBookCard(related, index)} compact href={`/books/${related.book_id}`} />
                   ))}
-                </div>
+                </ProductGrid>
               )}
             </div>
           </>
